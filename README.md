@@ -82,23 +82,49 @@ If Playwright's own Chromium build isn't installed, point it at any Chromium: `P
 
 See `.env.example`. `npm run env:local` fills these in for the local stack.
 
-## Deploying to Vercel
+## Deploying
 
-1. **Create a Supabase project** at supabase.com. Then link it and push the schema:
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push        # applies supabase/migrations, including the storage bucket and its policies
-   ```
-2. **Configure auth** in the Supabase dashboard (Authentication → URL Configuration):
-   - Set **Site URL** to `https://your-domain`.
-   - Add `https://your-domain/**` to **Redirect URLs**. Add `https://*-your-team.vercel.app/**` too if you want preview deployments to sign in.
-   - Under Authentication → Emails, configure **custom SMTP**. Supabase's built-in mailer is heavily rate-limited and isn't meant for production.
-3. **Create the Vercel project** from this repository (framework preset: Next.js; build command `next build`). Then add the environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, from Supabase → Project Settings → API.
-   - `NEXT_PUBLIC_SITE_URL=https://your-domain`.
-   - Leave out `SUPABASE_SERVICE_ROLE_KEY` unless you plan to run the seed from a trusted machine. The deployed app doesn't need it.
-4. **Deploy.** Optionally seed a staging project from your machine with `NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run seed`. Don't seed production.
+Deployment is automated with GitHub Actions. **CI** (`.github/workflows/ci.yml`) runs every check on each pull request. **Deploy** (`.github/workflows/deploy.yml`) runs after CI passes on `main` and does the rest:
+
+1. applies `supabase/migrations` to your hosted Supabase project;
+2. builds the app and deploys it to Vercel production;
+3. points Supabase Auth at the deployed URL (site URL, redirect allow-list) and, if configured, at your SMTP provider;
+4. smoke-tests the live site: `/` redirects to `/login`, the magic-link form renders, and the dev shortcut is absent.
+
+Until the settings below exist, Deploy finishes without deploying and its job summary lists exactly what's missing.
+
+### One-time setup
+
+1. **Make `main` the default branch** (GitHub → Settings → General → Default branch). GitHub only runs workflows triggered by `workflow_run` from the default branch.
+2. **Create a Supabase project** at [supabase.com/dashboard](https://supabase.com/dashboard). Choose a region near your users and a strong database password, and keep the password.
+   - Copy the **Project ID** (Project Settings → General). This is the project ref.
+   - Create an **access token** (Account → Access Tokens).
+3. **Create a Vercel account** and an **access token** (Account Settings → Tokens). The workflow creates a Vercel project named `groundwork` on its first run. Don't also import the repo with Vercel's Git integration, or every push will deploy twice.
+4. **Set up email so sign-in links reach anyone.** Supabase's built-in mailer only delivers to members of your Supabase organization, a few times an hour. Any SMTP provider works; for example, with [Resend](https://resend.com), verify your domain and create an API key, which gives host `smtp.resend.com`, port `465`, user `resend`, password = the API key.
+5. **Add the settings** in GitHub → Settings → Secrets and variables → Actions:
+
+   | Kind     | Name                    | Value                                                                 |
+   | -------- | ----------------------- | --------------------------------------------------------------------- |
+   | Secret   | `SUPABASE_ACCESS_TOKEN` | Supabase access token                                                 |
+   | Secret   | `SUPABASE_DB_PASSWORD`  | the project's database password                                       |
+   | Secret   | `VERCEL_TOKEN`          | Vercel access token                                                   |
+   | Variable | `SUPABASE_PROJECT_REF`  | the Project ID from step 2                                            |
+   | Secret   | `SMTP_PASS`             | SMTP password or API key (step 4)                                     |
+   | Variable | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_FROM` | SMTP server, port and user, and the sender address, e.g. `hello@your-domain` |
+   | Variable | `APP_URL` *(optional)*  | your custom domain, e.g. `https://app.your-domain`; add it to the Vercel project first |
+   | Variable | `VERCEL_SCOPE` *(optional)* | the Vercel team slug, if the project should live in a team         |
+   | Variable | `VERCEL_PROJECT_NAME` *(optional)* | defaults to `groundwork`                                   |
+
+6. **Run it:** merge to `main`, or open Actions → Deploy → Run workflow. The job summary shows the live URL.
+7. **Open the URL, sign in with your email, and create your organization.** You're its admin; invite your team from Settings → Members.
+
+### Doing it by hand instead
+
+Everything the workflow does can be done manually:
+
+- `npx supabase db push --project-ref <ref> --password <db-password>`.
+- In Supabase → Authentication → URL Configuration, set **Site URL** to `https://your-domain` and add `https://your-domain/**` to **Redirect URLs**. Set up custom SMTP under Authentication → Emails.
+- Import the repo in Vercel and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys), plus optionally `NEXT_PUBLIC_SITE_URL`. The deployed app doesn't need `SUPABASE_SERVICE_ROLE_KEY`. Don't run the seed against production.
 
 Uploads go straight from the browser to Supabase Storage through a signed upload URL, so Vercel's request-body limit never applies to the 25 MB maximum.
 

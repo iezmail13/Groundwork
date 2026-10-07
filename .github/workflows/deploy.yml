@@ -1,0 +1,162 @@
+# Deploys Groundwork after CI passes on main (or on demand):
+#   1. applies supabase/migrations to the hosted Supabase project
+#   2. builds and deploys the app to Vercel (production)
+#   3. points Supabase Auth at the deployed URL (site URL, redirect allow-list,
+#      and custom SMTP when configured)
+#   4. smoke-tests the live site
+#
+# One-time setup (repo Settings → Secrets and variables → Actions):
+#   secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, VERCEL_TOKEN
+#              SMTP_PASS (optional, for real sign-in email)
+#   variables: SUPABASE_PROJECT_REF
+#              APP_URL, VERCEL_PROJECT_NAME, VERCEL_SCOPE,
+#              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (all optional)
+# Until the required ones exist, the job only writes a summary of what's missing.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Supabase and Vercel
+    # only deploy commits that passed CI on main (a pull_request run never qualifies)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'groundwork' }}
+      VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
+      VERCEL_TELEMETRY_DISABLED: "1"
+      APP_URL: ${{ vars.APP_URL }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SMTP_FROM: ${{ vars.SMTP_FROM }}
+    steps:
+      - name: Check configuration
+        id: cfg
+        run: |
+          missing=()
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing+=("secret SUPABASE_ACCESS_TOKEN (supabase.com → Account → Access Tokens)")
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing+=("secret SUPABASE_DB_PASSWORD (the database password you chose for the project)")
+          [ -n "$SUPABASE_PROJECT_REF" ] || missing+=("variable SUPABASE_PROJECT_REF (Project Settings → General → Project ID)")
+          [ -n "$VERCEL_TOKEN" ] || missing+=("secret VERCEL_TOKEN (vercel.com → Account Settings → Tokens)")
+          if [ ${#missing[@]} -gt 0 ]; then
+            {
+              echo "## Deploy skipped: not configured yet"
+              echo
+              echo "Add these in **Settings → Secrets and variables → Actions**, then re-run this workflow:"
+              echo
+              for m in "${missing[@]}"; do echo "- $m"; done
+              echo
+              echo "See the README section *Deploying* for the full steps."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::Missing ${#missing[@]} required setting(s); see the job summary."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.cfg.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Apply database migrations
+        if: steps.cfg.outputs.ready == 'true'
+        run: npx supabase db push --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Read the project's browser-safe API key
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          npx supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json > "$RUNNER_TEMP/keys.json"
+          key=$(npx tsx scripts/deploy/supabase-key.ts "$RUNNER_TEMP/keys.json")
+          rm -f "$RUNNER_TEMP/keys.json"
+          echo "::add-mask::$key"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=https://$SUPABASE_PROJECT_REF.supabase.co"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key"
+          } >> "$GITHUB_ENV"
+          if [ -n "$APP_URL" ]; then echo "NEXT_PUBLIC_SITE_URL=$APP_URL" >> "$GITHUB_ENV"; fi
+
+      - name: Link the Vercel project
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          scope=()
+          [ -z "$VERCEL_SCOPE" ] || scope=(--scope "$VERCEL_SCOPE")
+          # create the project on the first run; "already exists" is fine
+          npx --yes vercel@62 project create "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}" || true
+          npx --yes vercel@62 link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}"
+          npx --yes vercel@62 pull --yes --environment=production --token "$VERCEL_TOKEN" "${scope[@]}"
+
+      - name: Build
+        if: steps.cfg.outputs.ready == 'true'
+        run: npx --yes vercel@62 build --prod --token "$VERCEL_TOKEN"
+
+      - name: Deploy to production
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          url=$(npx --yes vercel@62 deploy --prebuilt --prod --token "$VERCEL_TOKEN")
+          echo "Deployment: $url"
+          echo "DEPLOYMENT_URL=$url" >> "$GITHUB_ENV"
+
+      - name: Resolve the production URL
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          if [ -n "$APP_URL" ]; then url="$APP_URL"; else url=$(npx tsx scripts/deploy/vercel-url.ts); fi
+          echo "Production URL: $url"
+          echo "PRODUCTION_URL=$url" >> "$GITHUB_ENV"
+
+      - name: Point Supabase Auth at the app
+        if: steps.cfg.outputs.ready == 'true'
+        run: npx tsx scripts/deploy/configure-auth.ts "$PRODUCTION_URL"
+
+      - name: Smoke-test the live site
+        if: steps.cfg.outputs.ready == 'true'
+        run: npx tsx scripts/deploy/smoke.ts "$PRODUCTION_URL"
+
+      - name: Summary
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          {
+            echo "## Deployed"
+            echo
+            echo "- App: $PRODUCTION_URL"
+            echo "- This deployment: $DEPLOYMENT_URL"
+            echo "- Supabase project: \`$SUPABASE_PROJECT_REF\`"
+            if [ -z "$SMTP_HOST" ]; then
+              echo
+              echo "> **Sign-in email:** no custom SMTP is configured, so Supabase's built-in mailer is used."
+              echo "> It only delivers to members of your Supabase organization and is heavily rate-limited."
+              echo "> Add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (variables) and SMTP_PASS (secret) to email anyone."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

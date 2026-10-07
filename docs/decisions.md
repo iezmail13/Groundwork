@@ -77,3 +77,13 @@ Each entry records a decision the brief left open, why it was made, and what it 
 **D33. Test hooks.** The org shell sets `html[data-hydrated]` after mount, and the e2e tests wait for it after full page loads so keyboard input never races hydration. Playwright 1.63 expects a newer Chromium build than the one preinstalled here, so `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides the browser binary when set.
 
 **D34. pgTAP fixtures.** All test files share `supabase/tests/fixtures.inc` through psql's `\ir`. It isn't a `.sql` file, so it doesn't run as a test itself. It defines two organizations, five users, and a `tests.affected(sql)` helper that runs a statement as the current role and returns the row count, because data-modifying CTEs can't be nested inside `select is(...)`.
+
+## Deployment
+
+**D35. Deployment runs in GitHub Actions.** The build sandbox can't reach the Supabase or Vercel APIs, and deploying needs your accounts anyway, so CI/CD lives in `.github/workflows`. **CI** runs every check from CLAUDE.md on each PR, including pgTAP and Playwright against a local Supabase in Docker. **Deploy** runs only after CI succeeds on a push to `main`, or when started by hand. Without its settings, it writes a summary of what's missing and exits successfully, so an unconfigured fork never shows a red build.
+
+**D36. The Vercel build happens in Actions (`vercel build` then `deploy --prebuilt`), not through Vercel's Git integration.** That way one pipeline orders the steps: database migrations first, then the app, then auth configuration, then a smoke test. `NEXT_PUBLIC_*` values are inlined at build time, so the Vercel project needs no environment variables of its own. The workflow reads the Supabase URL and browser-safe key from the Supabase API. The deployed app has no service-role key at all.
+
+**D37. Auth is configured by the pipeline.** `scripts/deploy/configure-auth.ts` uses the Supabase Management API to set the site URL and to allow redirects only to `<production URL>/**`. This deliberately leaves out a `*.vercel.app` wildcard, which would let any Vercel app receive sign-in redirects. It also sets custom SMTP when `SMTP_*` settings exist. Preview deployments therefore can't complete a magic-link sign-in unless their URLs are added through `EXTRA_REDIRECT_URLS`.
+
+**D38. The Vercel CLI isn't a dependency.** The workflow runs it pinned to major version 62 (`npx --yes vercel@62`), so nothing is added to `package.json` for a tool only CI uses. `vercel.json` pins the framework to Next.js, so a project created by the CLI builds correctly on its first deploy.
