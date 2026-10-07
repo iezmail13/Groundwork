@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:24px;background:#FBF9F4;color:#1F2D4D;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;margin:0 auto;">
+      <tr>
+        <td style="padding:24px;border:1px solid #DDD6C8;border-radius:10px;background:#FBF9F4;">
+          <h1 style="margin:0 0 12px;font-size:20px;">Sign in to Groundwork</h1>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+            Use the button below to finish signing in. The link works once, on any device, for the next hour.
+          </p>
+          <p style="margin:0 0 20px;">
+            {{/* Supabase replaces a redirect that is not on the allow-list with the bare Site URL;
+               link to /auth/confirm on the Site URL then, so the link still works. */}}
+            {{ if eq .RedirectTo .SiteURL }}<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+               style="display:inline-block;padding:12px 18px;border-radius:6px;background:#1F2D4D;color:#FBF9F4;font-weight:bold;text-decoration:none;">
+              Sign in to Groundwork
+            </a>{{ else }}<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+               style="display:inline-block;padding:12px 18px;border-radius:6px;background:#1F2D4D;color:#FBF9F4;font-weight:bold;text-decoration:none;">
+              Sign in to Groundwork
+            </a>{{ end }}
+          </p>
+          <p style="margin:0;font-size:13px;line-height:1.5;color:#4B566E;">
+            If you didn't ask to sign in, you can ignore this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

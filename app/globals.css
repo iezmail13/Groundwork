@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+/*
+ * Two scales only: navy and bone. Tailwind's default palette and shadows are
+ * removed so nothing else can sneak in; every utility colour below is a token
+ * derived from the two scales (see lib/theme/theme.ts).
+ */
+@theme {
+  --color-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+}
+
+@theme inline {
+  --color-navy-900: var(--navy-900);
+  --color-bone-50: var(--bone-50);
+  --color-bone-100: var(--bone-100);
+  --color-bone-300: var(--bone-300);
+
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-rule: var(--rule);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rail: var(--rail);
+  --color-rail-ink: var(--rail-ink);
+  --color-rail-ink-muted: var(--rail-ink-muted);
+  --color-rail-hover: var(--rail-hover);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-active: var(--active-bg);
+  --color-active-ink: var(--active-ink);
+  --color-tint: var(--tint);
+
+  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --navy-900: #1f2d4d;
+  --rail-default: #555e74;
+  --bone-50: #fbf9f4;
+  --bone-100: #f5f1e8;
+  --bone-300: #ddd6c8;
+
+  /* light theme defaults; the org shell overrides these inline */
+  --canvas: var(--bone-50);
+  --panel: var(--bone-100);
+  --rule: var(--bone-300);
+  --ink: var(--navy-900);
+  --ink-muted: #4b566e;
+  --rail: var(--rail-default);
+  --rail-ink: var(--bone-50);
+  --rail-ink-muted: #eaeae7;
+  --rail-hover: #424d66;
+  --primary: var(--navy-900);
+  --on-primary: var(--bone-50);
+  --active-bg: var(--bone-100);
+  --active-ink: var(--navy-900);
+  --tint: #eeedea;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: light;
+}
+
+[data-mode="dark"] {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+}
+
+/* Visible focus everywhere, drawn with the ink colour (no glow, no shadow). */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.on-rail :focus-visible {
+  outline-color: var(--rail-ink);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Native dialogs: thin rule, no shadow, translucent navy backdrop. */
+dialog.gw-dialog {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 0;
+  max-width: min(560px, calc(100vw - 2rem));
+  width: 100%;
+  max-height: calc(100dvh - 2rem);
+}
+dialog.gw-dialog::backdrop {
+  background: color-mix(in srgb, var(--navy-900) 45%, transparent);
+}
+dialog.gw-dialog[open] {
+  animation: dialog-in 160ms var(--ease-out);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Animation: CSS only, and all of it disabled under prefers-reduced-motion. */
+/* ------------------------------------------------------------------------ */
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Dashboard widgets stagger in. --i is the widget's index. */
+.widget-enter {
+  animation: fade-up 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* Widgets lift a few pixels on hover: translate and border, no shadow. */
+.widget-lift {
+  transition:
+    transform 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+.widget-lift:hover {
+  transform: translateY(-3px);
+  border-color: var(--ink-muted);
+}
+
+/* ...and settle with a short spring when dropped. */
+@keyframes settle {
+  0% {
+    transform: translateY(-6px) scale(1.01);
+  }
+  60% {
+    transform: translateY(2px) scale(0.997);
+  }
+  100% {
+    transform: none;
+  }
+}
+.widget-settle {
+  animation: settle 420ms var(--ease-spring);
+}
+
+/* Counters count up. The number is drawn by a CSS counter driven by an
+   animatable integer; the real value is in the accessible text. */
+@property --count {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
+@keyframes count-up {
+  from {
+    --count: 0;
+  }
+}
+.count-up {
+  --count: var(--to, 0);
+  counter-reset: count var(--count);
+  animation: count-up 900ms var(--ease-out) both;
+  font-variant-numeric: tabular-nums;
+}
+.count-up::after {
+  content: counter(count);
+}
+
+/* Progress bars fill. */
+@keyframes fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+.progress-fill {
+  transform-origin: left center;
+  animation: fill 900ms var(--ease-out) both;
+  animation-delay: 200ms;
+}
+
+/* Checking a task strikes it through, then slides it out. */
+@keyframes strike {
+  from {
+    background-size: 0% 2px;
+  }
+  to {
+    background-size: 100% 2px;
+  }
+}
+@keyframes slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+.task-completing .task-title {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 100% 2px;
+  animation: strike 260ms var(--ease-out) both;
+}
+.task-completing {
+  animation: slide-out 280ms var(--ease-out) 300ms both;
+}
+
+/* Logo: helmet tips up on hover; briefcase swings every few seconds. */
+.logo-helmet {
+  transform-box: view-box;
+  transform-origin: 25px 13px;
+  transition: transform 260ms var(--ease-spring);
+}
+.logo-link:hover .logo-helmet,
+.logo-link:focus-visible .logo-helmet {
+  transform: rotate(-9deg);
+}
+@keyframes briefcase-swing {
+  0%,
+  84%,
+  100% {
+    transform: rotate(0deg);
+  }
+  88% {
+    transform: rotate(7deg);
+  }
+  92% {
+    transform: rotate(-5deg);
+  }
+  96% {
+    transform: rotate(2deg);
+  }
+}
+.logo-briefcase {
+  transform-box: view-box;
+  transform-origin: 32px 41px;
+  animation: briefcase-swing 5s ease-in-out infinite;
+}
+
+/* Sidebar slide-over on small screens. */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+.slide-over-panel {
+  animation: slide-in-left 200ms var(--ease-out);
+}
+
+/* Skeletons for loading states: a static tint, gently pulsing. */
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.skeleton {
+  background: var(--panel);
+  border-radius: 4px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .widget-lift:hover {
+    transform: none;
+  }
+  .logo-link:hover .logo-helmet,
+  .logo-link:focus-visible .logo-helmet {
+    transform: none;
+  }
+}
+
+/* Utility: visually hidden but available to assistive tech. */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
