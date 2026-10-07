@@ -82,18 +82,19 @@ export type SmtpSettings = {
 export type EmailTemplate = { subject: string; html: string };
 export type EmailTemplates = { magicLink?: EmailTemplate; confirmation?: EmailTemplate };
 
+/** Whether any SMTP_* setting is filled in. */
+export function hasSmtp(smtp: SmtpSettings): boolean {
+  return Object.values(smtp).some((v) => v && v.trim() !== "");
+}
+
 /**
- * Body for PATCH /v1/projects/{ref}/config/auth. Sets the site URL and the
- * redirect allow-list to this app only, Groundwork's sign-in email templates
- * (links to /auth/confirm, see supabase/templates), and custom SMTP when it's
- * configured (Supabase's built-in mailer only delivers to the project's team).
+ * Body for PATCH /v1/projects/{ref}/config/auth: the site URL, the redirect
+ * allow-list (this app only), and custom SMTP when it's configured
+ * (Supabase's built-in mailer only delivers to the project's team).
+ * Email templates are sent separately (buildTemplateConfig), because Supabase
+ * refuses template changes on new Free-plan projects without custom SMTP.
  */
-export function buildAuthConfig(
-  appUrl: string,
-  smtp: SmtpSettings = {},
-  extraRedirects: string[] = [],
-  templates: EmailTemplates = {},
-) {
+export function buildAuthSettings(appUrl: string, smtp: SmtpSettings = {}, extraRedirects: string[] = []) {
   const origin = normalizeAppUrl(appUrl);
   const allow = [`${origin}/**`, ...extraRedirects.map((u) => u.trim()).filter(Boolean)];
   const body: Record<string, string | number | boolean> = {
@@ -103,23 +104,13 @@ export function buildAuthConfig(
     mailer_otp_exp: 3600,
   };
 
-  for (const [key, template] of [
-    ["magic_link", templates.magicLink],
-    ["confirmation", templates.confirmation],
-  ] as const) {
-    if (!template) continue;
-    if (!template.html.includes("{{ .TokenHash }}")) {
-      throw new Error(`The ${key} email template must link with {{ .TokenHash }}.`);
-    }
-    body[`mailer_subjects_${key}`] = template.subject;
-    body[`mailer_templates_${key}_content`] = template.html;
-  }
-
-  const anySmtp = Object.values(smtp).some((v) => v && v.trim() !== "");
-  if (anySmtp) {
+  if (hasSmtp(smtp)) {
     const missing = (["host", "port", "user", "pass", "from"] as const).filter((k) => !smtp[k]?.trim());
     if (missing.length) throw new Error(`SMTP is partly configured; missing: ${missing.join(", ")}.`);
     if (!/^\d{2,5}$/.test(smtp.port!.trim())) throw new Error(`SMTP port must be a number: ${smtp.port}`);
+    if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(smtp.from!.trim())) {
+      throw new Error(`SMTP_FROM must be a plain email address, like hello@your-domain: ${smtp.from}`);
+    }
     Object.assign(body, {
       smtp_host: smtp.host!.trim(),
       smtp_port: smtp.port!.trim(),
@@ -131,6 +122,49 @@ export function buildAuthConfig(
     });
   }
   return body;
+}
+
+/**
+ * Body for the second PATCH: Groundwork's sign-in email templates, which link
+ * to /auth/confirm (see supabase/templates).
+ */
+export function buildTemplateConfig(templates: EmailTemplates) {
+  const body: Record<string, string> = {};
+  for (const [key, template] of [
+    ["magic_link", templates.magicLink],
+    ["confirmation", templates.confirmation],
+  ] as const) {
+    if (!template) continue;
+    if (!template.html.includes("{{ .TokenHash }}")) {
+      throw new Error(`The ${key} email template must link with {{ .TokenHash }}.`);
+    }
+    body[`mailer_subjects_${key}`] = template.subject;
+    body[`mailer_templates_${key}_content`] = template.html;
+  }
+  return body;
+}
+
+/**
+ * Whether a refused template update can be skipped with a warning: Supabase
+ * doesn't let new Free-plan projects change their email templates while they
+ * send through its default mailer. Anything else is a real failure.
+ */
+export function isSkippableTemplateRefusal(status: number, smtpHostInEffect: string | null | undefined): boolean {
+  return status >= 400 && status < 500 && !smtpHostInEffect?.trim();
+}
+
+/** A user from GET https://api.vercel.com/v2/user. */
+export type VercelUser = { username?: string; defaultTeamId?: string | null };
+
+/**
+ * The scope the Vercel CLI should use when VERCEL_SCOPE isn't set: the
+ * account's default team, or the username for older accounts without one.
+ * The CLI refuses to guess when a token can see several teams.
+ */
+export function pickVercelScope(user: VercelUser | undefined): string {
+  const scope = user?.defaultTeamId?.trim() || user?.username?.trim();
+  if (!scope) throw new Error("Couldn't tell which Vercel team to use. Set the VERCEL_SCOPE variable to the team's slug.");
+  return scope;
 }
 
 export type SmokeResult = { ok: boolean; problems: string[] };

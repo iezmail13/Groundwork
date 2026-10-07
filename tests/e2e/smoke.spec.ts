@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 
 // End-to-end smoke test of the main flows against a running app and the local
@@ -5,6 +6,16 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 // local mail catcher (Mailpit).
 
 const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
+
+/** A setting from the environment, or from the .env.local the dev server reads. */
+function setting(name: string): string {
+  if (process.env[name]) return process.env[name]!;
+  const line = readFileSync(".env.local", "utf8")
+    .split("\n")
+    .find((l) => l.startsWith(`${name}=`));
+  if (!line) throw new Error(`${name} is not set`);
+  return line.slice(name.length + 1).trim();
+}
 
 async function magicLinkFor(request: APIRequestContext, email: string): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
@@ -166,6 +177,19 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(upload).toBeHidden();
   const docLink = page.getByRole("link", { name: "launch-checklist.csv" }).first();
   await expect(docLink).toBeVisible();
+  // a file the browser types generically (Markdown on Windows) is stored under its real type
+  await page.getByRole("button", { name: "Upload a document" }).first().click();
+  await upload.getByLabel("File").setInputFiles({
+    name: "meeting-notes.md",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("# Meeting notes\n- confirm the venue\n"),
+  });
+  await upload.getByRole("button", { name: "Upload" }).click();
+  await expect(upload).toBeHidden();
+  const notesLink = page.getByRole("link", { name: "meeting-notes.md" }).first();
+  await expect(notesLink).toBeVisible();
+  const notes = await page.request.get((await page.request.get((await notesLink.getAttribute("href"))!, { maxRedirects: 0 })).headers().location!);
+  expect(notes.headers()["content-type"]).toContain("text/markdown");
   await page.getByLabel("Search by name or tag").fill("checklists");
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page).toHaveURL(/q=checklists/);
@@ -312,6 +336,47 @@ test("sign-in links work on another device and survive mail scanners", async ({ 
   // signed in, and the smuggled off-site "next" was neutralised
   await expect(phonePage).toHaveURL(/\/create-organization$/);
   await phone.close();
+});
+
+test("sign-in links still work when Supabase swaps in the Site URL", async ({ browser, request }) => {
+  const email = `fallback-${Date.now()}@example.org`;
+  // a sign-in asked for from a host that isn't on the redirect allow-list
+  // (say, a domain added after the last deploy): Supabase replaces the
+  // redirect with its bare Site URL
+  const otp = await request.post(
+    `${setting("NEXT_PUBLIC_SUPABASE_URL")}/auth/v1/otp?redirect_to=${encodeURIComponent("https://not-allowed.example/auth/confirm?next=%2F")}`,
+    { headers: { apikey: setting("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") }, data: { email, create_user: true } },
+  );
+  expect(otp.ok()).toBe(true);
+  const link = await magicLinkFor(request, email);
+  expect(new URL(link).host).not.toContain("&");
+  expect(new URL(link).searchParams.get("token_hash")).toBeTruthy();
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await finishSignIn(page, link);
+  await expect(page).toHaveURL(/\/create-organization$/);
+  await context.close();
+});
+
+test("links in Supabase's default email format still sign in", async ({ page, request }) => {
+  // a code that can't be exchanged sends the person back to sign in again
+  await page.goto("/auth/confirm?code=not-a-real-code&next=%2F");
+  await expect(page).toHaveURL(/\/login\?error=link$/);
+
+  // a real default-format link: Supabase verifies it, then redirects to /auth/confirm with ?code=
+  const email = `default-format-${Date.now()}@example.org`;
+  await page.goto("/login");
+  await page.getByLabel("Work email").fill(email);
+  await page.getByRole("button", { name: /sign-in link/i }).click();
+  await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  const ours = new URL(await magicLinkFor(request, email));
+  const redirectTo = `${ours.origin}/auth/confirm?next=%2F`;
+  const verify =
+    `${setting("NEXT_PUBLIC_SUPABASE_URL")}/auth/v1/verify?token=${ours.searchParams.get("token_hash")}` +
+    `&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`;
+  await page.goto(verify);
+  await expect(page).toHaveURL(/\/create-organization$/);
 });
 
 test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {

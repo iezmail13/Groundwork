@@ -9,10 +9,15 @@
             Use the button below to finish signing in. The link works once, on any device, for the next hour.
           </p>
           <p style="margin:0 0 20px;">
-            <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+            {{/* Supabase replaces a redirect that is not on the allow-list with the bare Site URL;
+               link to /auth/confirm on the Site URL then, so the link still works. */}}
+            {{ if eq .RedirectTo .SiteURL }}<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
                style="display:inline-block;padding:12px 18px;border-radius:6px;background:#1F2D4D;color:#FBF9F4;font-weight:bold;text-decoration:none;">
               Sign in to Groundwork
-            </a>
+            </a>{{ else }}<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+               style="display:inline-block;padding:12px 18px;border-radius:6px;background:#1F2D4D;color:#FBF9F4;font-weight:bold;text-decoration:none;">
+              Sign in to Groundwork
+            </a>{{ end }}
           </p>
           <p style="margin:0;font-size:13px;line-height:1.5;color:#4B566E;">
             If you didn't ask to sign in, you can ignore this email.

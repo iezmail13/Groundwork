@@ -1,30 +1,26 @@
-# Deploys Groundwork after CI passes on main (or on demand):
+# Deploys Groundwork. CI (ci.yml) calls this after its checks pass on a push
+# to main, or when CI is run by hand on main (Actions → CI → Run workflow):
 #   1. applies supabase/migrations to the hosted Supabase project
 #   2. builds and deploys the app to Vercel (production)
 #   3. points Supabase Auth at the deployed URL (site URL, redirect allow-list,
-#      sign-in email templates, and custom SMTP when configured)
+#      custom SMTP when configured, and the sign-in email templates)
 #   4. smoke-tests the live site
 #
 # One-time setup (repo Settings → Secrets and variables → Actions):
 #   secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, VERCEL_TOKEN
-#              SMTP_PASS (optional, for real sign-in email)
+#              SMTP_PASS (for real sign-in email)
 #   variables: SUPABASE_PROJECT_REF
-#              APP_URL (a custom domain already added to the Vercel project),
-#              VERCEL_PROJECT_NAME, VERCEL_SCOPE,
-#              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (all optional)
+#              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (for real sign-in email)
+#              APP_URL (optional; a custom domain added to the Vercel project
+#                after the first deploy, e.g. https://app.example.org)
+#              VERCEL_SCOPE (optional; defaults to the token's default team)
+#              VERCEL_PROJECT_NAME (optional; defaults to groundwork)
 # Until the required ones exist, the job only writes a summary of what's missing.
+# Secrets are passed only to the steps that use them, never to npm ci.
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  workflow_call:
 
 permissions:
   contents: read
@@ -32,17 +28,14 @@ permissions:
 jobs:
   deploy:
     name: Deploy to Supabase and Vercel
-    # only deploy commits that passed CI on main (a pull_request run never qualifies)
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # one deploy at a time; a newer commit waits rather than cancelling one halfway
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'groundwork' }}
       VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
       VERCEL_TELEMETRY_DISABLED: "1"
@@ -50,22 +43,26 @@ jobs:
       SMTP_HOST: ${{ vars.SMTP_HOST }}
       SMTP_PORT: ${{ vars.SMTP_PORT }}
       SMTP_USER: ${{ vars.SMTP_USER }}
-      SMTP_PASS: ${{ secrets.SMTP_PASS }}
       SMTP_FROM: ${{ vars.SMTP_FROM }}
     steps:
       - name: Check configuration
         id: cfg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+          HAS_SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD != '' }}
+          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
         run: |
           missing=()
-          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing+=("secret SUPABASE_ACCESS_TOKEN (supabase.com → Account → Access Tokens)")
-          [ -n "$SUPABASE_DB_PASSWORD" ] || missing+=("secret SUPABASE_DB_PASSWORD (the database password you chose for the project)")
+          [ "$HAS_SUPABASE_ACCESS_TOKEN" = true ] || missing+=("secret SUPABASE_ACCESS_TOKEN (supabase.com → Account → Access Tokens)")
+          [ "$HAS_SUPABASE_DB_PASSWORD" = true ] || missing+=("secret SUPABASE_DB_PASSWORD (the database password you chose for the project)")
           [ -n "$SUPABASE_PROJECT_REF" ] || missing+=("variable SUPABASE_PROJECT_REF (Project Settings → General → Project ID)")
-          [ -n "$VERCEL_TOKEN" ] || missing+=("secret VERCEL_TOKEN (vercel.com → Account Settings → Tokens)")
+          [ "$HAS_VERCEL_TOKEN" = true ] || missing+=("secret VERCEL_TOKEN (vercel.com → Account Settings → Tokens)")
           if [ ${#missing[@]} -gt 0 ]; then
             {
               echo "## Deploy skipped: not configured yet"
               echo
-              echo "Add these in **Settings → Secrets and variables → Actions**, then re-run this workflow:"
+              echo "Add these in **Settings → Secrets and variables → Actions**, then run CI on main again (Actions → CI → Run workflow):"
               echo
               for m in "${missing[@]}"; do echo "- $m"; done
               echo
@@ -73,14 +70,20 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=Deploy skipped::Missing ${#missing[@]} required setting(s); see the job summary."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # never roll production back: a re-run of an older CI run must not redeploy its commit
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$GITHUB_SHA" != "$latest" ]; then
+            echo "## Deploy skipped: ${GITHUB_SHA:0:7} is no longer the latest commit on main (${latest:0:7})" >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::${GITHUB_SHA:0:7} is older than main (${latest:0:7}); the newer commit deploys instead."
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         if: steps.cfg.outputs.ready == 'true'
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         if: steps.cfg.outputs.ready == 'true'
@@ -94,10 +97,17 @@ jobs:
 
       - name: Apply database migrations
         if: steps.cfg.outputs.ready == 'true'
-        run: npx supabase db push --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # read by the CLI from the environment (never as an argument, which
+          # it would misread if the password started with "-")
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx supabase db push --project-ref "$SUPABASE_PROJECT_REF" --yes
 
       - name: Read the project's browser-safe API key
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           npx supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json > "$RUNNER_TEMP/keys.json"
           key=$(npx tsx scripts/deploy/supabase-key.ts "$RUNNER_TEMP/keys.json")
@@ -110,27 +120,37 @@ jobs:
 
       - name: Link the Vercel project
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          scope=()
-          [ -z "$VERCEL_SCOPE" ] || scope=(--scope "$VERCEL_SCOPE")
-          # create the project on the first run; "already exists" is fine
-          npx --yes vercel@62 project create "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}" || true
-          npx --yes vercel@62 link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}"
-          npx --yes vercel@62 pull --yes --environment=production --token "$VERCEL_TOKEN" "${scope[@]}"
+          # the CLI won't guess a team when the token can see several
+          scope="$VERCEL_SCOPE"
+          [ -n "$scope" ] || scope=$(npx tsx scripts/deploy/vercel-scope.ts)
+          echo "Vercel scope: $scope"
+          # create the project on the first run; "already exists" exits 0
+          npx --yes vercel@62 project create "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" --scope "$scope" || true
+          npx --yes vercel@62 link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" --scope "$scope"
+          npx --yes vercel@62 pull --yes --environment=production --token "$VERCEL_TOKEN" --scope "$scope"
 
       - name: Use APP_URL for sign-in links
         if: steps.cfg.outputs.ready == 'true' && env.APP_URL != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           # sign-in emails link to this host, so it must belong to the project
-          npx tsx scripts/deploy/vercel-url.ts --check "$APP_URL"
-          { echo "PRODUCTION_URL=$APP_URL"; echo "NEXT_PUBLIC_SITE_URL=$APP_URL"; } >> "$GITHUB_ENV"
+          origin=$(npx tsx scripts/deploy/vercel-url.ts --check "$APP_URL")
+          { echo "PRODUCTION_URL=$origin"; echo "NEXT_PUBLIC_SITE_URL=$origin"; } >> "$GITHUB_ENV"
 
       - name: Build
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@62 build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to production
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           url=$(npx --yes vercel@62 deploy --prebuilt --prod --token "$VERCEL_TOKEN")
           echo "Deployment: $url"
@@ -138,6 +158,8 @@ jobs:
 
       - name: Resolve the production URL and sign-in domains
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$PRODUCTION_URL" ]; then
             PRODUCTION_URL=$(npx tsx scripts/deploy/vercel-url.ts)
@@ -150,6 +172,9 @@ jobs:
 
       - name: Point Supabase Auth at the app
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: npx tsx scripts/deploy/configure-auth.ts "$PRODUCTION_URL"
 
       - name: Smoke-test the live site

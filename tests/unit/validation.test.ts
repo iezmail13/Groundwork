@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { documentMetaInput, eventInput, projectInput, sanitizeFileName, slugInput, tagsInput, uploadRequestInput } from "@/lib/validation";
+import {
+  ACCEPT_ATTRIBUTE,
+  ALLOWED_MIME_TYPES,
+  EXTENSION_TYPES,
+  documentMetaInput,
+  eventInput,
+  mimeTypeFor,
+  projectInput,
+  sanitizeFileName,
+  slugInput,
+  tagsInput,
+  uploadRequestInput,
+} from "@/lib/validation";
+import { originOf } from "@/lib/origin";
 
 const org = "6f1c1d8a-2b8e-4d55-9d77-0a3f7f4b8f10";
 
@@ -48,5 +61,36 @@ describe("server-side validation", () => {
     expect(slugInput.safeParse("-bad").success).toBe(false);
     expect(slugInput.safeParse("Upper").success).toBe(false);
     expect(slugInput.safeParse("login").success).toBe(false);
+  });
+});
+
+describe("mimeTypeFor", () => {
+  it("keeps an allowed type the browser reported", () => {
+    expect(mimeTypeFor("report.pdf", "application/pdf")).toBe("application/pdf");
+  });
+  it("falls back to the extension when the browser reports nothing or an unlisted type", () => {
+    expect(mimeTypeFor("notes.md", "")).toBe("text/markdown");
+    expect(mimeTypeFor("Notes.MARKDOWN", "text/x-markdown")).toBe("text/markdown");
+    expect(mimeTypeFor("minutes.odt", "")).toBe("application/vnd.oasis.opendocument.text");
+    expect(mimeTypeFor("photo.JPG", "application/octet-stream")).toBe("image/jpeg");
+  });
+  it("maps every accepted extension to an allowed type", () => {
+    for (const [ext, type] of Object.entries(EXTENSION_TYPES)) {
+      expect(ALLOWED_MIME_TYPES).toContain(type);
+      expect(ACCEPT_ATTRIBUTE.split(",")).toContain(`.${ext}`);
+    }
+    for (const type of ALLOWED_MIME_TYPES) expect(Object.values(EXTENSION_TYPES)).toContain(type);
+  });
+  it("leaves unknown files alone, so the server rejects them", () => {
+    expect(mimeTypeFor("tool.exe", "application/x-msdownload")).toBe("application/x-msdownload");
+    expect(mimeTypeFor("README", "")).toBe("");
+  });
+});
+
+describe("originOf", () => {
+  it("keeps only the origin of a configured site URL", () => {
+    expect(originOf("app.example.org")).toBe("https://app.example.org");
+    expect(originOf(" https://App.Example.org/some/path/ ")).toBe("https://app.example.org");
+    expect(originOf("http://localhost:3000/")).toBe("http://localhost:3000");
   });
 });

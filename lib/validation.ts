@@ -107,10 +107,44 @@ export const ALLOWED_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+/** The allowed type for each accepted file extension. */
+export const EXTENSION_TYPES: Record<string, (typeof ALLOWED_MIME_TYPES)[number]> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  odt: "application/vnd.oasis.opendocument.text",
+  ods: "application/vnd.oasis.opendocument.spreadsheet",
+  odp: "application/vnd.oasis.opendocument.presentation",
+  rtf: "application/rtf",
+  txt: "text/plain",
+  csv: "text/csv",
+  md: "text/markdown",
+  markdown: "text/markdown",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
 export const ACCEPT_ATTRIBUTE = [
   ...ALLOWED_MIME_TYPES,
-  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.csv,.md,.png,.jpg,.jpeg,.gif,.webp",
+  ...Object.keys(EXTENSION_TYPES).map((ext) => `.${ext}`),
 ].join(",");
+
+/**
+ * The type to store a file under. Browsers report an empty or unlisted type
+ * for some files (Markdown on Windows, for one); fall back to the extension.
+ */
+export function mimeTypeFor(fileName: string, reportedType: string): string {
+  if (reportedType && (ALLOWED_MIME_TYPES as readonly string[]).includes(reportedType)) return reportedType;
+  const ext = fileName.includes(".") ? (fileName.split(".").pop() ?? "").toLowerCase() : "";
+  return EXTENSION_TYPES[ext] ?? reportedType;
+}
 
 export const tagsInput = z
   .string()

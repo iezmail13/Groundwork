@@ -5,7 +5,7 @@ import { Upload } from "lucide-react";
 import { finishUpload, requestUpload } from "@/app/[orgSlug]/documents/actions";
 import { createClient } from "@/lib/supabase/client";
 import { failure, idle, invalid, type ActionState } from "@/lib/action-state";
-import { ACCEPT_ATTRIBUTE, ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, documentMetaInput } from "@/lib/validation";
+import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, documentMetaInput, mimeTypeFor } from "@/lib/validation";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -13,20 +13,6 @@ import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
 import { DialogButton } from "@/components/ui/modal";
 import type { ProjectOption } from "@/lib/queries";
-
-const EXTENSION_TYPES: Record<string, string> = {
-  md: "text/markdown",
-  csv: "text/csv",
-  txt: "text/plain",
-  rtf: "application/rtf",
-};
-
-/** Browsers sometimes report an empty or generic type; fall back to the extension. */
-function mimeOf(file: File): string {
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (file.type && (ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) return file.type;
-  return EXTENSION_TYPES[ext] ?? file.type;
-}
 
 export function UploadButton({
   organizationId,
@@ -99,16 +85,18 @@ function UploadForm({
       setLocalError(invalid(meta.error));
       return;
     }
-    const mimeType = mimeOf(file);
+    const mimeType = mimeTypeFor(file.name, file.type);
     startUpload(async () => {
       const ticket = await requestUpload({ organizationId, fileName: file.name, size: file.size, mimeType });
       if (!ticket.ok) {
         setLocalError(failure(ticket.message, { file: [ticket.message] }));
         return;
       }
-      const { error } = await createClient()
-        .storage.from("documents")
-        .uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: mimeType });
+      // storage takes the type from the file itself (it ignores contentType for
+      // files), so send a copy that carries the type the ticket was issued for
+      const body =
+        file.type === mimeType ? file : new File([file], file.name, { type: mimeType, lastModified: file.lastModified });
+      const { error } = await createClient().storage.from("documents").uploadToSignedUrl(ticket.path, ticket.token, body);
       if (error) {
         setLocalError(failure("The upload failed. Check your connection and try again."));
         return;

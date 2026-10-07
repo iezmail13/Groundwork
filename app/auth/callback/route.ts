@@ -4,9 +4,11 @@ import { safeNext } from "@/lib/safe-next";
 
 /**
  * PKCE code exchange, for links in Supabase's default email format
- * (/auth/v1/verify -> here with ?code=). Groundwork's own templates link to
- * /auth/confirm instead, which works across devices and survives mail
- * scanners; this route stays for links sent with the default template.
+ * (/auth/v1/verify -> /auth/confirm?code= -> here). These only work in the
+ * browser that asked for the link, because the exchange needs its verifier
+ * cookie. Groundwork's own templates (supabase/templates) link to
+ * /auth/confirm with a token hash instead, which works on any device and
+ * survives mail scanners.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
