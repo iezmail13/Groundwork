@@ -16,6 +16,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -52,6 +53,24 @@ function positionAt(list: TaskRow[], index: number): number {
   return Date.now() / 1000;
 }
 
+/**
+ * Keyboard dragging: Left/Right jump to the neighbouring column, Up/Down
+ * reorder within a column (dnd-kit's sortable default).
+ */
+const boardKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+  const { droppableRects, collisionRect } = args.context;
+  if ((event.code === "ArrowRight" || event.code === "ArrowLeft") && collisionRect) {
+    event.preventDefault();
+    const rects = COLUMNS.map((c) => droppableRects.get(c));
+    const centerX = collisionRect.left + collisionRect.width / 2;
+    const current = rects.findIndex((r) => r && centerX >= r.left && centerX <= r.left + r.width);
+    const target = rects[current + (event.code === "ArrowRight" ? 1 : -1)];
+    if (current === -1 || !target) return args.currentCoordinates;
+    return { x: target.left + (target.width - collisionRect.width) / 2, y: target.top + 48 };
+  }
+  return sortableKeyboardCoordinates(event, args);
+};
+
 function findColumn(cols: Columns, id: string): TaskStatus | undefined {
   if ((COLUMNS as string[]).includes(id)) return id as TaskStatus;
   return COLUMNS.find((c) => cols[c].some((t) => t.id === id));
@@ -80,6 +99,8 @@ export function TaskBoard({
   const [dragOrigin, setDragOrigin] = useState<TaskStatus | null>(null);
   const [message, setMessage] = useState("");
   const statusId = useId();
+  // stable id keeps dnd-kit's aria-describedby the same on server and client
+  const dndId = useId();
 
   // Re-sync with the server whenever the task list changes underneath us.
   const signature = tasks.map((x) => `${x.id}:${x.status}:${x.position}:${x.title}:${x.due_date}`).join("|");
@@ -95,7 +116,7 @@ export function TaskBoard({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: boardKeyboardCoordinates }),
   );
 
   const persist = (id: string, status: TaskStatus, position: number, announce: string) => {
@@ -188,6 +209,7 @@ export function TaskBoard({
         each card move it one column.
       </p>
       <DndContext
+        id={dndId}
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={onDragStart}
@@ -237,7 +259,7 @@ export function TaskBoard({
         </div>
         <DragOverlay>
           {activeTask ? (
-            <div className="rotate-1 rounded-lg border border-ink bg-canvas p-3">
+            <div className="rounded-lg border border-ink bg-canvas p-3">
               <p className="font-semibold">{activeTask.title}</p>
             </div>
           ) : null}

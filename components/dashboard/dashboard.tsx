@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -84,6 +84,8 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
   const [saveMessage, setSaveMessage] = useState("");
   const [settling, setSettling] = useState<string | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  // stable id keeps dnd-kit's aria-describedby the same on server and client
+  const dndId = useId();
 
   // Saves run one at a time, in order, so the last change always wins.
   const persist = useCallback(
@@ -166,6 +168,7 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
       ) : null}
 
       <DndContext
+        id={dndId}
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={onDragEnd}
