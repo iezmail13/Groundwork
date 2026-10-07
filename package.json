@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings=0",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "check:labels": "tsx scripts/check-labels.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,6 +21,8 @@
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
+    "env:local": "tsx scripts/write-env.ts",
     "verify": "npm run typecheck && npm run lint && npm run check:labels && npm run test && npm run build"
   },
   "dependencies": {
