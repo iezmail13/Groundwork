@@ -26,4 +26,17 @@ describe("safeNext", () => {
     expect(safeNext("/\\evil")).toBe("/");
     expect(safeNext(undefined, "/x")).toBe("/x");
   });
+
+  it("rejects control characters and backslashes that browsers normalise into //", () => {
+    for (const evil of ["/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\t\\evil.com", "/%09/evil.com".replace("%09", "\t"), "/\u0000/evil"]) {
+      expect(safeNext(evil), JSON.stringify(evil)).toBe("/");
+    }
+    // the same value as it arrives from a query string
+    expect(safeNext(new URLSearchParams("next=%2F%09%2Fevil.com").get("next"))).toBe("/");
+  });
+
+  it("keeps the path, query and hash of a legitimate target", () => {
+    expect(safeNext("/invite/abc?x=1#top")).toBe("/invite/abc?x=1#top");
+    expect(safeNext("/a/../b")).toBe("/b");
+  });
 });

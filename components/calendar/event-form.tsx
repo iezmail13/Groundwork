@@ -11,6 +11,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
 import type { ProjectOption } from "@/lib/queries";
+import { keepValues } from "@/lib/forms";
 
 /** Event values in the viewer's wall-clock time (prepared on the server). */
 export type EventFormValues = {
@@ -39,7 +40,7 @@ export function EventForm({
   onDone: () => void;
 }) {
   const t = useT();
-  const [state, action] = useActionState(saveEvent, idle);
+  const [state, action, pending] = useActionState(saveEvent, idle);
   const [allDay, setAllDay] = useState(event.allDay);
   const [deleting, setDeleting] = useState(false);
   // only ever rendered inside an opened dialog, so this runs in the browser
@@ -55,7 +56,7 @@ export function EventForm({
   }
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="timeZone" value={tz} />
       {event.id ? <input type="hidden" name="id" value={event.id} /> : null}
@@ -121,7 +122,7 @@ export function EventForm({
           <Button variant="secondary" onClick={onDone}>
             Cancel
           </Button>
-          <SubmitButton pendingLabel="Saving…">{event.id ? "Save changes" : `Add ${lower(t("event"))}`}</SubmitButton>
+          <SubmitButton pending={pending} pendingLabel="Saving…">{event.id ? "Save changes" : `Add ${lower(t("event"))}`}</SubmitButton>
         </div>
       </div>
     </form>

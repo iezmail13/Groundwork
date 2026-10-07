@@ -82,6 +82,35 @@ describe("buildAuthConfig", () => {
     ).toThrow(/port/);
   });
 
+  it("installs the sign-in email templates", () => {
+    const html = '<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Sign in</a>';
+    const body = buildAuthConfig("https://a.example", {}, [], {
+      magicLink: { subject: "Sign in", html },
+      confirmation: { subject: "Confirm", html },
+    });
+    expect(body).toMatchObject({
+      mailer_subjects_magic_link: "Sign in",
+      mailer_templates_magic_link_content: html,
+      mailer_subjects_confirmation: "Confirm",
+      mailer_templates_confirmation_content: html,
+    });
+  });
+
+  it("rejects a template that doesn't carry the token hash", () => {
+    expect(() => buildAuthConfig("https://a.example", {}, [], { magicLink: { subject: "x", html: "{{ .ConfirmationURL }}" } })).toThrow(
+      /TokenHash/,
+    );
+  });
+
+  it("ships templates that point at /auth/confirm through the redirect URL", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const file of ["magic_link.html", "confirmation.html"]) {
+      const html = readFileSync(`supabase/templates/${file}`, "utf8");
+      expect(html).toContain("{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email");
+      expect(html).not.toContain("ConfirmationURL");
+    }
+  });
+
   it("dedupes extra redirect URLs", () => {
     const body = buildAuthConfig("https://a.example", {}, ["https://a.example/**", "https://staging.a.example/**", ""]);
     expect(body.uri_allow_list).toBe("https://a.example/**,https://staging.a.example/**");

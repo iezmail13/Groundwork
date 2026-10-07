@@ -135,7 +135,8 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
 
   const { data: auth } = await supabase.auth.getUser();
   // one pending invitation per address: refresh it instead of duplicating
-  await supabase.from("invitations").delete().eq("organization_id", d.organizationId).ilike("email", d.email).is("accepted_at", null);
+  // (exact match: emails are stored lowercase, and ilike would treat "_" as a wildcard)
+  await supabase.from("invitations").delete().eq("organization_id", d.organizationId).eq("email", d.email).is("accepted_at", null);
   const { data: invite, error } = await supabase
     .from("invitations")
     .insert({ organization_id: d.organizationId, email: d.email, role: d.role, invited_by: auth.user?.id })

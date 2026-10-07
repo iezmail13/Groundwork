@@ -6,13 +6,14 @@ import { idle } from "@/lib/action-state";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
+import { keepValues } from "@/lib/forms";
 
 export type PresetOption = { key: string; name: string; example: string };
 
 export function CreateOrgForm({ presets, defaultName }: { presets: PresetOption[]; defaultName?: string }) {
-  const [state, action] = useActionState(createOrganization, idle);
+  const [state, action, pending] = useActionState(createOrganization, idle);
   return (
-    <form action={action} className="flex flex-col gap-5" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-5" noValidate>
       <Field label="Your name" htmlFor="fullName" hint="Shown to your colleagues." error={state.fieldErrors?.fullName}>
         <Input id="fullName" name="fullName" autoComplete="name" defaultValue={defaultName} maxLength={120} />
       </Field>
@@ -52,7 +53,7 @@ export function CreateOrgForm({ presets, defaultName }: { presets: PresetOption[
           </p>
         ) : null}
       </fieldset>
-      <SubmitButton pendingLabel="Creating…">Create organization</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Creating…">Create organization</SubmitButton>
       <FormMessage state={state} />
     </form>
   );

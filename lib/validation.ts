@@ -151,6 +151,9 @@ export const documentInput = z.object({
   tags: tagsInput,
 });
 
+/** The user-entered part of an upload, checked in the browser before the file is sent. */
+export const documentMetaInput = documentInput.pick({ name: true, projectId: true, tags: true });
+
 export const documentUpdateInput = z.object({
   id,
   name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(255, "Use 255 characters or fewer."),

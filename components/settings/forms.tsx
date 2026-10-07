@@ -19,6 +19,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
 import { LogoBadge } from "@/components/logo";
+import { keepValues } from "@/lib/forms";
 
 export type PresetChoice = { key: string; name: string; words: string[] };
 
@@ -91,11 +92,11 @@ export function TerminologyForm({
   overrides: Partial<Record<LabelKey, { one?: string; other?: string }>>;
   disabled: boolean;
 }) {
-  const [state, action] = useActionState(saveTerminology, idle);
+  const [state, action, pending] = useActionState(saveTerminology, idle);
   const e = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="flex flex-col gap-6" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-6" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <p className="max-w-2xl text-ink-muted">
         Leave a field blank to use the preset&apos;s word, shown as the placeholder. Changes apply across the whole app as
@@ -171,7 +172,7 @@ export function TerminologyForm({
       <FormMessage state={state} />
       {!disabled ? (
         <div className="flex flex-wrap gap-2">
-          <SubmitButton pendingLabel="Saving…">Save labels</SubmitButton>
+          <SubmitButton pending={pending} pendingLabel="Saving…">Save labels</SubmitButton>
           <Button
             variant="ghost"
             onClick={(ev) => {
@@ -348,10 +349,10 @@ export function OrganizationForm({
   slug: string;
   disabled: boolean;
 }) {
-  const [state, action] = useActionState(updateOrganization, idle);
+  const [state, action, pending] = useActionState(updateOrganization, idle);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex max-w-xl flex-col gap-4" noValidate>
+    <form onSubmit={keepValues(action)} className="flex max-w-xl flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="currentSlug" value={slug} />
       <fieldset disabled={disabled} className="flex flex-col gap-4">
@@ -381,7 +382,7 @@ export function OrganizationForm({
       <FormMessage state={state} />
       {!disabled ? (
         <div>
-          <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
+          <SubmitButton pending={pending} pendingLabel="Saving…">Save</SubmitButton>
         </div>
       ) : null}
     </form>
@@ -390,13 +391,13 @@ export function OrganizationForm({
 
 export function InviteForm({ organizationId }: { organizationId: string }) {
   const t = useT();
-  const [state, action] = useActionState(inviteMember, idle);
+  const [state, action, pending] = useActionState(inviteMember, idle);
   const [copied, setCopied] = useState(false);
   const link = state.status === "success" ? state.data?.link : undefined;
   const e = state.fieldErrors ?? {};
   return (
     <div className="flex flex-col gap-3">
-      <form action={action} className="flex flex-wrap items-end gap-3" noValidate>
+      <form onSubmit={keepValues(action)} className="flex flex-wrap items-end gap-3" noValidate>
         <input type="hidden" name="organizationId" value={organizationId} />
         <Field label="Email" htmlFor="invite-email" error={e.email} className="min-w-64 flex-1">
           <Input id="invite-email" name="email" type="email" required placeholder="name@example.org" invalid={Boolean(e.email)} />
@@ -407,7 +408,7 @@ export function InviteForm({ organizationId }: { organizationId: string }) {
             <option value="admin">{t("role.admin")}</option>
           </Select>
         </Field>
-        <SubmitButton pendingLabel="Creating…">
+        <SubmitButton pending={pending} pendingLabel="Creating…">
           <UserPlus aria-hidden className="size-4" />
           Invite
         </SubmitButton>

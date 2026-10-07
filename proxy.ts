@@ -1,10 +1,32 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/invite/"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm"];
 
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/");
+}
+
+/**
+ * In production, serve the app from one host only (NEXT_PUBLIC_SITE_URL).
+ * Sign-in redirects are allow-listed for that host and session cookies are
+ * per host, so a visit on another alias (e.g. *.vercel.app next to a custom
+ * domain) is redirected rather than left with sign-in links that can't work.
+ */
+function canonicalRedirect(request: NextRequest): NextResponse | null {
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.NODE_ENV !== "production" || !site) return null;
+  let canonical: URL;
+  try {
+    canonical = new URL(site);
+  } catch {
+    return null;
+  }
+  // local production builds (npm start) may run on any port
+  if (canonical.hostname === "localhost" || canonical.hostname === "127.0.0.1") return null;
+  if (request.nextUrl.host === canonical.host) return null;
+  const target = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin);
+  return NextResponse.redirect(target, 308);
 }
 
 /**
@@ -12,6 +34,9 @@ function isPublic(pathname: string) {
  * visitors to /login. Authorization itself is enforced by RLS, not here.
  */
 export async function proxy(request: NextRequest) {
+  const elsewhere = canonicalRedirect(request);
+  if (elsewhere) return elsewhere;
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -4,8 +4,8 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { Upload } from "lucide-react";
 import { finishUpload, requestUpload } from "@/app/[orgSlug]/documents/actions";
 import { createClient } from "@/lib/supabase/client";
-import { failure, idle, type ActionState } from "@/lib/action-state";
-import { ACCEPT_ATTRIBUTE, ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/validation";
+import { failure, idle, invalid, type ActionState } from "@/lib/action-state";
+import { ACCEPT_ATTRIBUTE, ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, documentMetaInput } from "@/lib/validation";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -88,6 +88,17 @@ function UploadForm({
       setLocalError(failure("Files can be at most 25 MB.", { file: ["Files can be at most 25 MB."] }));
       return;
     }
+    // check name, tags and project before sending the file, so a typo never
+    // leaves an orphaned copy in storage
+    const meta = documentMetaInput.safeParse({
+      name: String(formData.get("name") || file.name).trim(),
+      projectId: String(formData.get("projectId") ?? "") || undefined,
+      tags: String(formData.get("tags") ?? "").trim() || undefined,
+    });
+    if (!meta.success) {
+      setLocalError(invalid(meta.error));
+      return;
+    }
     const mimeType = mimeOf(file);
     startUpload(async () => {
       const ticket = await requestUpload({ organizationId, fileName: file.name, size: file.size, mimeType });
@@ -117,7 +128,15 @@ function UploadForm({
   const e = shown.fieldErrors ?? {};
 
   return (
-    <form action={submit} className="flex flex-col gap-4" noValidate>
+    <form
+      // submitted by hand: React's automatic reset after a form action would clear the chosen file
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit(new FormData(event.currentTarget));
+      }}
+      className="flex flex-col gap-4"
+      noValidate
+    >
       <Field label="File" htmlFor="doc-file" error={e.file}>
         <Input
           id="doc-file"

@@ -12,6 +12,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
 import type { ProjectOption } from "@/lib/queries";
+import { keepValues } from "@/lib/forms";
 
 type Doc = { id: string; name: string; tags: string[]; project_id: string | null };
 
@@ -33,13 +34,13 @@ export function EditDocumentButton({ doc, projects }: { doc: Doc; projects: Proj
 
 function EditForm({ doc, projects, onDone }: { doc: Doc; projects: ProjectOption[]; onDone: () => void }) {
   const t = useT();
-  const [state, action] = useActionState(updateDocument, idle);
+  const [state, action, pending] = useActionState(updateDocument, idle);
   useEffect(() => {
     if (state.status === "success") onDone();
   }, [state, onDone]);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={doc.id} />
       <Field label="Name" htmlFor={`doc-name-${doc.id}`} error={e.name}>
         <Input id={`doc-name-${doc.id}`} name="name" required maxLength={255} defaultValue={doc.name} invalid={Boolean(e.name)} />
@@ -62,7 +63,7 @@ function EditForm({ doc, projects, onDone }: { doc: Doc; projects: ProjectOption
         <Button variant="secondary" onClick={onDone}>
           Cancel
         </Button>
-        <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
+        <SubmitButton pending={pending} pendingLabel="Saving…">Save changes</SubmitButton>
       </div>
     </form>
   );

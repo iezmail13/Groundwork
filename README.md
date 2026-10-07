@@ -35,9 +35,9 @@ Locally, Supabase doesn't send real email. Every message goes to **Mailpit**, th
 
 1. On `/login`, enter any address (for example `you@example.org`) and press **Email me a sign-in link**.
 2. Open http://127.0.0.1:54324 and click the newest message.
-3. Click the link. It goes through Supabase Auth to `/auth/callback`, which exchanges the code for a session cookie and sends you on: to the page you were trying to reach, to `/create-organization` if you belong to no organization yet, or to your dashboard.
+3. Click the link. It opens `/auth/confirm`; press **Continue to Groundwork**. Only then is the one-time token used, and you're sent on: to the page you were trying to reach, to `/create-organization` if you belong to no organization yet, or to your dashboard.
 
-Links use the PKCE flow, so open them in the same browser you requested them from. Local email is rate-limited to 100 per hour (`supabase/config.toml`).
+The emails come from `supabase/templates/` (the deploy pipeline installs the same templates on the hosted project). Because nothing is verified until the button is pressed, mail-security scanners that open every link can't use up the token, and the link works on any device or browser, not just the one that asked for it. Local email is rate-limited to 100 per hour (`supabase/config.toml`); after editing a template, restart with `npx supabase stop && npx supabase start`.
 
 New users create an organization and become its admin. Admins invite people in **Settings → Members**: enter an email and role, then copy the invite link and send it yourself. Groundwork doesn't email invitations. The invitee opens the link, signs in with that exact email address, and joins.
 

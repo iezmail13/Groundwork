@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventInput, projectInput, sanitizeFileName, slugInput, tagsInput, uploadRequestInput } from "@/lib/validation";
+import { documentMetaInput, eventInput, projectInput, sanitizeFileName, slugInput, tagsInput, uploadRequestInput } from "@/lib/validation";
 
 const org = "6f1c1d8a-2b8e-4d55-9d77-0a3f7f4b8f10";
 
@@ -28,6 +28,13 @@ describe("server-side validation", () => {
     expect(uploadRequestInput.safeParse({ ...ok, size: 26 * 1024 * 1024 }).success).toBe(false);
     expect(uploadRequestInput.safeParse({ ...ok, mimeType: "image/svg+xml" }).success).toBe(false);
     expect(uploadRequestInput.safeParse({ ...ok, mimeType: "application/x-msdownload" }).success).toBe(false);
+  });
+
+  it("checks upload metadata on its own, before the file is sent", () => {
+    expect(documentMetaInput.safeParse({ name: "Budget.csv", tags: "budget, q4" }).success).toBe(true);
+    expect(documentMetaInput.safeParse({ name: "Budget.csv", tags: "x".repeat(41) }).success).toBe(false);
+    expect(documentMetaInput.safeParse({ name: "", tags: undefined }).success).toBe(false);
+    expect(documentMetaInput.safeParse({ name: "a.pdf", projectId: "not-an-id" }).success).toBe(false);
   });
 
   it("sanitises storage file names", () => {

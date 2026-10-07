@@ -26,7 +26,15 @@ async function signInWithMagicLink(page: Page, request: APIRequestContext, email
   await page.getByLabel("Work email").fill(email);
   await page.getByRole("button", { name: /sign-in link/i }).click();
   await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
-  await page.goto(await magicLinkFor(request, email));
+  await finishSignIn(page, await magicLinkFor(request, email));
+}
+
+/** Opens an emailed link: it lands on /auth/confirm, and nothing happens until the button is pressed. */
+async function finishSignIn(page: Page, link: string) {
+  expect(new URL(link).pathname).toBe("/auth/confirm");
+  await page.goto(link);
+  await expect(page.getByRole("heading", { name: "Finish signing in" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue to Groundwork" }).click();
 }
 
 /** Full-page navigation inside an organization, then wait until React has hydrated. */
@@ -66,6 +74,14 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Name").fill("Launch plan");
   await dialog.getByLabel("Description").fill("Everything we need for the October launch.");
+  // a server-side validation error keeps everything that was typed
+  await dialog.getByLabel("Start date").fill("2026-10-10");
+  await dialog.getByLabel("End date").fill("2026-10-01");
+  await dialog.getByRole("button", { name: "Create project" }).click();
+  await expect(dialog.getByText("The end date must be on or after the start date.")).toBeVisible();
+  await expect(dialog.getByLabel("Name")).toHaveValue("Launch plan");
+  await expect(dialog.getByLabel("Description")).toHaveValue("Everything we need for the October launch.");
+  await dialog.getByLabel("End date").fill("2026-10-31");
   await dialog.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Launch plan");
 
@@ -137,6 +153,10 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
     mimeType: "text/csv",
     buffer: Buffer.from("step,owner\nbook venue,erin\nsend invites,erin\n"),
   });
+  // a bad tag is caught before anything is uploaded, and the dialog stays open to fix it
+  await upload.getByLabel("Tags").fill("an-unreasonably-long-tag-name-that-goes-past-forty");
+  await upload.getByRole("button", { name: "Upload" }).click();
+  await expect(upload.getByText("Keep each tag under 40 characters.")).toBeVisible();
   await upload.getByLabel("Tags").fill("Launch, Checklists");
   await upload.getByRole("button", { name: "Upload" }).click();
   await expect(upload).toBeHidden();
@@ -235,7 +255,7 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(guest.getByLabel("Work email")).toHaveValue(invitee);
   await guest.getByRole("button", { name: /sign-in link/i }).click();
   await expect(guest.getByText(`Check ${invitee} for a sign-in link`)).toBeVisible();
-  await guest.goto(await magicLinkFor(request, invitee));
+  await finishSignIn(guest, await magicLinkFor(request, invitee));
   await expect(guest).toHaveURL(/\/invite\//);
   await guest.getByRole("button", { name: "Join Northside Youth Collective" }).click();
   await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
@@ -257,6 +277,32 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await page.getByRole("button", { name: "Leave the organization" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Leave" }).click();
   await expect(page.getByRole("dialog").getByText("An organization must keep at least one admin")).toBeVisible();
+});
+
+test("sign-in links work on another device and survive mail scanners", async ({ browser, request }) => {
+  const email = `device-${Date.now()}@example.org`;
+  // request the link on one "device"
+  const laptop = await browser.newContext();
+  const laptopPage = await laptop.newPage();
+  await laptopPage.goto("/login?next=%2F%09%2Fevil.example");
+  await laptopPage.getByLabel("Work email").fill(email);
+  await laptopPage.getByRole("button", { name: /sign-in link/i }).click();
+  await expect(laptopPage.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  const link = await magicLinkFor(request, email);
+  await laptop.close();
+
+  // a mail scanner opens the link first; that must not use up the token
+  const scanned = await request.get(link);
+  expect(scanned.status()).toBe(200);
+  expect(await scanned.text()).toContain("Continue to Groundwork");
+
+  // then the person opens it on a phone with no cookies from the first device
+  const phone = await browser.newContext();
+  const phonePage = await phone.newPage();
+  await finishSignIn(phonePage, link);
+  // signed in, and the smuggled off-site "next" was neutralised
+  await expect(phonePage).toHaveURL(/\/create-organization$/);
+  await phone.close();
 });
 
 test("seeded demo: dev sign-in shortcut, reminders and private layouts", async ({ page }) => {

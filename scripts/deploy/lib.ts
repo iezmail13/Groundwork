@@ -56,12 +56,21 @@ export type SmtpSettings = {
   senderName?: string;
 };
 
+export type EmailTemplate = { subject: string; html: string };
+export type EmailTemplates = { magicLink?: EmailTemplate; confirmation?: EmailTemplate };
+
 /**
  * Body for PATCH /v1/projects/{ref}/config/auth. Sets the site URL and the
- * redirect allow-list to this app only, and custom SMTP when it's configured
- * (Supabase's built-in mailer only delivers to the project's own team).
+ * redirect allow-list to this app only, Groundwork's sign-in email templates
+ * (links to /auth/confirm, see supabase/templates), and custom SMTP when it's
+ * configured (Supabase's built-in mailer only delivers to the project's team).
  */
-export function buildAuthConfig(appUrl: string, smtp: SmtpSettings = {}, extraRedirects: string[] = []) {
+export function buildAuthConfig(
+  appUrl: string,
+  smtp: SmtpSettings = {},
+  extraRedirects: string[] = [],
+  templates: EmailTemplates = {},
+) {
   const origin = normalizeAppUrl(appUrl);
   const allow = [`${origin}/**`, ...extraRedirects.map((u) => u.trim()).filter(Boolean)];
   const body: Record<string, string | number | boolean> = {
@@ -70,6 +79,18 @@ export function buildAuthConfig(appUrl: string, smtp: SmtpSettings = {}, extraRe
     external_email_enabled: true,
     mailer_otp_exp: 3600,
   };
+
+  for (const [key, template] of [
+    ["magic_link", templates.magicLink],
+    ["confirmation", templates.confirmation],
+  ] as const) {
+    if (!template) continue;
+    if (!template.html.includes("{{ .TokenHash }}")) {
+      throw new Error(`The ${key} email template must link with {{ .TokenHash }}.`);
+    }
+    body[`mailer_subjects_${key}`] = template.subject;
+    body[`mailer_templates_${key}_content`] = template.html;
+  }
 
   const anySmtp = Object.values(smtp).some((v) => v && v.trim() !== "");
   if (anySmtp) {

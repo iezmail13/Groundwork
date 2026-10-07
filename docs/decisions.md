@@ -87,3 +87,23 @@ Each entry records a decision the brief left open, why it was made, and what it 
 **D37. Auth is configured by the pipeline.** `scripts/deploy/configure-auth.ts` uses the Supabase Management API to set the site URL and to allow redirects only to `<production URL>/**`. This deliberately leaves out a `*.vercel.app` wildcard, which would let any Vercel app receive sign-in redirects. It also sets custom SMTP when `SMTP_*` settings exist. Preview deployments therefore can't complete a magic-link sign-in unless their URLs are added through `EXTRA_REDIRECT_URLS`.
 
 **D38. The Vercel CLI isn't a dependency.** The workflow runs it pinned to major version 62 (`npx --yes vercel@62`), so nothing is added to `package.json` for a tool only CI uses. `vercel.json` pins the framework to Next.js, so a project created by the CLI builds correctly on its first deploy.
+
+## Production-readiness fixes
+
+A multi-agent review looked for things that would break on Vercel and hosted Supabase but not locally, and adversarially verified each finding. These decisions came out of it.
+
+**D39. Sign-in links use a token hash and a confirm button.** The default Supabase email links to `/auth/v1/verify`, which uses up the one-time token on the first GET. Corporate mail scanners such as Defender Safe Links and Mimecast make that GET before the person clicks, so sign-in would fail for whole organizations. The PKCE code also needs the verifier cookie from the browser that asked for the link, so opening it on a phone or in a mail app's built-in browser failed every time. Groundwork's templates (`supabase/templates/`) now link to `/auth/confirm?next=…&token_hash=…`. That page only renders a **Continue to Groundwork** button, and a POST server action calls `verifyOtp`. The `?code=` path in `/auth/callback` remains for links already sent with the default template. Its GET `token_hash` branch is gone, because it allowed login CSRF with a link alone.
+
+**D40. Redirect targets are parsed, not prefix-matched.** `safeNext` rejects control characters and backslashes and requires the value to resolve to the same origin. Browsers strip tabs and newlines from URLs, so `/%09/evil.com` used to pass the old prefix check and then resolve to `//evil.com`.
+
+**D41. Production serves one canonical host.** When `NEXT_PUBLIC_SITE_URL` is set in a production build, the proxy 308-redirects every other host to it, for example the `*.vercel.app` alias next to a custom domain. Sign-in redirects are allow-listed for that host only, and cookies are per host. The deploy pipeline resolves the production URL before building, so the value is always set. Local hosts are exempt.
+
+**D42. Account deletion works.** `forbid_column_changes` now allows a change to NULL made by a foreign-key cascade (`pg_trigger_depth() > 1`). Before this, deleting any auth user who had created something failed. A client update setting `created_by` or `uploaded_by` to NULL is still refused. The person's projects, tasks, events, documents and invitations stay, unattributed. The cascade isn't logged as edits. Deleting the last admin of an organization is still refused.
+
+**D43. Slugs are truncated before trimming.** Long org names whose 40th slug character was a separator used to fail `create_organization`.
+
+**D44. Upload metadata is checked before the file is sent.** The browser validates name, tags and project with the same zod schema as the server. If the server still rejects them, it deletes the just-uploaded object, so retries never pile up orphaned files.
+
+**D45. Not done: CAPTCHA on sign-in.** Anyone can request sign-in emails, so a bot could use up the project's hourly email quota and lock real users out until it stops. The fix is Supabase's built-in CAPTCHA support with Cloudflare Turnstile. That needs a Cloudflare account and a third-party script, so it's left for the owner to decide.
+
+**D46. Forms keep what was typed when the server says no.** React 19 resets uncontrolled fields whenever a form `action` resolves, including when it returns a validation error. A rejected project lost its name and description, and a rejected upload lost the chosen file. Forms with user input now submit through `keepValues()` (`lib/forms.ts`), which calls `onSubmit` and then dispatches in a transition. Their buttons take `useActionState`'s pending flag. Confirmation-only forms with no inputs keep the plain `action` prop.

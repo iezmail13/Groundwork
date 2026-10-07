@@ -10,6 +10,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
+import { keepValues } from "@/lib/forms";
 
 export type ProjectFormValues = {
   id?: string;
@@ -33,7 +34,7 @@ export function ProjectForm({
   onDone: () => void;
 }) {
   const t = useT();
-  const [state, action] = useActionState(project?.id ? updateProject : createProject, idle);
+  const [state, action, pending] = useActionState(project?.id ? updateProject : createProject, idle);
   const errors = state.fieldErrors ?? {};
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export function ProjectForm({
   }, [state, onDone]);
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       {project?.id ? <input type="hidden" name="id" value={project.id} /> : null}
       <Field label="Name" htmlFor="project-name" error={errors.name}>
@@ -109,7 +110,7 @@ export function ProjectForm({
         <Button variant="secondary" onClick={onDone}>
           Cancel
         </Button>
-        <SubmitButton pendingLabel="Saving…">
+        <SubmitButton pending={pending} pendingLabel="Saving…">
           {project?.id ? "Save changes" : `Create ${lower(t("project"))}`}
         </SubmitButton>
       </div>

@@ -10,6 +10,7 @@ import { inputClass } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import type { ProjectOption } from "@/lib/queries";
+import { keepValues } from "@/lib/forms";
 
 /**
  * Inline quick-add: type a title and press Enter. When no project is fixed,
@@ -31,7 +32,7 @@ export function QuickAddTask({
   idSuffix?: string;
 }) {
   const t = useT();
-  const [state, action] = useActionState(createTask, idle);
+  const [state, action, pending] = useActionState(createTask, idle);
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const taskLabel = lower(t("task"));
@@ -47,7 +48,7 @@ export function QuickAddTask({
   const titleId = `quick-add-title-${idSuffix}`;
 
   return (
-    <form ref={formRef} action={action} className="flex flex-col gap-1.5" aria-label={`Add a ${taskLabel}`}>
+    <form ref={formRef} onSubmit={keepValues(action)} className="flex flex-col gap-1.5" aria-label={`Add a ${taskLabel}`}>
       <input type="hidden" name="organizationId" value={organizationId} />
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
       {status ? <input type="hidden" name="status" value={status} /> : null}
@@ -94,7 +95,7 @@ export function QuickAddTask({
             <input id={`quick-add-due-${idSuffix}`} name="dueDate" type="date" className={`${inputClass} w-auto flex-1`} />
           </>
         ) : null}
-        <SubmitButton variant={compact ? "secondary" : "primary"} disabled={noProjects} aria-label={`Add ${taskLabel}`}>
+        <SubmitButton pending={pending} variant={compact ? "secondary" : "primary"} disabled={noProjects} aria-label={`Add ${taskLabel}`}>
           <Plus aria-hidden className="size-4" />
           {compact ? null : "Add"}
         </SubmitButton>

@@ -12,6 +12,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { DialogButton } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { ProjectOption, TaskRow } from "@/lib/queries";
+import { keepValues } from "@/lib/forms";
 
 export function TaskEditForm({
   task,
@@ -25,11 +26,11 @@ export function TaskEditForm({
   orgSlug: string;
 }) {
   const t = useT();
-  const [state, action] = useActionState(updateTask, idle);
+  const [state, action, pending] = useActionState(updateTask, idle);
   const e = state.fieldErrors ?? {};
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={task.id} />
       <Field label="Title" htmlFor="task-title" error={e.title}>
         <Input id="task-title" name="title" required maxLength={200} defaultValue={task.title} invalid={Boolean(e.title)} />
@@ -70,7 +71,7 @@ export function TaskEditForm({
       </div>
       <FormMessage state={state} />
       <div className="border-t border-rule pt-4">
-        <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>
+        <SubmitButton pending={pending} pendingLabel="Saving…">Save changes</SubmitButton>
       </div>
     </form>
     <div className="flex justify-end">

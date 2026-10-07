@@ -2,7 +2,7 @@
 #   1. applies supabase/migrations to the hosted Supabase project
 #   2. builds and deploys the app to Vercel (production)
 #   3. points Supabase Auth at the deployed URL (site URL, redirect allow-list,
-#      and custom SMTP when configured)
+#      sign-in email templates, and custom SMTP when configured)
 #   4. smoke-tests the live site
 #
 # One-time setup (repo Settings → Secrets and variables → Actions):
@@ -106,7 +106,6 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=https://$SUPABASE_PROJECT_REF.supabase.co"
             echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key"
           } >> "$GITHUB_ENV"
-          if [ -n "$APP_URL" ]; then echo "NEXT_PUBLIC_SITE_URL=$APP_URL" >> "$GITHUB_ENV"; fi
 
       - name: Link the Vercel project
         if: steps.cfg.outputs.ready == 'true'
@@ -117,6 +116,17 @@ jobs:
           npx --yes vercel@62 project create "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}" || true
           npx --yes vercel@62 link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}"
           npx --yes vercel@62 pull --yes --environment=production --token "$VERCEL_TOKEN" "${scope[@]}"
+
+      - name: Resolve the production URL
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          # baked into the build as the one canonical host (see proxy.ts); a brand-new
+          # project may not have its domain yet, in which case it's resolved after deploy
+          if [ -n "$APP_URL" ]; then url="$APP_URL"; else url=$(npx tsx scripts/deploy/vercel-url.ts || true); fi
+          if [ -n "$url" ]; then
+            echo "Production URL: $url"
+            { echo "PRODUCTION_URL=$url"; echo "NEXT_PUBLIC_SITE_URL=$url"; } >> "$GITHUB_ENV"
+          fi
 
       - name: Build
         if: steps.cfg.outputs.ready == 'true'
@@ -129,10 +139,10 @@ jobs:
           echo "Deployment: $url"
           echo "DEPLOYMENT_URL=$url" >> "$GITHUB_ENV"
 
-      - name: Resolve the production URL
-        if: steps.cfg.outputs.ready == 'true'
+      - name: Resolve the production URL (first deploy)
+        if: steps.cfg.outputs.ready == 'true' && env.PRODUCTION_URL == ''
         run: |
-          if [ -n "$APP_URL" ]; then url="$APP_URL"; else url=$(npx tsx scripts/deploy/vercel-url.ts); fi
+          url=$(npx tsx scripts/deploy/vercel-url.ts)
           echo "Production URL: $url"
           echo "PRODUCTION_URL=$url" >> "$GITHUB_ENV"
 
@@ -150,8 +160,8 @@ jobs:
           {
             echo "## Deployed"
             echo
-            echo "- App: $PRODUCTION_URL"
-            echo "- This deployment: $DEPLOYMENT_URL"
+            echo "- App (sign in here): $PRODUCTION_URL"
+            echo "- Deployment: $DEPLOYMENT_URL"
             echo "- Supabase project: \`$SUPABASE_PROJECT_REF\`"
             if [ -z "$SMTP_HOST" ]; then
               echo

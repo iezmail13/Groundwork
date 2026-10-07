@@ -46,10 +46,22 @@ export async function requestUpload(input: {
   return { ok: true, path: data.path, token: data.token };
 }
 
+/** Removes a just-uploaded object that won't be recorded (storage RLS: owner or admin only). */
+async function discardUpload(organizationId: string | undefined, storagePath: string | undefined) {
+  const org = id.safeParse(organizationId);
+  if (!org.success || !storagePath?.startsWith(`${org.data}/`) || storagePath.includes("..")) return;
+  const supabase = await createClient();
+  await supabase.storage.from(BUCKET).remove([storagePath]);
+}
+
 /** Step 2: record the uploaded object, using the size and type storage saw. */
 export async function finishUpload(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = documentInput.safeParse(formObject(formData));
-  if (!parsed.success) return invalid(parsed.error);
+  const raw = formObject(formData);
+  const parsed = documentInput.safeParse(raw);
+  if (!parsed.success) {
+    await discardUpload(raw.organizationId, raw.storagePath);
+    return invalid(parsed.error);
+  }
   const d = parsed.data;
   if (!d.storagePath.startsWith(`${d.organizationId}/`) || d.storagePath.includes("..")) {
     return failure("That upload doesn't belong to this organization.");
