@@ -35,3 +35,45 @@ Each entry records a decision the brief left open, why it was made, and what it 
 **D14. All-day events.** These are stored as UTC midnight to UTC midnight of the next day and shown by their UTC date, so an all-day event never shifts to a neighbouring day for viewers in other time zones.
 
 **D15. Starter content.** `presets.starter_content` holds one "Getting started" project with three dated tasks. `create_organization` inserts it, so a new organization opens on a dashboard with something in it rather than eight empty widgets.
+
+## App behaviour
+
+**D16. Time zones.** The browser reports its IANA time zone in a `tz` cookie, set by `ClientCookies` in the org shell, which refreshes once if the zone changes. Server components render "today", due states and event times in that zone, defaulting to UTC before the cookie exists. The event form also posts the browser's zone, and the server converts wall-clock input to UTC with `zonedTimeToUtc`, which has unit tests including DST. Due dates are plain calendar dates with no time zone.
+
+**D17. Calendar weeks start on Monday.** This is the ISO convention and suits the Canadian/UK spelling in the brief. It's one constant (`monthGrid`, `WEEKDAYS` in `lib/dates.ts`) if Sunday is wanted.
+
+**D18. Fixed formatting locale.** Dates and times are formatted with `en-US` rather than the server's default locale, so server and browser render identical strings and hydration never mismatches.
+
+**D19. The theme is the navy family only. Please review.** The brief lets admins change "only the navy base colour". Beyond the 4.5:1 contrast gate, the base must also be a navy: HSL hue 195–250°, saturation at most 70%, lightness at most 50%. Without this, an admin could pick red or green and break the two-scale rule. If you'd rather allow any hue that passes contrast, delete `isNavyFamily` from `validateTheme`.
+
+**D20. Theme derivation.** In light mode, the rail is the brief's exact `#555E74` for the default navy. For a custom navy, it's that navy at 76% over bone-50, a solid colour. Rail hover darkens toward navy rather than lightening, because lightening fails contrast for mid navies. In dark mode, the same scales invert: the work area is navy at 50% over black, panels are navy at 72%, the rail is the navy itself, and text is bone. Nine text/background pairs are checked (`checkContrast`). A stored theme that somehow fails is never rendered; the default is used instead.
+
+**D21. Theme and mode are per organization.** The brief puts the light/dark switch in the admin's theme settings, so it applies to everyone in the org. There's no personal override.
+
+**D22. Projects tabs.** **All** lists every project with a status badge, active first. **Archived** lists only archived projects. Archived projects drop out of pickers (quick-add, filters) and out of "Recent".
+
+**D23. Uploads go straight to storage.** Vercel functions cap request bodies at 4.5 MB, so files never pass through a server action. Instead, `requestUpload` validates the name, size and type with zod and returns a signed upload URL for a **server-chosen** path. The browser uploads to that URL, then `finishUpload` re-reads the real size and content type from storage, checks them against the same limits, and inserts the row. The bucket enforces the limits a third time. Deleting a document deletes the row (RLS decides who may), then the file. If the file removal fails, it's logged rather than shown to the user.
+
+**D24. Preset words beyond the brief.** The brief fixes Program/Task/Session, Project/Task/Meeting and Subject/Task/Lesson. I also gave Nonprofit "Team member" and Tutoring "Tutor" and "Material", to show that every primitive relabels. They live in the presets migration. Status names, role names and section names are terminology keys too, editable in Settings → Terminology.
+
+**D25. The dashboard layout saves on every change.** Each reorder, resize, hide or show saves immediately, through a serialized queue so the last change wins. Waiting for "Done" would lose work on an accidental reload. Stored layouts are normalized on load: unknown widgets are dropped, duplicates collapsed, and widgets added since the save are appended. Sizes map to columns of a 12-column grid: S = 4, M = 6, L = 12 on wide screens; S and M = 6 on tablets; everything full width on phones.
+
+**D26. Reminders.** The brief allows in-app reminders only. Every page shows due-state badges ("Overdue" filled with an icon; due within 2 days outlined with a clock). The dashboard also has a Reminders strip that counts *your own* overdue and due-soon tasks, linking to the filtered list. The "Overdue" and "Due in 7 days" widgets are organization-wide.
+
+**D27. Keyboard paths on the board.** There are two. First, dnd-kit's keyboard sensor: Space to lift, arrow keys, Space to drop. A custom coordinate getter makes Left/Right jump a whole column, because the default getter mis-targets cards in the same column. Second, explicit "Move to {status}" arrow buttons on every card. The dashboard uses dnd-kit's sortable keyboard coordinates as is. Both `DndContext`s get a stable `id` so server and client render the same `aria-describedby`.
+
+**D28. Activity sentences** are built from the activity log plus `t()`, e.g. "Priya completed a task", so they relabel with the preset like everything else.
+
+**D29. check:labels uses the TypeScript AST.** It inspects JSX text, copy attributes (aria-label, placeholder, title, alt, label) and sentence-like string literals for primitive words, including every preset's words. It ignores class lists, routes, query and select strings, and `t()` keys. Status phrases ("To do", "In progress") are matched only in label form. It flagged several "session"/"member" collisions in non-label copy ("Your session has ended"), and those were reworded rather than allow-listed. The checker has its own unit tests.
+
+**D30. Members may leave.** The delete policy on memberships lets a member remove their own row. The last-admin guard still applies, so the only admin can't leave.
+
+## Seed and tests
+
+**D31. The seed is idempotent by rebuild.** `npm run seed` reuses the four demo users (creating them on first run) and then deletes and recreates only the "Northside Youth Collective" org and its storage objects, so dates stay relative to today. Running it twice leaves one org, 25 tasks and 6 files. It writes with the service-role key; the activity triggers attribute rows to `created_by`, so the activity feed shows real names. The six documents are generated in code as real files: Markdown, CSV, plain text, a hand-built PDF and a PNG.
+
+**D32. Dev sign-in shortcut.** A server action calls `auth.admin.generateLink` with the service-role key, then `verifyOtp` with the hashed token on the cookie-bound client, so the session cookie is set exactly as a real magic link would set it. It only accepts the four seeded emails. It refuses when `NODE_ENV` is production or when no service key is configured, and the buttons aren't rendered in either case. I checked this against `next start`.
+
+**D33. Test hooks.** The org shell sets `html[data-hydrated]` after mount, and the e2e tests wait for it after full page loads so keyboard input never races hydration. Playwright 1.63 expects a newer Chromium build than the one preinstalled here, so `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides the browser binary when set.
+
+**D34. pgTAP fixtures.** All test files share `supabase/tests/fixtures.inc` through psql's `\ir`. It isn't a `.sql` file, so it doesn't run as a test itself. It defines two organizations, five users, and a `tests.affected(sql)` helper that runs a statement as the current role and returns the row count, because data-modifying CTEs can't be nested inside `select is(...)`.
