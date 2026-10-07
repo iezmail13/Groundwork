@@ -1,6 +1,6 @@
 # Groundwork
 
-Groundwork is a workplace management platform for program-based organizations: nonprofits, youth programs, tutoring centres and small teams. It is generic enough for any business. One dashboard brings together projects, their tasks, documents, and a calendar with reminders. Terminology is configurable, so the same app can read as a nonprofit tool ("Programs", "Sessions") or a business tool ("Projects", "Meetings").
+Groundwork is a workplace management tool for program-based organizations: nonprofits, youth programs, tutoring centres and small teams. It is generic enough for any business. One dashboard brings together projects, their tasks, documents, and a calendar with reminders. Terminology is configurable, so the same app can read as a nonprofit tool ("Programs", "Sessions") or a business tool ("Projects", "Meetings").
 
 Built with Next.js 16 (App Router, TypeScript strict), Tailwind CSS 4 and Supabase (Postgres, magic-link auth, storage, row-level security).
 
