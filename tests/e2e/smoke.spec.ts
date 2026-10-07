@@ -97,6 +97,14 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await page.reload();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  // open the task and edit it on its own page
+  await done.getByRole("link", { name: "Draft the launch checklist" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
+  await page.getByLabel("Title").fill("Finalize the launch checklist");
+  await page.getByLabel("Status").selectOption("in_progress");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Finalize the launch checklist" })).toBeVisible();
 
   // 5. Add an event from the calendar.
   await visit(page, `${base}/calendar`);
@@ -108,9 +116,17 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await eventDialog.getByLabel("Location").fill("Boardroom");
   await eventDialog.getByRole("button", { name: "Add meeting" }).click();
   await expect(eventDialog).toBeHidden();
-  await expect(page.getByRole("button", { name: /Launch kickoff/ })).toBeVisible();
+  // open it again from the grid and edit it
+  await page.getByRole("button", { name: /Launch kickoff/ }).click();
+  const editDialog = page.getByRole("dialog", { name: "Edit meeting" });
+  await expect(editDialog.getByLabel("Title")).toHaveValue("Launch kickoff");
+  await expect(editDialog.getByLabel("Starts")).toHaveValue("10:00");
+  await editDialog.getByLabel("Location").fill("Room 2");
+  await editDialog.getByRole("button", { name: "Save changes" }).click();
+  await expect(editDialog).toBeHidden();
   await visit(page, `${base}/calendar?view=agenda`);
   await expect(page.getByText("Launch kickoff")).toBeVisible();
+  await expect(page.getByText("Room 2")).toBeVisible();
 
   // 6. Upload a document, then find it by tag and by name.
   await visit(page, `${base}/documents`);
@@ -152,6 +168,17 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Materials" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tutors" })).toBeVisible();
+  // an organization override beats the preset
+  await visit(page, `${base}/settings?view=terminology`);
+  await page.getByLabel("Subject, singular").fill("Course");
+  await page.getByLabel("Subject, plural").fill("Courses");
+  await page.getByRole("button", { name: "Save labels" }).click();
+  await expect(page.getByText("Labels saved.")).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Courses" })).toBeVisible();
+  await page.getByLabel("Subject, singular").fill("");
+  await page.getByLabel("Subject, plural").fill("");
+  await page.getByRole("button", { name: "Save labels" }).click();
+  await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
 
   // 8. Reorder a dashboard widget with the keyboard, reload, and confirm it persisted.
   await visit(page, `${base}/dashboard`);
@@ -183,6 +210,55 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   expect(pageErrors).toEqual([]);
 });
 
+test("invitations: invite, accept by magic link, change role, remove, last-admin guard", async ({ page, browser, request }) => {
+  const invitee = `invitee-${Date.now()}@example.org`;
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Jordan Ellis" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/settings?view=members");
+
+  // existing members can't be invited again
+  await page.getByLabel("Email", { exact: true }).fill("priya@northside.example.org");
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  await expect(page.getByText("That person is already in this organization.")).toBeVisible();
+
+  await page.getByLabel("Email", { exact: true }).fill(invitee);
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  const link = await page.getByLabel("Invite link", { exact: true }).inputValue();
+  expect(link).toMatch(/\/invite\/[0-9a-f]{64}$/);
+
+  // the invitee opens the link in their own browser, signs in, and accepts
+  const other = await browser.newContext();
+  const guest = await other.newPage();
+  await guest.goto(link);
+  await expect(guest.getByRole("heading", { name: "Join Northside Youth Collective" })).toBeVisible();
+  await expect(guest.getByLabel("Work email")).toHaveValue(invitee);
+  await guest.getByRole("button", { name: /sign-in link/i }).click();
+  await expect(guest.getByText(`Check ${invitee} for a sign-in link`)).toBeVisible();
+  await guest.goto(await magicLinkFor(request, invitee));
+  await expect(guest).toHaveURL(/\/invite\//);
+  await guest.getByRole("button", { name: "Join Northside Youth Collective" }).click();
+  await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
+  await other.close();
+
+  // the admin promotes, then removes the new member
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  const row = page.getByRole("row").filter({ hasText: invitee });
+  await expect(row).toBeVisible();
+  await row.getByRole("combobox").selectOption("admin");
+  await row.getByRole("button", { name: "Update" }).click();
+  await page.reload();
+  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("admin");
+  await page.getByRole("button", { name: `Remove ${invitee}` }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("row").filter({ hasText: invitee })).toHaveCount(0);
+
+  // the only admin can't leave
+  await page.getByRole("button", { name: "Leave the organization" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Leave" }).click();
+  await expect(page.getByRole("dialog").getByText("An organization must keep at least one admin")).toBeVisible();
+});
+
 test("seeded demo: dev sign-in shortcut, reminders and private layouts", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
@@ -195,6 +271,11 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   const nav = page.getByRole("navigation", { name: "Main" }).first();
   await expect(nav.getByRole("link", { name: "Programs" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recent programs" })).toBeVisible();
+  // tasks appear on the calendar by due date, and clicking one opens it
+  await visit(page, "/northside-youth-collective/calendar");
+  await expect(page.locator('td[aria-current="date"]')).toHaveCount(1);
+  await page.getByRole("link", { name: /Post the drive on community boards/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Post the drive on community boards" })).toBeVisible();
 });
 
 test("reduced motion disables animation", async ({ browser }) => {
