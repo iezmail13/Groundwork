@@ -177,12 +177,19 @@ export async function removeMember(_prev: ActionState, formData: FormData): Prom
   const parsed = z.object({ membershipId: id }).safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
-  const { data, error } = await supabase.from("memberships").delete().eq("id", parsed.data.membershipId).select("id");
+  const { data: auth } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("memberships")
+    .delete()
+    .eq("id", parsed.data.membershipId)
+    .select("id, user_id");
   if (error?.hint === "last_admin" || error?.message?.includes("at least one admin")) {
     return failure("An organization must keep at least one admin. Promote someone else first.");
   }
   if (error) return dbFailure(error);
   if (!data?.length) return failure(NOT_ADMIN);
   revalidateOrg();
+  // leaving yourself: this organization is no longer yours to view
+  if (data[0]!.user_id === auth.user?.id) redirect("/");
   return success("Removed.");
 }

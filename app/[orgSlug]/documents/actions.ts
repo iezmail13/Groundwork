@@ -79,7 +79,8 @@ export async function finishUpload(_prev: ActionState, formData: FormData): Prom
     uploaded_by: auth.user.id,
   });
   if (error) {
-    await supabase.storage.from(BUCKET).remove([d.storagePath]);
+    // never clean up a path that already belongs to another document
+    if (error.code !== "23505") await supabase.storage.from(BUCKET).remove([d.storagePath]);
     return dbFailure(error);
   }
   revalidateOrg();
