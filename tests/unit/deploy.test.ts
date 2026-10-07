@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildAuthConfig, checkLoginPage, normalizeAppUrl, pickProductionDomain, pickPublishableKey } from "@/scripts/deploy/lib";
+import {
+  buildAuthConfig,
+  checkLoginPage,
+  isAttachedDomain,
+  normalizeAppUrl,
+  pickProductionDomain,
+  pickPublishableKey,
+  productionRedirects,
+} from "@/scripts/deploy/lib";
 
 describe("pickPublishableKey", () => {
   it("prefers the new publishable key", () => {
@@ -33,26 +41,39 @@ describe("normalizeAppUrl", () => {
   });
 });
 
-describe("pickProductionDomain", () => {
-  it("prefers a verified custom domain", () => {
+describe("Vercel domains", () => {
+  const domains = [
+    { name: "app.northside.org", verified: true },
+    { name: "www.northside.org", verified: true, redirect: "app.northside.org" },
+    { name: "groundwork-team.vercel.app", verified: true },
+    { name: "groundwork-git-dev-team.vercel.app", verified: true, gitBranch: "dev" },
+    { name: "dev.northside.org", verified: true, gitBranch: "dev" },
+    { name: "staging.northside.org", verified: true, customEnvironmentId: "env_1" },
+  ];
+
+  it("reports the vercel.app domain, which works before custom DNS does", () => {
+    expect(pickProductionDomain(domains)).toBe("groundwork-team.vercel.app");
+  });
+
+  it("falls back to a custom domain, never a branch or redirect domain", () => {
     expect(
       pickProductionDomain([
-        { name: "groundwork-team.vercel.app", verified: true },
-        { name: "app.northside.org", verified: true },
-        { name: "www.northside.org", verified: true, redirect: "app.northside.org" },
+        { name: "a.example", verified: true, gitBranch: "dev" },
+        { name: "b.example", verified: true, redirect: "c.example" },
+        { name: "longer.example.org", verified: true },
       ]),
-    ).toBe("app.northside.org");
-  });
-  it("otherwise takes the shortest vercel.app domain", () => {
-    expect(
-      pickProductionDomain([
-        { name: "groundwork-git-main-team.vercel.app", verified: true },
-        { name: "groundwork-team.vercel.app", verified: true },
-      ]),
-    ).toBe("groundwork-team.vercel.app");
-  });
-  it("returns null when there's nothing usable", () => {
+    ).toBe("longer.example.org");
     expect(pickProductionDomain([{ name: "x.example", verified: false }])).toBeNull();
+  });
+
+  it("allow-lists every production domain for sign-in redirects", () => {
+    expect(productionRedirects(domains)).toEqual(["https://app.northside.org/**", "https://groundwork-team.vercel.app/**"]);
+  });
+
+  it("checks that APP_URL is attached to the project", () => {
+    expect(isAttachedDomain(domains, "https://app.northside.org")).toBe(true);
+    expect(isAttachedDomain(domains, "www.northside.org")).toBe(true);
+    expect(isAttachedDomain(domains, "https://typo.northside.org")).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, Copy, Moon, Sun, UserPlus } from "lucide-react";
 import {
   inviteMember,
@@ -96,7 +96,7 @@ export function TerminologyForm({
   const e = state.fieldErrors ?? {};
 
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-6" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-6" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <p className="max-w-2xl text-ink-muted">
         Leave a field blank to use the preset&apos;s word, shown as the placeholder. Changes apply across the whole app as
@@ -352,7 +352,7 @@ export function OrganizationForm({
   const [state, action, pending] = useActionState(updateOrganization, idle);
   const e = state.fieldErrors ?? {};
   return (
-    <form onSubmit={keepValues(action)} className="flex max-w-xl flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex max-w-xl flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="currentSlug" value={slug} />
       <fieldset disabled={disabled} className="flex flex-col gap-4">
@@ -393,11 +393,16 @@ export function InviteForm({ organizationId }: { organizationId: string }) {
   const t = useT();
   const [state, action, pending] = useActionState(inviteMember, idle);
   const [copied, setCopied] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // start fresh after each invite, so the next one doesn't inherit the email or an Admin role
+  useEffect(() => {
+    if (state.status === "success") formRef.current?.reset();
+  }, [state]);
   const link = state.status === "success" ? state.data?.link : undefined;
   const e = state.fieldErrors ?? {};
   return (
     <div className="flex flex-col gap-3">
-      <form onSubmit={keepValues(action)} className="flex flex-wrap items-end gap-3" noValidate>
+      <form ref={formRef} action={action} onSubmit={keepValues(action)} className="flex flex-wrap items-end gap-3" noValidate>
         <input type="hidden" name="organizationId" value={organizationId} />
         <Field label="Email" htmlFor="invite-email" error={e.email} className="min-w-64 flex-1">
           <Input id="invite-email" name="email" type="email" required placeholder="name@example.org" invalid={Boolean(e.email)} />

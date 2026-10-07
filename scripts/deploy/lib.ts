@@ -32,19 +32,42 @@ export function normalizeAppUrl(raw: string): string {
   return url.origin;
 }
 
-export type VercelDomain = { name: string; redirect?: string | null; verified?: boolean };
+export type VercelDomain = {
+  name: string;
+  redirect?: string | null;
+  verified?: boolean;
+  gitBranch?: string | null;
+  customEnvironmentId?: string | null;
+};
+
+/** Domains that serve production deployments directly (no redirect, no branch or custom environment). */
+function productionDomains(domains: VercelDomain[]): VercelDomain[] {
+  return domains.filter((d) => !d.redirect && d.verified !== false && !d.gitBranch && !d.customEnvironmentId);
+}
 
 /**
- * The production domain for a Vercel project: a verified custom domain if
- * there is one, otherwise the shortest *.vercel.app domain. Redirecting
- * domains are skipped.
+ * The URL to report and smoke-test when APP_URL isn't set: the shortest
+ * *.vercel.app production domain, which works as soon as the project exists.
+ * A custom domain is used only when there is no vercel.app one, since a newly
+ * added custom domain may not have its DNS pointed at Vercel yet.
  */
 export function pickProductionDomain(domains: VercelDomain[]): string | null {
-  const usable = domains.filter((d) => !d.redirect && d.verified !== false);
-  const custom = usable.filter((d) => !d.name.endsWith(".vercel.app"));
-  const pool = custom.length ? custom : usable;
+  const usable = productionDomains(domains);
+  const vercel = usable.filter((d) => d.name.endsWith(".vercel.app"));
+  const pool = vercel.length ? vercel : usable;
   const sorted = [...pool].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
   return sorted[0]?.name ?? null;
+}
+
+/** Sign-in redirect allow-list entries for every production domain of the project. */
+export function productionRedirects(domains: VercelDomain[]): string[] {
+  return productionDomains(domains).map((d) => `https://${d.name}/**`);
+}
+
+/** Whether a URL's host is attached to the Vercel project at all. */
+export function isAttachedDomain(domains: VercelDomain[], url: string): boolean {
+  const host = new URL(normalizeAppUrl(url)).host;
+  return domains.some((d) => d.name === host);
 }
 
 export type SmtpSettings = {

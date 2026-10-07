@@ -87,8 +87,12 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 3. Add a task with the inline quick-add.
   await page.getByLabel("New task title").fill("Draft the launch checklist");
+  await page.getByLabel("Due date").fill("2026-11-02");
   await page.getByRole("button", { name: "Add task" }).click();
   await expect(page.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  // quick-add starts fresh, so the next task doesn't inherit this one's due date
+  await expect(page.getByLabel("New task title")).toHaveValue("");
+  await expect(page.getByLabel("Due date")).toHaveValue("");
 
   // 4. Move the task on the board: keyboard drag (Space, arrow, Space), then the move button.
   await visit(page, `${base}/tasks`);
@@ -243,8 +247,12 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(page.getByText("That person is already in this organization.")).toBeVisible();
 
   await page.getByLabel("Email", { exact: true }).fill(invitee);
+  await page.getByLabel("Role", { exact: true }).selectOption("admin");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   const link = await page.getByLabel("Invite link", { exact: true }).inputValue();
+  // the form starts fresh, so the next invite can't silently inherit the Admin role
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Role", { exact: true })).toHaveValue("member");
   expect(link).toMatch(/\/invite\/[0-9a-f]{64}$/);
 
   // the invitee opens the link in their own browser, signs in, and accepts
@@ -261,14 +269,15 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await other.close();
 
-  // the admin promotes, then removes the new member
+  // they joined as an admin; demote them, then remove them
   await visit(page, "/northside-youth-collective/settings?view=members");
   const row = page.getByRole("row").filter({ hasText: invitee });
   await expect(row).toBeVisible();
-  await row.getByRole("combobox").selectOption("admin");
+  await expect(row.getByRole("combobox")).toHaveValue("admin");
+  await row.getByRole("combobox").selectOption("member");
   await row.getByRole("button", { name: "Update" }).click();
   await page.reload();
-  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("admin");
+  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("member");
   await page.getByRole("button", { name: `Remove ${invitee}` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
   await expect(page.getByRole("row").filter({ hasText: invitee })).toHaveCount(0);
@@ -303,6 +312,19 @@ test("sign-in links work on another device and survive mail scanners", async ({ 
   // signed in, and the smuggled off-site "next" was neutralised
   await expect(phonePage).toHaveURL(/\/create-organization$/);
   await phone.close();
+});
+
+test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  const email = `nojs-${Date.now()}@example.org`;
+  await page.goto("/login");
+  await page.getByLabel("Work email").fill(email);
+  await page.getByRole("button", { name: /sign-in link/i }).click();
+  await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  // the email address wasn't put in the URL by a native GET fallback
+  expect(page.url()).not.toContain(encodeURIComponent(email));
+  await context.close();
 });
 
 test("seeded demo: dev sign-in shortcut, reminders and private layouts", async ({ page }) => {

@@ -1,7 +1,7 @@
 -- Regressions found in the production-readiness review.
 begin;
 \ir fixtures.inc
-select plan(12);
+select plan(15);
 
 -- Long org names whose 40th slug character is a separator --------------------
 select tests.as_user('c0000000-0000-0000-0000-00000000000c');
@@ -19,10 +19,15 @@ select is(
 -- Deleting an account that created things --------------------------------------
 reset role;
 -- Mia (a member of A) creates one of everything; she also invited someone.
-insert into public.projects (id, organization_id, name, created_by) values
-  ('aaaaaaaa-3333-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'Mia project', 'a0000000-0000-0000-0000-00000000000b');
-insert into public.tasks (id, organization_id, project_id, title, created_by) values
-  ('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Mia task', 'a0000000-0000-0000-0000-00000000000b');
+insert into public.projects (id, organization_id, name, created_by, owner_membership_id) values
+  ('aaaaaaaa-3333-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'Mia project', 'a0000000-0000-0000-0000-00000000000b', 'aaaaaaaa-1111-0000-0000-00000000000b');
+insert into public.tasks (id, organization_id, project_id, title, created_by, assignee_membership_id) values
+  ('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Mia task', 'a0000000-0000-0000-0000-00000000000b', 'aaaaaaaa-1111-0000-0000-00000000000b');
+-- Alice's existing task and project are assigned to / owned by Mia too
+update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b' where id = 'aaaaaaaa-4444-0000-0000-000000000000';
+update public.projects set owner_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b' where id = 'aaaaaaaa-3333-0000-0000-000000000000';
+-- only count activity from here on
+delete from public.activity_log where organization_id = 'aaaaaaaa-0000-0000-0000-000000000000';
 insert into public.events (id, organization_id, title, starts_at, ends_at, created_by) values
   ('aaaaaaaa-5555-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'Mia event', now(), now(), 'a0000000-0000-0000-0000-00000000000b');
 insert into public.documents (id, organization_id, name, storage_path, mime_type, size_bytes, uploaded_by) values
@@ -43,6 +48,15 @@ select is((select created_by from public.tasks where id = 'aaaaaaaa-4444-0000-00
 select is((select uploaded_by from public.documents where id = 'aaaaaaaa-6666-0000-0000-0000000000ee'), null, 'their documents stay, unattributed');
 select is((select invited_by from public.invitations where token = 'token-mia'), null, 'their invitations stay, unattributed');
 select is((select count(*)::int from public.activity_log where organization_id = 'aaaaaaaa-0000-0000-0000-000000000000' and action = 'updated'), 0, 'the cascade is not logged as edits');
+select is((select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-000000000000'), null, 'work assigned to them becomes unassigned');
+select is((select owner_membership_id from public.projects where id = 'aaaaaaaa-3333-0000-0000-000000000000'), null, 'projects they owned lose the owner');
+
+-- a real unassignment is still logged
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where id = 'aaaaaaaa-4444-0000-0000-0000000000ee';
+update public.tasks set assignee_membership_id = null where id = 'aaaaaaaa-4444-0000-0000-0000000000ee';
+reset role;
+select is((select count(*)::int from public.activity_log where entity_id = 'aaaaaaaa-4444-0000-0000-0000000000ee' and action = 'updated'), 2, 'assigning and unassigning by hand are still logged');
 
 -- ...but the last admin of an organization still can't be deleted
 select throws_ok($$ delete from auth.users where id = 'a0000000-0000-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one admin', 'deleting the only admin of an organization is refused');

@@ -1,9 +1,11 @@
-// npx tsx scripts/deploy/vercel-url.ts
-// Prints the production URL of the linked Vercel project (.vercel/project.json).
+// npx tsx scripts/deploy/vercel-url.ts            -> the production URL to report and smoke-test
+// npx tsx scripts/deploy/vercel-url.ts --redirects -> comma-separated sign-in allow-list entries
+// npx tsx scripts/deploy/vercel-url.ts --check URL -> exits 1 unless URL's host is attached to the project
+// Reads the linked project from .vercel/project.json; needs VERCEL_TOKEN.
 import { readFileSync } from "node:fs";
-import { pickProductionDomain, type VercelDomain } from "./lib";
+import { isAttachedDomain, pickProductionDomain, productionRedirects, type VercelDomain } from "./lib";
 
-async function main() {
+async function domains(): Promise<VercelDomain[]> {
   const token = process.env.VERCEL_TOKEN;
   if (!token) throw new Error("VERCEL_TOKEN is not set.");
   const { projectId, orgId } = JSON.parse(readFileSync(".vercel/project.json", "utf8")) as {
@@ -15,8 +17,25 @@ async function main() {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(`Vercel API returned ${res.status}: ${await res.text()}`);
-  const { domains } = (await res.json()) as { domains: VercelDomain[] };
-  const domain = pickProductionDomain(domains ?? []);
+  return ((await res.json()) as { domains?: VercelDomain[] }).domains ?? [];
+}
+
+async function main() {
+  const [mode, arg] = process.argv.slice(2);
+  const list = await domains();
+  if (mode === "--redirects") {
+    process.stdout.write(productionRedirects(list).join(","));
+    return;
+  }
+  if (mode === "--check") {
+    if (!arg || !isAttachedDomain(list, arg)) {
+      throw new Error(
+        `APP_URL ${arg ?? "(empty)"} is not a domain of this Vercel project. Add it under Project → Settings → Domains first.`,
+      );
+    }
+    return;
+  }
+  const domain = pickProductionDomain(list);
   if (!domain) throw new Error("The Vercel project has no production domain yet.");
   process.stdout.write(`https://${domain}`);
 }

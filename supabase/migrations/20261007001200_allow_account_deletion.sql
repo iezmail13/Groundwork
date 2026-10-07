@@ -63,10 +63,17 @@ begin
   elsif entity = 'document' and old_rec ->> 'pinned' is distinct from rec ->> 'pinned' then
     verb := case when (rec ->> 'pinned')::boolean then 'pinned' else 'unpinned' end;
   else
-    -- ignore reorder-only updates on the board, and authorship cleared by a
-    -- cascade when an account is deleted (nobody "updated" anything)
-    if (old_rec - 'position' - 'updated_at' - 'created_by' - 'uploaded_by')
-       = (rec - 'position' - 'updated_at' - 'created_by' - 'uploaded_by') then
+    -- Ignore updates nobody made: reordering on the board, and references
+    -- cleared by a cascade when an account or membership is deleted
+    -- (authorship always; assignee/owner only when that membership is gone).
+    if (old_rec - 'position' - 'updated_at' - 'created_by' - 'uploaded_by' - 'assignee_membership_id' - 'owner_membership_id')
+         = (rec - 'position' - 'updated_at' - 'created_by' - 'uploaded_by' - 'assignee_membership_id' - 'owner_membership_id')
+       and (rec -> 'assignee_membership_id' is not distinct from old_rec -> 'assignee_membership_id'
+            or (rec ->> 'assignee_membership_id' is null
+                and not exists (select 1 from public.memberships m where m.id = (old_rec ->> 'assignee_membership_id')::uuid)))
+       and (rec -> 'owner_membership_id' is not distinct from old_rec -> 'owner_membership_id'
+            or (rec ->> 'owner_membership_id' is null
+                and not exists (select 1 from public.memberships m where m.id = (old_rec ->> 'owner_membership_id')::uuid))) then
       return new;
     end if;
     verb := 'updated';

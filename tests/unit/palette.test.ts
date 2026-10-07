@@ -35,6 +35,27 @@ describe("safeNext", () => {
     expect(safeNext(new URLSearchParams("next=%2F%09%2Fevil.com").get("next"))).toBe("/");
   });
 
+  it("rejects paths that only become protocol-relative after dot-segment normalisation", () => {
+    for (const evil of ["/.//evil.com", "/a/..//evil.com", "/%2e//evil.com", "/../..//evil.com", "/%2e///evil.com", "/.//"]) {
+      expect(safeNext(evil), evil).toBe("/");
+    }
+  });
+
+  it("never returns anything that resolves off-origin (fuzz)", () => {
+    const parts = ["/", "//", ".", "..", "%2e", "%2E", "%2f", "\\", "evil.com", "a", "?", "#", "@", ":", "\t", "%09", "\n", " "];
+    let seed = 7;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let i = 0; i < 20000; i++) {
+      let value = "/";
+      const n = 1 + Math.floor(rand() * 6);
+      for (let j = 0; j < n; j++) value += parts[Math.floor(rand() * parts.length)];
+      const out = safeNext(value);
+      const resolved = new URL(out, "https://app.example");
+      expect(resolved.origin, `${JSON.stringify(value)} -> ${JSON.stringify(out)}`).toBe("https://app.example");
+      expect(out.startsWith("//"), JSON.stringify(value)).toBe(false);
+    }
+  });
+
   it("keeps the path, query and hash of a legitimate target", () => {
     expect(safeNext("/invite/abc?x=1#top")).toBe("/invite/abc?x=1#top");
     expect(safeNext("/a/../b")).toBe("/b");

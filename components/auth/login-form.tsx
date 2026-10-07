@@ -13,7 +13,7 @@ export function LoginForm({ next, defaultEmail }: { next?: string; defaultEmail?
   const [state, action, pending] = useActionState(sendMagicLink, idle);
   const sent = state.status === "success";
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Work email" htmlFor="email" error={state.fieldErrors?.email}>
         <Input

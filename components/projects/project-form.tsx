@@ -42,7 +42,7 @@ export function ProjectForm({
   }, [state, onDone]);
 
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       {project?.id ? <input type="hidden" name="id" value={project.id} /> : null}
       <Field label="Name" htmlFor="project-name" error={errors.name}>

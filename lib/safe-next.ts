@@ -17,5 +17,7 @@ export function safeNext(value: string | null | undefined, fallback = "/"): stri
     return fallback;
   }
   if (url.origin !== BASE) return fallback;
-  return url.pathname + url.search + url.hash;
+  // check the normalised result too: "/.//evil" and "/a/..//evil" collapse to "//evil"
+  const out = url.pathname + url.search + url.hash;
+  return out.startsWith("//") ? fallback : out;
 }

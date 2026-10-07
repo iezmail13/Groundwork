@@ -9,6 +9,7 @@ export function SubmitButton({
   children,
   pendingLabel,
   pending: pendingProp,
+  disabled,
   ...props
 }: ComponentProps<typeof Button> & {
   pendingLabel?: string;
@@ -18,7 +19,7 @@ export function SubmitButton({
   const status = useFormStatus();
   const pending = pendingProp ?? status.pending;
   return (
-    <Button type="submit" disabled={pending || props.disabled} aria-disabled={pending} {...props}>
+    <Button type="submit" {...props} disabled={pending || disabled} aria-disabled={pending || disabled}>
       {pending ? <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : null}
       {pending && pendingLabel ? pendingLabel : children}
     </Button>

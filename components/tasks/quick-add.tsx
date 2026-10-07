@@ -39,7 +39,8 @@ export function QuickAddTask({
 
   useEffect(() => {
     if (state.status === "success") {
-      if (titleRef.current) titleRef.current.value = "";
+      // clear title and due date so the next task doesn't inherit them
+      formRef.current?.reset();
       titleRef.current?.focus();
     }
   }, [state]);
@@ -48,7 +49,7 @@ export function QuickAddTask({
   const titleId = `quick-add-title-${idSuffix}`;
 
   return (
-    <form ref={formRef} onSubmit={keepValues(action)} className="flex flex-col gap-1.5" aria-label={`Add a ${taskLabel}`}>
+    <form ref={formRef} action={action} onSubmit={keepValues(action)} className="flex flex-col gap-1.5" aria-label={`Add a ${taskLabel}`}>
       <input type="hidden" name="organizationId" value={organizationId} />
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
       {status ? <input type="hidden" name="status" value={status} /> : null}

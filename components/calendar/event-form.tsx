@@ -56,7 +56,7 @@ export function EventForm({
   }
 
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="timeZone" value={tz} />
       {event.id ? <input type="hidden" name="id" value={event.id} /> : null}

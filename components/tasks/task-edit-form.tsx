@@ -30,7 +30,7 @@ export function TaskEditForm({
   const e = state.fieldErrors ?? {};
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={task.id} />
       <Field label="Title" htmlFor="task-title" error={e.title}>
         <Input id="task-title" name="title" required maxLength={200} defaultValue={task.title} invalid={Boolean(e.title)} />

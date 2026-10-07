@@ -111,7 +111,7 @@ Until the settings below exist, Deploy finishes without deploying and its job su
    | Variable | `SUPABASE_PROJECT_REF`  | the Project ID from step 2                                            |
    | Secret   | `SMTP_PASS`             | SMTP password or API key (step 4)                                     |
    | Variable | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_FROM` | SMTP server, port and user, and the sender address, e.g. `hello@your-domain` |
-   | Variable | `APP_URL` *(optional)*  | your custom domain, e.g. `https://app.your-domain`; add it to the Vercel project first |
+   | Variable | `APP_URL` *(optional)*  | a custom domain already added to the Vercel project (Settings → Domains), e.g. `https://app.your-domain`; sign-in emails then always link there. Without it, links point at whichever production domain the person used |
    | Variable | `VERCEL_SCOPE` *(optional)* | the Vercel team slug, if the project should live in a team         |
    | Variable | `VERCEL_PROJECT_NAME` *(optional)* | defaults to `groundwork`                                   |
 

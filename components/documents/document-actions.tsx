@@ -40,7 +40,7 @@ function EditForm({ doc, projects, onDone }: { doc: Doc; projects: ProjectOption
   }, [state, onDone]);
   const e = state.fieldErrors ?? {};
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={doc.id} />
       <Field label="Name" htmlFor={`doc-name-${doc.id}`} error={e.name}>
         <Input id={`doc-name-${doc.id}`} name="name" required maxLength={255} defaultValue={doc.name} invalid={Boolean(e.name)} />

@@ -13,7 +13,7 @@ export type PresetOption = { key: string; name: string; example: string };
 export function CreateOrgForm({ presets, defaultName }: { presets: PresetOption[]; defaultName?: string }) {
   const [state, action, pending] = useActionState(createOrganization, idle);
   return (
-    <form onSubmit={keepValues(action)} className="flex flex-col gap-5" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-5" noValidate>
       <Field label="Your name" htmlFor="fullName" hint="Shown to your colleagues." error={state.fieldErrors?.fullName}>
         <Input id="fullName" name="fullName" autoComplete="name" defaultValue={defaultName} maxLength={120} />
       </Field>

@@ -9,7 +9,8 @@
 #   secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, VERCEL_TOKEN
 #              SMTP_PASS (optional, for real sign-in email)
 #   variables: SUPABASE_PROJECT_REF
-#              APP_URL, VERCEL_PROJECT_NAME, VERCEL_SCOPE,
+#              APP_URL (a custom domain already added to the Vercel project),
+#              VERCEL_PROJECT_NAME, VERCEL_SCOPE,
 #              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (all optional)
 # Until the required ones exist, the job only writes a summary of what's missing.
 name: Deploy
@@ -117,16 +118,12 @@ jobs:
           npx --yes vercel@62 link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" "${scope[@]}"
           npx --yes vercel@62 pull --yes --environment=production --token "$VERCEL_TOKEN" "${scope[@]}"
 
-      - name: Resolve the production URL
-        if: steps.cfg.outputs.ready == 'true'
+      - name: Use APP_URL for sign-in links
+        if: steps.cfg.outputs.ready == 'true' && env.APP_URL != ''
         run: |
-          # baked into the build as the one canonical host (see proxy.ts); a brand-new
-          # project may not have its domain yet, in which case it's resolved after deploy
-          if [ -n "$APP_URL" ]; then url="$APP_URL"; else url=$(npx tsx scripts/deploy/vercel-url.ts || true); fi
-          if [ -n "$url" ]; then
-            echo "Production URL: $url"
-            { echo "PRODUCTION_URL=$url"; echo "NEXT_PUBLIC_SITE_URL=$url"; } >> "$GITHUB_ENV"
-          fi
+          # sign-in emails link to this host, so it must belong to the project
+          npx tsx scripts/deploy/vercel-url.ts --check "$APP_URL"
+          { echo "PRODUCTION_URL=$APP_URL"; echo "NEXT_PUBLIC_SITE_URL=$APP_URL"; } >> "$GITHUB_ENV"
 
       - name: Build
         if: steps.cfg.outputs.ready == 'true'
@@ -139,12 +136,17 @@ jobs:
           echo "Deployment: $url"
           echo "DEPLOYMENT_URL=$url" >> "$GITHUB_ENV"
 
-      - name: Resolve the production URL (first deploy)
-        if: steps.cfg.outputs.ready == 'true' && env.PRODUCTION_URL == ''
+      - name: Resolve the production URL and sign-in domains
+        if: steps.cfg.outputs.ready == 'true'
         run: |
-          url=$(npx tsx scripts/deploy/vercel-url.ts)
-          echo "Production URL: $url"
-          echo "PRODUCTION_URL=$url" >> "$GITHUB_ENV"
+          if [ -z "$PRODUCTION_URL" ]; then
+            PRODUCTION_URL=$(npx tsx scripts/deploy/vercel-url.ts)
+            echo "PRODUCTION_URL=$PRODUCTION_URL" >> "$GITHUB_ENV"
+          fi
+          echo "Production URL: $PRODUCTION_URL"
+          # every production domain may receive sign-in links (links work on any of them)
+          redirects=$(npx tsx scripts/deploy/vercel-url.ts --redirects)
+          echo "EXTRA_REDIRECT_URLS=$redirects" >> "$GITHUB_ENV"
 
       - name: Point Supabase Auth at the app
         if: steps.cfg.outputs.ready == 'true'
