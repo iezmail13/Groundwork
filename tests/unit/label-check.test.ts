@@ -15,6 +15,17 @@ describe("check:labels", () => {
     expect(check("const title = `New Session`;")).toEqual(["New Session"]);
   });
 
+  it("flags status labels written as labels, but not ordinary phrases", () => {
+    expect(check(`export const A = () => <span>In progress</span>;`)).toEqual(["In progress"]);
+    expect(check(`const m = "You don't have permission to do that.";`)).toEqual([]);
+  });
+
+  it("ignores class lists and select strings, but not copy attributes in expressions", () => {
+    expect(check("export const A = ({x}) => <div className={`pointer-events-none ${x ? \"a\" : \"b\"}`} />;")).toEqual([]);
+    expect(check(`const SELECT = "id, title, project:projects(id, name, color)";`)).toEqual([]);
+    expect(check("export const A = ({n}) => <b aria-label={`Open ${n} tasks`} />;")).toEqual(["tasks"]);
+  });
+
   it("allows labels that come from t()", () => {
     expect(check(`export const A = ({t}) => <h1>{t("project", "other")}</h1>;`)).toEqual([]);
   });

@@ -17,7 +17,7 @@ export async function createOrganization(_prev: ActionState, formData: FormData)
 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return failure("Your session has ended. Sign in again.");
+  if (!auth.user) return failure("You've been signed out. Sign in again.");
 
   if (parsed.data.fullName) {
     await supabase.from("profiles").update({ full_name: parsed.data.fullName }).eq("id", auth.user.id);

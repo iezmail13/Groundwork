@@ -7,7 +7,7 @@ const sourceSans = Source_Sans_3({ subsets: ["latin"], variable: "--font-source-
 
 export const metadata: Metadata = {
   title: { default: "Groundwork", template: "%s · Groundwork" },
-  description: "Projects, tasks, documents and a calendar for program-based teams, in one place.",
+  description: "One central place for your team's work, files and calendar.",
   icons: { icon: [{ url: "/logo.svg", type: "image/svg+xml" }] },
 };
 

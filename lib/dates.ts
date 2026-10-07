@@ -183,3 +183,8 @@ export function monthGrid(month: string): string[][] {
 }
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/** True when an instant is already in the past. */
+export function isPast(instant: string, now: Date = new Date()): boolean {
+  return Date.parse(instant) < now.getTime();
+}

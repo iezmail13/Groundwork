@@ -5,6 +5,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { AcceptInviteForm } from "@/components/auth/accept-invite-form";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { isPast } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Invitation" };
 
@@ -25,7 +26,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
     );
   }
 
-  const expired = new Date(invite.expires_at).getTime() < Date.now();
+  const expired = isPast(invite.expires_at);
   const title = `Join ${invite.organization_name}`;
   const user = auth.user;
 

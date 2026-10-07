@@ -6,12 +6,14 @@ export type ActionState = {
   fieldErrors?: Record<string, string[] | undefined>;
   /** Monotonic stamp so clients can react to repeated identical results. */
   at?: number;
+  /** Extra values for the client, e.g. a freshly created invite link. */
+  data?: Record<string, string>;
 };
 
 export const idle: ActionState = { status: "idle" };
 
-export function success(message?: string): ActionState {
-  return { status: "success", message, at: Date.now() };
+export function success(message?: string, data?: Record<string, string>): ActionState {
+  return { status: "success", message, data, at: Date.now() };
 }
 
 export function failure(message: string, fieldErrors?: ActionState["fieldErrors"]): ActionState {

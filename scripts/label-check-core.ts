@@ -7,8 +7,12 @@ export const PRIMITIVE_WORDS = [
   "project", "projects", "task", "tasks", "event", "events", "document", "documents",
   "member", "members", "program", "programs", "session", "sessions", "meeting", "meetings",
   "subject", "subjects", "lesson", "lessons", "tutor", "tutors", "material", "materials",
-  "team member", "team members", "to do", "in progress",
+  "team member", "team members",
 ];
+
+// Status labels are ordinary phrases in lower case ("to do that"), so they
+// are only flagged when written the way a label would be.
+const STATUS_RE = /\b(To do|In progress)\b/;
 
 const WORD_RE = new RegExp(`\\b(${PRIMITIVE_WORDS.map((w) => w.replace(" ", "\\s+")).join("|")})\\b`, "i");
 const CAPITALISED_RE = new RegExp(
@@ -24,6 +28,9 @@ const CODE_CALLEES = new Set([
   "startsWith", "endsWith", "includes", "split", "join", "test", "fetch", "storage",
 ]);
 
+// JSX attributes whose values are code, not copy.
+const CODE_ATTRIBUTES = new Set(["className", "class", "style", "id", "href", "src", "name", "type", "role", "htmlFor", "key", "value", "action", "method"]);
+
 // JSX attributes whose values are read by people or assistive tech.
 const COPY_ATTRIBUTES = new Set(["aria-label", "aria-description", "placeholder", "title", "alt", "label", "aria-valuetext"]);
 
@@ -31,7 +38,31 @@ export type Violation = { file: string; line: number; text: string };
 
 function isCodeLike(text: string): boolean {
   // identifiers, keys, paths and the like: no spaces, nothing capitalised
-  return /^[a-z0-9_.:/\-[\]?=&#*,()]*$/.test(text);
+  if (/^[a-z0-9_.:/\-[\]?=&#*,()!]*$/.test(text)) return true;
+  // PostgREST select lists: "id, title, project:projects(id, name)"
+  return /^[a-z0-9_:,()!.*\s]+$/.test(text) && /[,:()]/.test(text);
+}
+
+/** The JSX attribute this expression ultimately feeds, if any. */
+function enclosingJsxAttribute(node: ts.Node): string | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (ts.isJsxAttribute(current)) return current.name.getText();
+    if (
+      ts.isTemplateSpan(current) ||
+      ts.isTemplateExpression(current) ||
+      ts.isParenthesizedExpression(current) ||
+      ts.isConditionalExpression(current) ||
+      ts.isBinaryExpression(current) ||
+      ts.isJsxExpression(current) ||
+      ts.isArrayLiteralExpression(current)
+    ) {
+      current = current.parent;
+      continue;
+    }
+    return undefined;
+  }
+  return undefined;
 }
 
 function calleeName(node: ts.Node): string | undefined {
@@ -59,7 +90,7 @@ export function findViolations(fileName: string, source: string): Violation[] {
   };
 
   const checkString = (node: ts.Node, text: string) => {
-    if (!WORD_RE.test(text)) return;
+    if (!WORD_RE.test(text) && !STATUS_RE.test(text)) return;
     const parent = node.parent;
     if (parent && (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || ts.isExternalModuleReference(parent))) return;
     if (parent && ts.isLiteralTypeNode(parent)) return;
@@ -71,15 +102,21 @@ export function findViolations(fileName: string, source: string): Violation[] {
       else if (CAPITALISED_RE.test(text)) report(node, text);
       return;
     }
+    const attribute = enclosingJsxAttribute(node);
+    if (attribute && CODE_ATTRIBUTES.has(attribute)) return;
+    if (attribute && COPY_ATTRIBUTES.has(attribute)) {
+      report(node, text);
+      return;
+    }
     const callee = calleeName(node);
     if (callee && CODE_CALLEES.has(callee)) return;
     if (isCodeLike(text)) return;
-    if (CAPITALISED_RE.test(text) || /\s/.test(text)) report(node, text);
+    if (STATUS_RE.test(text) || CAPITALISED_RE.test(text) || (WORD_RE.test(text) && /\s/.test(text))) report(node, text);
   };
 
   const visit = (node: ts.Node) => {
     if (ts.isJsxText(node)) {
-      if (WORD_RE.test(node.text)) report(node, node.text);
+      if (WORD_RE.test(node.text) || STATUS_RE.test(node.text)) report(node, node.text);
     } else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       checkString(node, node.text);
     } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {

@@ -16,7 +16,7 @@ export async function createTask(_prev: ActionState, formData: FormData): Promis
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return failure("Your session has ended. Sign in again.");
+  if (!auth.user) return failure("You've been signed out. Sign in again.");
   const d = parsed.data;
 
   const { error } = await supabase.from("tasks").insert({

@@ -37,17 +37,15 @@ export function Menu({
     return () => document.removeEventListener("pointerdown", onPointer);
   }, [open]);
 
-  const close = () => {
-    setOpen(false);
-    buttonRef.current?.focus();
-  };
+  const close = () => setOpen(false);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const list = items();
     const index = list.indexOf(document.activeElement as HTMLElement);
     if (e.key === "Escape") {
       e.preventDefault();
-      close();
+      setOpen(false);
+      buttonRef.current?.focus();
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       list[(index + 1) % list.length]?.focus();

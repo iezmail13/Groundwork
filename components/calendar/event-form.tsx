@@ -42,12 +42,10 @@ export function EventForm({
   const [state, action] = useActionState(saveEvent, idle);
   const [allDay, setAllDay] = useState(event.allDay);
   const [deleting, setDeleting] = useState(false);
-  const [tz, setTz] = useState("UTC");
+  // only ever rendered inside an opened dialog, so this runs in the browser
+  const [tz] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const e = state.fieldErrors ?? {};
 
-  useEffect(() => {
-    setTz(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-  }, []);
   useEffect(() => {
     if (state.status === "success") onDone();
   }, [state, onDone]);

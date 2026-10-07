@@ -33,7 +33,7 @@ export async function saveEvent(_prev: ActionState, formData: FormData): Promise
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return failure("Your session has ended. Sign in again.");
+  if (!auth.user) return failure("You've been signed out. Sign in again.");
   const row = toRow(parsed.data);
 
   if (parsed.data.id) {
