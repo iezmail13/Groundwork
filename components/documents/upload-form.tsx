@@ -108,7 +108,8 @@ function UploadForm({
       final.set("name", String(formData.get("name") || file.name));
       final.set("projectId", String(formData.get("projectId") ?? ""));
       final.set("tags", String(formData.get("tags") ?? ""));
-      finish(final);
+      // updates after an await fall outside the outer transition, so start another
+      startUpload(() => finish(final));
     });
   };
 
