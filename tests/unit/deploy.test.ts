@@ -85,6 +85,25 @@ describe("Vercel domains", () => {
   });
 });
 
+describe("buildAuthSettings: Google", () => {
+  const id = "1234-abc.apps.googleusercontent.com";
+
+  it("leaves Google alone when it isn't configured", () => {
+    expect(buildAuthSettings("https://a.example")).not.toHaveProperty("external_google_enabled");
+  });
+
+  it("turns Google on with both halves of the OAuth client", () => {
+    const body = buildAuthSettings("https://a.example", {}, [], { clientId: ` ${id} `, secret: "s3cret" });
+    expect(body).toMatchObject({ external_google_enabled: true, external_google_client_id: id, external_google_secret: "s3cret" });
+  });
+
+  it("refuses half a configuration or a malformed client id", () => {
+    expect(() => buildAuthSettings("https://a.example", {}, [], { clientId: id })).toThrow(/missing: GOOGLE_CLIENT_SECRET/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], { secret: "s3cret" })).toThrow(/missing: GOOGLE_CLIENT_ID/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], { clientId: "not-a-client", secret: "s" })).toThrow(/apps\.googleusercontent\.com/);
+  });
+});
+
 describe("buildAuthSettings", () => {
   it("allows redirects only back to this app", () => {
     const body = buildAuthSettings("https://groundwork.vercel.app/");
