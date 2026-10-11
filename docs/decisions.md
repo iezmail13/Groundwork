@@ -190,3 +190,8 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 - **No new packages.** The component imports `cn` from `@/lib/utils`, as shadcn components do. This repo isn't a shadcn project (no `components.json`, by the landing brief's own instruction), so `lib/utils.ts` has a dependency-free `cn` that joins class names. It doesn't merge conflicting Tailwind classes, which nothing here needs. The app's primitives already live in `components/ui`, so the component sits there unchanged in path.
 
 The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behind them go faint, and the headline and subhead have a halo in the page colour. The copy, layout, buttons and links are unchanged.
+
+## Invite from a task (owner's request)
+
+**D79. Inviting from a task opens Settings → Members instead of a drawer.** The owner asked for the assign button to lead to the invite section. Under a task's assignee picker, owners and managers who are a project admin or lead there see **Invite someone to assign**, which opens the invite form with the task's project ticked (at the lowest project role, and it can't be unticked) and a note naming the task. Inviting there also assigns the task to the new invitee, who shows as "Name (pending)" until they join, as before; the result offers the invite link to copy and a link back to the task. The task's saved project is the one granted, so the form under the picker asks people to save first. The Add member drawer (D72) is removed. Invitations are still not emailed: the link is copied and sent by hand.
+
