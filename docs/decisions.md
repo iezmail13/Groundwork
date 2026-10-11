@@ -180,3 +180,13 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 **D76. New projects aren't read back on insert.** Postgres checks `INSERT … RETURNING` against the select policy inside the insert, before the new project is visible to the helpers and before its creator joins it, so it was refused. The app chooses the project's id itself, inserts without `RETURNING`, and then redirects to it.
 
 **D77. Project rosters use the org's word for role names.** Project roles get their own label keys (`project_role.lead`, `.admin`, `.staff`), and `check:labels` now rejects "lead" in UI copy as well.
+
+## Landing hero background (owner's decisions)
+
+**D78. The hero has an interactive grid, in navy tints, drawn by JavaScript.** The owner added a third-party "grid pulse" component behind the landing hero (`components/ui/grid-pulse.tsx`): a fine hairline grid whose cells light up where the pointer passes and fade a moment later, with a couple of cells lighting on their own so it is alive on touch screens. It replaces the hero's static ruled grid. Three adaptations, each chosen by the owner:
+
+- **Colours.** The original lights cells in a full spectrum, yellow through green. Here each lit cell is a tint of the navy over the bone ground (12–48% navy, deepening down the field), derived with `mix()` from the two scales, so the palette rule holds. The hairlines are 7% navy, and the component reads `--color-ink` / `--color-canvas` where the original expected shadcn's `--color-foreground` / `--color-background`, which this app doesn't have.
+- **An exception to "animation is CSS only".** It's a canvas animation driven by `requestAnimationFrame`. It's decoration only (hidden from assistive tech, transparent to the pointer), draws nothing under `prefers-reduced-motion` (the hairlines stay), and stops when the hero is off screen or the tab is hidden. While the hero is on screen the ambient cells keep the loop running most frames, at about 4 ms of script per second with no long tasks. Nothing else in the app uses JavaScript animation.
+- **No new packages.** The component imports `cn` from `@/lib/utils`, as shadcn components do. This repo isn't a shadcn project (no `components.json`, by the landing brief's own instruction), so `lib/utils.ts` has a dependency-free `cn` that joins class names. It doesn't merge conflicting Tailwind classes, which nothing here needs. The app's primitives already live in `components/ui`, so the component sits there unchanged in path.
+
+The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behind them go faint, and the headline and subhead have a halo in the page colour. The copy, layout, buttons and links are unchanged.
