@@ -118,3 +118,19 @@ A multi-agent review looked for things that would break on Vercel and hosted Sup
 
 **D51. `/` is a public landing page.** `/` is now in `PUBLIC_PATHS`, and `app/page.tsx` checks the session without redirecting. Signed-out visitors get the landing page (`components/marketing/`); signed-in people go to their last-used organization's dashboard, or to `/create-organization`, as before. The page is built in this repo's own style from two third-party layout references (a hero and a tabbed features section): navy and bone tokens only, a fine ruled grid instead of colour washes, no shadows, and CSS-only animation that stops under reduced motion. It adds no packages: the features tabs are a hand-built ARIA tablist with arrow, Home and End keys, and the mobile menu is a disclosure button. Copy takes primitive words from the default translator, because there is no organization. The screenshots in `public/marketing/` are the seeded demo organization, captured by `scripts/capture-marketing.ts`, so they can be regenerated after UI changes. They show the Nonprofit preset's words ("Programs", "Sessions"), which also shows relabelling at work. Two claims from the brief were reworded to match the app. Tasks move across a board or are sorted and filtered in a list (there is no table view). Reminders are in-app: overdue and due-soon work is flagged on every page and in the dashboard's Reminders strip, and nothing is sent by email or push. Testimonials, logos and stats are left out because there are none yet. The deploy's smoke test now checks the landing page instead of a redirect.
 
+## Standing rules for accounts, roles, participants and calendar (owner's decision)
+
+The owner changed the standing rules in CLAUDE.md before the accounts, permissions, participants and calendar build. Each change is theirs; the build follows it.
+
+**D52. Scope adds participants, email invitations and an ICS feed.** Participant rosters with their files and attendance are in scope, but only on projects whose type turns them on. Invitations go out by email, and each person gets a read-only ICS calendar feed. Everything else on the forbidden list stays forbidden: finance, communications, automations and other integrations.
+
+**D53. Google sign-in alongside the magic link.** Auth is Supabase Auth with Google sign-in plus the existing email magic link. Only verified emails are trusted, for example when matching invitations.
+
+**D54. A ranked role ladder replaces admin/member.** Org roles are owner (4) > manager (3) > admin (2) > staff (1), with project roles lead > admin > staff under the org role as a ceiling. `has_role` becomes the rank-based `has_permission(org, role)`, still security-definer and non-recursive, reading the rank live from the membership row. "The last admin can never be removed or demoted" becomes the same rule for the last owner. "Members see everything in their org" is replaced by project membership: off a project, you can't see it or anything in it, and `can_view_task()` is the single source of truth for task visibility.
+
+**D55. Terminology covers the new words.** Label keys are added for the new roles (and the participant and attendance words when they reach UI copy), and `check:labels` checks them, so a relabelled organization never shows a hard-coded role name.
+
+**D56. A second private bucket for participant files.** It has the same signed-URL, 25 MB and allow-list rules as `documents`, with paths keyed on organization and project.
+
+**D57. Packages.** Google sign-in is configured in Supabase Auth and needs no package. The ICS feed is plain text written by a route handler, so it needs none either. If either turns out to need one, the reason is recorded here first.
+
