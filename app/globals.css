@@ -275,8 +275,8 @@ dialog.gw-dialog[open] {
   animation: slide-in-left 200ms var(--ease-out);
 }
 
-/* Landing page: the mobile menu slides down, tab panels fade up, and the
-   hero sits on a fine ruled grid drawn in the rule colour. */
+/* Landing page: the mobile menu slides down and tab panels fade up. The
+   hero's grid is components/ui/grid-pulse.tsx. */
 @keyframes menu-down {
   from {
     opacity: 0;
@@ -288,12 +288,6 @@ dialog.gw-dialog[open] {
 }
 .tab-panel-in:not([hidden]) {
   animation: fade-up 260ms var(--ease-out);
-}
-.marketing-grid {
-  background-image:
-    linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
-  background-size: 56px 56px;
-  background-position: center top;
 }
 
 /* Skeletons for loading states: a static tint, gently pulsing. */
