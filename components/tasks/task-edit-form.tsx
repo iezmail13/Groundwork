@@ -41,7 +41,10 @@ export function TaskEditForm({
   );
   // invitees added from the drawer, per project, until the page reloads
   const [added, setAdded] = useState<Record<string, AssigneeOption[]>>({});
-  const options = [...(assigneeOptions[projectId] ?? []), ...(added[projectId] ?? [])];
+  // once the page refreshes, an invitee added here also arrives from the server
+  const options = [...(assigneeOptions[projectId] ?? []), ...(added[projectId] ?? [])].filter(
+    (o, i, all) => all.findIndex((x) => x.value === o.value) === i,
+  );
   const onInvited = useCallback(
     (option: AssigneeOption) => {
       setAdded((prev) => ({ ...prev, [projectId]: [...(prev[projectId] ?? []), option] }));
