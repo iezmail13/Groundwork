@@ -227,7 +227,7 @@ async function main() {
   const org = must(
     await db
       .from("organizations")
-      .insert({ name: DEMO_ORG.name, slug: DEMO_ORG.slug, preset_key: DEMO_ORG.preset, theme: { navy: "#1F2D4D", mode: "light" } })
+      .insert({ name: DEMO_ORG.name, slug: DEMO_ORG.slug, preset_key: DEMO_ORG.preset })
       .select("id")
       .single(),
     "create org",
@@ -250,7 +250,7 @@ async function main() {
           organization_id: org.id,
           name: "Homework Club",
           description: "Twice-weekly after-school homework help for grades 5 to 8 at the community centre.",
-          color: "#1F2D4D",
+          color: "#163260",
           owner_membership_id: m(priya!),
           start_date: day(-40),
           end_date: day(70),
@@ -260,7 +260,7 @@ async function main() {
           organization_id: org.id,
           name: "Winter Coat Drive",
           description: "Collect, clean and hand out winter coats to families in the neighbourhood before December.",
-          color: "#777F90",
+          color: "#72829B",
           owner_membership_id: m(marcus!),
           start_date: day(-10),
           end_date: day(55),
@@ -270,7 +270,7 @@ async function main() {
           organization_id: org.id,
           name: "Teen Mentorship Circle",
           description: "Weekly evening circle pairing high-school students with volunteer mentors.",
-          color: "#4B566E",
+          color: "#445A7E",
           owner_membership_id: m(sofia!),
           start_date: day(-25),
           end_date: day(120),

@@ -209,6 +209,11 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
+  // settings are the preset, the people and the organization; words and colours aren't editable
+  const sections = page.getByRole("navigation", { name: "Settings sections" });
+  await expect(sections.getByRole("link")).toHaveCount(3);
+  await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
+  await expect(sections.getByRole("link", { name: "Theme" })).toHaveCount(0);
   await page.getByRole("radio", { name: /Tutoring/ }).check();
   await page.getByRole("button", { name: "Apply preset" }).click();
   await expect(page.getByText("Preset applied")).toBeVisible();
@@ -216,17 +221,6 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Materials" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tutors" })).toBeVisible();
-  // an organization override beats the preset
-  await visit(page, `${base}/settings?view=terminology`);
-  await page.getByLabel("Subject, singular").fill("Course");
-  await page.getByLabel("Subject, plural").fill("Courses");
-  await page.getByRole("button", { name: "Save labels" }).click();
-  await expect(page.getByText("Labels saved.")).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Courses" })).toBeVisible();
-  await page.getByLabel("Subject, singular").fill("");
-  await page.getByLabel("Subject, plural").fill("");
-  await page.getByRole("button", { name: "Save labels" }).click();
-  await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
 
   // 8. Reorder a dashboard widget with the keyboard, reload, and confirm it persisted.
   await visit(page, `${base}/dashboard`);

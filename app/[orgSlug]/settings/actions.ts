@@ -5,9 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { dbFailure, failure, formObject, invalid, success, type ActionState } from "@/lib/action-state";
-import { LABEL_KEYS, SINGLE_FORM_KEYS, type LabelMap } from "@/lib/terminology/defaults";
-import { validateTheme } from "@/lib/theme/theme";
-import { normalizeHex } from "@/lib/theme/color";
 import { id, slugInput } from "@/lib/validation";
 import { siteOrigin } from "@/lib/urls";
 import { getOrgContext } from "@/lib/org";
@@ -49,60 +46,12 @@ export async function setPreset(_prev: ActionState, formData: FormData): Promise
   if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase
     .from("organizations")
-    .update({ preset_key: parsed.data.preset })
+    // custom labels can no longer be edited, so applying a preset clears any left from before
+    .update({ preset_key: parsed.data.preset, terminology_overrides: {} })
     .eq("id", parsed.data.organizationId);
   if (error) return dbFailure(error);
   revalidateOrg();
   return success("Preset applied. Every label in the app now uses its words.");
-}
-
-const labelValue = z.string().max(40, "Keep labels under 40 characters.").optional();
-
-export async function saveTerminology(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const raw = formObject(formData);
-  const orgId = id.safeParse(raw.organizationId);
-  if (!orgId.success) return failure("Invalid request.");
-
-  const overrides: LabelMap = {};
-  const fieldErrors: Record<string, string[]> = {};
-  for (const key of LABEL_KEYS) {
-    const one = labelValue.safeParse(raw[`${key}.one`]);
-    const other = labelValue.safeParse(SINGLE_FORM_KEYS.has(key) ? raw[`${key}.one`] : raw[`${key}.other`]);
-    if (!one.success) fieldErrors[`${key}.one`] = [one.error.issues[0]!.message];
-    if (!other.success) fieldErrors[`${key}.other`] = [other.error.issues[0]!.message];
-    if (one.success && other.success && (one.data || other.data)) {
-      overrides[key] = { ...(one.data ? { one: one.data } : {}), ...(other.data ? { other: other.data } : {}) };
-    }
-  }
-  if (Object.keys(fieldErrors).length) return failure("Some labels are too long.", fieldErrors);
-
-  const { supabase, allowed } = await requireManager(orgId.data);
-  if (!allowed) return failure(NOT_ALLOWED);
-  const { error } = await supabase.from("organizations").update({ terminology_overrides: overrides }).eq("id", orgId.data);
-  if (error) return dbFailure(error);
-  revalidateOrg();
-  return success(Object.keys(overrides).length ? "Labels saved." : "Custom labels cleared. The preset's words are back.");
-}
-
-export async function saveTheme(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z
-    .object({
-      organizationId: id,
-      navy: z.string().regex(/^#?[0-9a-fA-F]{6}$/, "Enter a colour as six hex digits, like #1F2D4D."),
-      mode: z.enum(["light", "dark"], { error: "Choose light or dark." }),
-    })
-    .safeParse(formObject(formData));
-  if (!parsed.success) return invalid(parsed.error);
-  const settings = { navy: normalizeHex(parsed.data.navy), mode: parsed.data.mode };
-  const check = validateTheme(settings);
-  if (!check.ok) return failure(check.reason, { navy: [check.reason] });
-
-  const { supabase, allowed } = await requireManager(parsed.data.organizationId);
-  if (!allowed) return failure(NOT_ALLOWED);
-  const { error } = await supabase.from("organizations").update({ theme: settings }).eq("id", parsed.data.organizationId);
-  if (error) return dbFailure(error);
-  revalidateOrg();
-  return success("Theme saved.");
 }
 
 export async function updateOrganization(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -45,7 +45,7 @@ Next.js 16 differs from older versions; read AGENTS.md and the bundled docs in `
 - Use two colour scales only, navy and bone. Nothing else anywhere: no orange, olive, red, green or grey. Derive every border, hover and tint from those two. The Tailwind palette is reset in `app/globals.css`, so only theme tokens exist. The logo keeps its own colours.
 - No drop shadows. Use thin bone-300 rules. Interaction shows through border and translate.
 - Never signal status by colour alone. Use labels, icons, filled versus outlined badges, and bold type. Overdue is a filled navy badge with an icon and the word "Overdue".
-- Theme changes that drop text contrast below 4.5:1 are rejected (`lib/theme/theme.ts`).
+- The base navy is fixed at #163260 and there is no theme setting. Any token change must keep text contrast at 4.5:1 or more (`lib/theme/theme.ts` and its unit test).
 - Use ruled tables, not card grids; the dashboard widget grid is the one exception. Layouts must be fully responsive with visible focus, full keyboard access, and correct aria labels and roles.
 
 ## How to work

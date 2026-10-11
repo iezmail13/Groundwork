@@ -1,20 +1,11 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contrastRatio, mix, parseHex, toHex } from "@/lib/theme/color";
-import {
-  BONE_50,
-  DEFAULT_THEME,
-  NAVY_900,
-  RAIL_DEFAULT,
-  checkContrast,
-  deriveRail,
-  deriveTokens,
-  readTheme,
-  validateTheme,
-} from "@/lib/theme/theme";
+import { BONE_50, NAVY_900, checkContrast, deriveTokens, type ThemeTokens } from "@/lib/theme/theme";
 
 describe("colour maths", () => {
   it("round-trips hex", () => {
-    expect(toHex(parseHex("#1f2d4d"))).toBe("#1F2D4D");
+    expect(toHex(parseHex("#163260"))).toBe("#163260");
   });
 
   it("computes WCAG contrast", () => {
@@ -30,63 +21,50 @@ describe("colour maths", () => {
   });
 });
 
-describe("theme derivation", () => {
-  it("uses the brief's rail colour for the default navy", () => {
-    expect(deriveRail(NAVY_900)).toBe(RAIL_DEFAULT);
-    expect(deriveTokens(DEFAULT_THEME).rail).toBe(RAIL_DEFAULT);
+describe("the fixed theme", () => {
+  const tokens = deriveTokens();
+
+  it("is built on navy #163260", () => {
+    expect(NAVY_900).toBe("#163260");
+    expect(tokens.ink).toBe(NAVY_900);
+    expect(tokens.primary).toBe(NAVY_900);
   });
 
-  it("derives the rail from a custom navy at about 75% over bone", () => {
-    const rail = deriveRail("#22335A");
-    expect(rail).toBe(mix("#22335A", BONE_50, 0.76));
+  it("derives the rail at about 75% navy over bone", () => {
+    expect(tokens.rail).toBe(mix(NAVY_900, BONE_50, 0.76));
   });
 
-  it("passes every contrast check for the default theme in both modes", () => {
-    for (const mode of ["light", "dark"] as const) {
-      const checks = checkContrast(deriveTokens({ navy: NAVY_900, mode }));
-      for (const c of checks) expect(c.ratio, `${mode}: ${c.pair}`).toBeGreaterThanOrEqual(4.5);
+  it("keeps every text pair at 4.5:1 or more", () => {
+    for (const c of checkContrast(tokens)) expect(c.ratio, c.pair).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("matches the custom properties in app/globals.css", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    const root = css.slice(css.indexOf(":root {"), css.indexOf("}", css.indexOf(":root {")));
+    const vars = new Map([...root.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
+    const resolve = (name: string): string => {
+      const value = vars.get(name) ?? "";
+      const ref = /^var\(--([\w-]+)\)$/.exec(value);
+      return (ref ? resolve(ref[1]!) : value).toUpperCase();
+    };
+    const names: Record<keyof ThemeTokens, string> = {
+      canvas: "canvas",
+      panel: "panel",
+      rule: "rule",
+      ink: "ink",
+      inkMuted: "ink-muted",
+      rail: "rail",
+      railInk: "rail-ink",
+      railInkMuted: "rail-ink-muted",
+      railHover: "rail-hover",
+      primary: "primary",
+      onPrimary: "on-primary",
+      activeBg: "active-bg",
+      activeInk: "active-ink",
+      tint: "tint",
+    };
+    for (const [token, cssName] of Object.entries(names)) {
+      expect(resolve(cssName), `--${cssName}`).toBe(tokens[token as keyof ThemeTokens]);
     }
-  });
-
-  it("dark mode inverts the scales: bone text on deep navy", () => {
-    const tokens = deriveTokens({ navy: NAVY_900, mode: "dark" });
-    expect(tokens.ink).toBe(BONE_50);
-    expect(contrastRatio(tokens.canvas, "#000000")).toBeLessThan(contrastRatio(NAVY_900, "#000000"));
-  });
-});
-
-describe("theme validation", () => {
-  it("accepts a slightly different navy", () => {
-    expect(validateTheme({ navy: "#243A63", mode: "light" }).ok).toBe(true);
-  });
-
-  it("rejects a navy that drops text contrast below 4.5:1", () => {
-    const result = validateTheme({ navy: "#4F6A9A", mode: "light" });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toMatch(/below 4.5:1/);
-      expect(result.checks.some((c) => !c.passes)).toBe(true);
-    }
-  });
-
-  it("rejects a light navy in dark mode when the rail text fails", () => {
-    const result = validateTheme({ navy: "#5A78B0", mode: "dark" });
-    expect(result.ok).toBe(false);
-  });
-
-  it("rejects colours outside the navy family", () => {
-    for (const navy of ["#B22222", "#2E7D32", "#C77700", "#808000", "#555555"]) {
-      expect(validateTheme({ navy, mode: "light" }).ok, navy).toBe(false);
-    }
-  });
-
-  it("rejects malformed input", () => {
-    expect(validateTheme({ navy: "navy", mode: "light" }).ok).toBe(false);
-  });
-
-  it("falls back to the default when stored JSON is invalid or fails contrast", () => {
-    expect(readTheme(null)).toEqual(DEFAULT_THEME);
-    expect(readTheme({ navy: "#4F6A9A", mode: "light" })).toEqual(DEFAULT_THEME);
-    expect(readTheme({ navy: "#243a63", mode: "dark" })).toEqual({ navy: "#243A63", mode: "dark" });
   });
 });

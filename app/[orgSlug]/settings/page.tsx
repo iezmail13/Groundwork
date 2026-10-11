@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import { CircleCheck, Lock } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { InviteForm, OrganizationForm, PresetForm, TerminologyForm, ThemeForm, type PresetChoice } from "@/components/settings/forms";
+import { InviteForm, OrganizationForm, PresetForm, type PresetChoice } from "@/components/settings/forms";
 import { MembersTable, PendingInvites, TransferOwnership } from "@/components/settings/members";
 import { getMembers, getOrgContext } from "@/lib/org";
 import { createClient } from "@/lib/supabase/server";
-import { createTranslator, lower, resolveAll, toLabelMap } from "@/lib/terminology/t";
+import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
 import { grantableRoles, type Role } from "@/lib/roles";
 import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
 
-const VIEWS = ["preset", "terminology", "theme", "members", "organization"] as const;
+const VIEWS = ["preset", "members", "organization"] as const;
 type View = (typeof VIEWS)[number];
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/settings">): Promise<Metadata> {
@@ -33,8 +33,6 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
         tabsLabel="Settings sections"
         tabs={[
           tab("preset", "Preset"),
-          tab("terminology", "Terminology"),
-          tab("theme", "Theme"),
           tab("members", t("member", "other")),
           tab("organization", "Organization"),
         ]}
@@ -46,8 +44,6 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
         </p>
       ) : null}
       {view === "preset" ? <PresetPanel orgId={org.id} current={org.preset_key} disabled={!canManage} /> : null}
-      {view === "terminology" ? <TerminologyPanel orgId={org.id} presetKey={org.preset_key} overrides={org.terminology_overrides} disabled={!canManage} /> : null}
-      {view === "theme" ? <ThemeForm organizationId={org.id} navy={ctx.theme.navy} mode={ctx.theme.mode} disabled={!canManage} /> : null}
       {view === "members" ? <MembersPanel orgSlug={orgSlug} transferred={sp.notice === "transferred"} /> : null}
       {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
     </div>
@@ -65,23 +61,6 @@ async function PresetPanel({ orgId, current, disabled }: { orgId: string; curren
       return { key: p.key, name: p.name, words: [t("project", "other"), t("task", "other"), t("event", "other"), t("document", "other"), t("member", "other")] };
     });
   return <PresetForm organizationId={orgId} current={current} presets={choices} disabled={disabled} />;
-}
-
-async function TerminologyPanel({
-  orgId,
-  presetKey,
-  overrides,
-  disabled,
-}: {
-  orgId: string;
-  presetKey: string;
-  overrides: unknown;
-  disabled: boolean;
-}) {
-  const supabase = await createClient();
-  const { data: preset } = await supabase.from("presets").select("labels").eq("key", presetKey).maybeSingle();
-  const presetLabels = resolveAll(createTranslator(toLabelMap(preset?.labels)));
-  return <TerminologyForm organizationId={orgId} presetLabels={presetLabels} overrides={toLabelMap(overrides)} disabled={disabled} />;
 }
 
 async function MembersPanel({ orgSlug, transferred }: { orgSlug: string; transferred: boolean }) {
