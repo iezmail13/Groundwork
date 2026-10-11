@@ -379,6 +379,42 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
+test("landing page: signed-out visitors see the hero, features and a way in", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Run your organization on solid ground.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
+
+  // the feature tabs work from the keyboard
+  const tabs = page.getByRole("tablist", { name: "Features" });
+  await tabs.getByRole("tab", { name: "Plan the work" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.getByRole("tab", { name: "Never miss a date" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("Every deadline in one calendar.");
+  await page.keyboard.press("End");
+  await expect(page.getByRole("tabpanel")).toContainText("Your whole organization at a glance.");
+  await page.keyboard.press("Home");
+  await expect(page.getByRole("tabpanel")).toContainText("See who's doing what");
+
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Get started" }).first().click();
+  await expect(page).toHaveURL(/\/login$/);
+
+  // on a phone the links sit behind a menu button
+  const phone = await browser.newPage({ viewport: { width: 360, height: 740 } });
+  await phone.goto("/");
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  const menu = phone.getByRole("button", { name: "Open menu" });
+  await menu.click();
+  await expect(phone.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
+  await phone.locator("#site-menu").getByRole("link", { name: "Log in" }).click();
+  await expect(phone).toHaveURL(/\/login$/);
+  await phone.close();
+  await context.close();
+});
+
 test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

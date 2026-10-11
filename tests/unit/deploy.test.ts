@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   buildAuthSettings,
   buildTemplateConfig,
+  checkLandingPage,
   checkLoginPage,
   isAttachedDomain,
   isSkippableTemplateRefusal,
@@ -217,5 +218,14 @@ describe("security headers", () => {
     expect(canonicalRedirect("groundwork-nine-black.vercel.app", undefined, "/")).toBeNull();
     expect(canonicalRedirect("a.vercel.app", "https://groundwork-nine-black.vercel.app", "/")).toBeNull();
     expect(canonicalRedirect("localhost:3000", "http://localhost:3000", "/")).toBeNull();
+  });
+});
+
+describe("checkLandingPage", () => {
+  it("passes the landing page", () => {
+    expect(checkLandingPage(200, '<h1>Run your organization on solid ground.</h1><a href="/login">Get started</a>').ok).toBe(true);
+  });
+  it("fails when / redirects or lost its content", () => {
+    expect(checkLandingPage(307, "").problems).toHaveLength(3);
   });
 });

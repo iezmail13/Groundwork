@@ -89,7 +89,7 @@ Deployment is automated with GitHub Actions. **CI** (`.github/workflows/ci.yml`)
 1. applies `supabase/migrations` to your hosted Supabase project;
 2. builds the app and deploys it to Vercel production;
 3. points Supabase Auth at the deployed URL (site URL, redirect allow-list), at your SMTP provider if configured, and installs the sign-in email templates;
-4. smoke-tests the live site: `/` redirects to `/login`, the magic-link form renders, and the dev shortcut is absent.
+4. smoke-tests the live site: `/` shows the landing page, the magic-link form renders, and the dev shortcut is absent.
 
 Until the settings below exist, the Deploy job finishes without deploying and its job summary lists exactly what's missing.
 
