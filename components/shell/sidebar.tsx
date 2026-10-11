@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import {
   CalendarDays,
   Check,
+  ClipboardCheck,
   ChevronsUpDown,
   FileText,
   FolderKanban,
@@ -31,6 +32,8 @@ type Props = {
   orgs: ShellOrg[];
   user: { name: string; email: string; initials: string };
   recent: RecentProject[];
+  /** The viewer manages a participant roster somewhere (or could, as owner or manager). */
+  showAttendance: boolean;
   initialCollapsed: boolean;
 };
 
@@ -115,6 +118,7 @@ function SidebarBody({
   orgs,
   user,
   recent,
+  showAttendance,
   collapsed,
   pathname,
   onToggle,
@@ -128,6 +132,7 @@ function SidebarBody({
     { href: `${base}/tasks`, label: t("task", "other"), icon: ListChecks },
     { href: `${base}/calendar`, label: t("section.calendar"), icon: CalendarDays },
     { href: `${base}/documents`, label: t("document", "other"), icon: FileText },
+    ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
   ];
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 

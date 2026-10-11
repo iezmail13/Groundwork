@@ -4,6 +4,8 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { ClientCookies } from "@/components/shell/client-cookies";
 import { TerminologyProvider } from "@/lib/terminology/context";
 import { getOrgContext, initials, requireUser } from "@/lib/org";
+import { getAttendancePrograms } from "@/lib/participants";
+import { rankOf } from "@/lib/roles";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -16,7 +18,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   const ctx = await getOrgContext(orgSlug);
   const { supabase } = await requireUser();
 
-  const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore] = await Promise.all([
+  const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore, attendancePrograms] = await Promise.all([
     supabase
       .from("memberships")
       .select("organization:organizations(name, slug)")
@@ -25,6 +27,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
     supabase.from("profiles").select("full_name, email").eq("id", ctx.userId).maybeSingle(),
     supabase.rpc("recent_projects", { org_id: ctx.org.id, max_rows: 5 }),
     cookies(),
+    getAttendancePrograms(ctx.org.id),
   ]);
 
   const orgs = (memberships ?? [])
@@ -48,6 +51,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             orgs={orgs}
             user={{ name, email: profile?.email ?? ctx.userEmail, initials: initials(name) }}
             recent={(recent ?? []).map((p) => ({ id: p.id, name: p.name }))}
+            showAttendance={attendancePrograms.length > 0 || rankOf(ctx.role) >= rankOf("manager")}
             initialCollapsed={cookieStore.get("sidebar")?.value === "collapsed"}
           />
           <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-16 focus:outline-none sm:px-8 sm:pt-8">

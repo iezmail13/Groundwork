@@ -19,6 +19,7 @@ export type ProjectFormValues = {
   color: string | null;
   start_date: string | null;
   end_date: string | null;
+  tracks_participants?: boolean;
 };
 
 export function ProjectForm({
@@ -92,6 +93,24 @@ export function ProjectForm({
           />
         </Field>
       </div>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name="tracksParticipants"
+          defaultChecked={project?.tracks_participants ?? false}
+          className="mt-1 size-4 accent-[var(--ink)]"
+          aria-describedby="project-tracks-hint"
+        />
+        <span>
+          <span className="block font-heading text-sm font-semibold">
+            Keeps a {lower(t("participant"))} roster and {lower(t("section.attendance"))}
+          </span>
+          <span id="project-tracks-hint" className="block text-sm text-ink-muted">
+            Its {lower(t("event", "other"))} become check-ins under {t("section.attendance")}. Only its {lower(t("project_role.admin", "other"))},{" "}
+            {lower(t("project_role.lead", "other"))} and {lower(t("role.owner", "other"))} see the people on it.
+          </span>
+        </span>
+      </label>
       <FormMessage state={state} />
       <div className="flex justify-end gap-2 border-t border-rule pt-4">
         <Button variant="secondary" onClick={onDone}>

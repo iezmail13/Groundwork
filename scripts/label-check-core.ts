@@ -8,12 +8,13 @@ export const PRIMITIVE_WORDS = [
   "member", "members", "program", "programs", "session", "sessions", "meeting", "meetings",
   "subject", "subjects", "lesson", "lessons", "tutor", "tutors", "material", "materials",
   "team member", "team members",
+  "participant", "participants", "attendee", "attendees", "student", "students", "attendance",
   "owner", "owners", "manager", "managers", "admin", "admins", "staff", "lead", "leads",
 ];
 
 // Status labels are ordinary phrases in lower case ("to do that"), so they
 // are only flagged when written the way a label would be.
-const STATUS_RE = /\b(To do|In progress)\b/;
+const STATUS_RE = /\b(To do|In progress|Present|Absent|Excused)\b/;
 
 const WORD_RE = new RegExp(`\\b(${PRIMITIVE_WORDS.map((w) => w.replace(" ", "\\s+")).join("|")})\\b`, "i");
 const CAPITALISED_RE = new RegExp(

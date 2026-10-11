@@ -3,7 +3,13 @@ import { lower } from "@/lib/terminology/t";
 import type { ActivityRow } from "@/lib/queries";
 import type { LabelKey } from "@/lib/terminology/defaults";
 
-const ENTITY_KEY: Record<string, LabelKey> = { project: "project", task: "task", event: "event", document: "document" };
+const ENTITY_KEY: Record<string, LabelKey> = {
+  project: "project",
+  task: "task",
+  event: "event",
+  document: "document",
+  participant: "participant",
+};
 
 /** "completed task" / "moved task to In progress" — the verb phrase after the actor's name. */
 export function describeActivity(a: ActivityRow, t: Translate): string {
@@ -27,6 +33,8 @@ export function activityHref(a: ActivityRow, base: string): string | null {
       return `${base}/documents`;
     case "event":
       return `${base}/calendar?view=agenda`;
+    case "participant":
+      return `${base}/attendance/participants/${a.entity_id}`;
     default:
       return null;
   }

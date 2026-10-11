@@ -623,3 +623,87 @@ test("Google sign-in hands off to Supabase and comes back to the callback", asyn
   // (Next.js renders its own, empty role=alert route announcer as well)
   await expect(page.getByRole("alert").filter({ hasText: "Google sign-in didn't finish" })).toBeVisible();
 });
+
+test("attendance: roster, check-in, reports, archiving and permanent deletion", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+
+  // Priya leads Homework Club, which keeps a roster
+  await page.getByRole("link", { name: "Attendance", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Attendance" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Amara Okafor" })).toBeVisible();
+  await page.getByLabel("Search by name").fill("Samir");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByRole("link", { name: "Samir Haddad" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Amara Okafor" })).toHaveCount(0);
+
+  // add someone, then fill in their private details
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("button", { name: "Add participant" }).click();
+  await page.getByRole("dialog").getByLabel("Full name").fill("Noor Ali");
+  await page.getByRole("dialog").getByRole("button", { name: "Add" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Noor Ali" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added." })).toBeVisible();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByLabel("Emergency contact").fill("Sara Ali, 416-555-0190");
+  await page.getByRole("button", { name: "Save details" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+
+  // check everyone in at today's session
+  await visit(page, "/northside-youth-collective/attendance?view=take");
+  await expect(page.getByRole("heading", { level: 2, name: /Today.*Homework Club/ })).toBeVisible();
+  await page.getByRole("group", { name: "Leo Tremblay" }).getByText("Late").click();
+  await page.getByRole("button", { name: "Mark the rest present" }).click();
+  await page.getByRole("button", { name: "Save attendance" }).click();
+  await expect(page.getByText("Saved 7 marks.")).toBeVisible();
+
+  // reports compare participants and download as CSV
+  await visit(page, "/northside-youth-collective/attendance?view=reports");
+  await expect(page.getByText("Attendance rate by participant")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Amara Okafor .* 100%/ })).toBeVisible();
+  const csvHref = await page.getByRole("link", { name: "Download CSV" }).getAttribute("href");
+  const csv = await (await page.request.get(csvHref!)).text();
+  expect(csv).toContain("Amara Okafor");
+  expect(csv.split("\r\n")[0]).toBe("Date,Session,Program,Participant,Mark,Note");
+
+  // archiving hides someone from the roster and check-in; restoring brings them back
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("link", { name: "Noor Ali" }).click();
+  await page.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(/hidden from rosters and check-in/)).toBeVisible();
+  await visit(page, "/northside-youth-collective/attendance?view=take");
+  await expect(page.getByRole("group", { name: "Noor Ali" })).toHaveCount(0);
+  await visit(page, "/northside-youth-collective/attendance?show=archived");
+  await page.getByRole("button", { name: "Restore Noor Ali" }).click();
+  await expect(page.getByRole("button", { name: "Restore Noor Ali" })).toHaveCount(0);
+  await visit(page, "/northside-youth-collective/attendance");
+  await expect(page.getByRole("link", { name: "Noor Ali" })).toBeVisible();
+
+  // a privacy request: Leo's details go, his marks stay without a name
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("link", { name: "Leo Tremblay" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "Delete permanently" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Type Leo Tremblay to confirm").fill("Leo");
+  await dialog.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(dialog.getByText("The name doesn't match.")).toBeVisible();
+  await dialog.getByLabel("Type Leo Tremblay to confirm").fill("Leo Tremblay");
+  await dialog.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Deleted permanently." })).toBeVisible();
+  await visit(page, "/northside-youth-collective/attendance?view=reports");
+  await expect(page.getByRole("row", { name: /Removed participants/ }).first()).toBeVisible();
+  await expect(page.getByText("Leo Tremblay")).toHaveCount(0);
+
+  // project staff never see participants
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Marcus Chen" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await expect(staff.getByRole("link", { name: "Attendance", exact: true })).toHaveCount(0);
+  await visit(staff, "/northside-youth-collective/attendance");
+  await expect(staff.getByText("No programs keep a roster you can see")).toBeVisible();
+  await context.close();
+});

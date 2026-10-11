@@ -43,6 +43,8 @@ New users create an organization and become its owner. Owners and managers invit
 
 People see only the projects they're on; owners see every project. On a project, leads manage everyone, project admins manage staff, and someone's organization role caps their project role. Pending invitees can be assigned work on the projects their invitation grants. Removing someone, or leaving, hands their open work to a person you choose, and flags anything that person can't see as **Needs assignee**.
 
+A project can keep a participant roster (tick "Keeps a participant roster" in its settings). Its project admins and leads, and owners, then get **Attendance** in the sidebar: the people the program serves (with contact, guardian, emergency and care details), a phone-friendly check-in for each of its sessions (calendar items), and reports with attendance rates per person and per program, a comparison chart and CSV download. Project staff never see participant data. Archiving someone hides them but keeps their history; owners and managers can delete someone permanently for a privacy request, which erases their details and keeps their past marks anonymised so totals don't change.
+
 ## Scripts
 
 | Script                      | What it does                                                                           |
