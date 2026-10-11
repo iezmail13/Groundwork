@@ -42,36 +42,31 @@
 }
 
 :root {
-  --navy-900: #1f2d4d;
-  --rail-default: #555e74;
+  /* the fixed theme: lib/theme/theme.ts derives these, and tests/unit/theme.test.ts checks they match */
+  --navy-900: #163260;
   --bone-50: #fbf9f4;
   --bone-100: #f5f1e8;
   --bone-300: #ddd6c8;
 
-  /* light theme defaults; the org shell overrides these inline */
   --canvas: var(--bone-50);
   --panel: var(--bone-100);
   --rule: var(--bone-300);
   --ink: var(--navy-900);
-  --ink-muted: #4b566e;
-  --rail: var(--rail-default);
+  --ink-muted: #445a7e;
+  --rail: #4d6284;
   --rail-ink: var(--bone-50);
-  --rail-ink-muted: #eaeae7;
-  --rail-hover: #424d66;
+  --rail-ink-muted: #eaeae9;
+  --rail-hover: #3a5177;
   --primary: var(--navy-900);
   --on-primary: var(--bone-50);
   --active-bg: var(--bone-100);
   --active-ink: var(--navy-900);
-  --tint: #eeedea;
+  --tint: #ededeb;
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   color-scheme: light;
-}
-
-[data-mode="dark"] {
-  color-scheme: dark;
 }
 
 html,

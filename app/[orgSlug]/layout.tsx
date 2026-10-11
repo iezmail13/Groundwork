@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { ClientCookies } from "@/components/shell/client-cookies";
 import { TerminologyProvider } from "@/lib/terminology/context";
 import { getOrgContext, initials, requireUser } from "@/lib/org";
-import { themeStyle } from "@/lib/theme/theme";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -34,11 +33,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   const name = profile?.full_name || profile?.email || ctx.userEmail;
 
   return (
-    <div
-      data-mode={ctx.theme.mode}
-      style={themeStyle(ctx.tokens) as React.CSSProperties}
-      className="min-h-dvh bg-canvas text-ink"
-    >
+    <div className="min-h-dvh bg-canvas text-ink">
       <TerminologyProvider labels={ctx.labels}>
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} />
         <a

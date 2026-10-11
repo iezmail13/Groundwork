@@ -1,6 +1,6 @@
 # Groundwork
 
-Groundwork is a workplace management tool for program-based organizations: nonprofits, youth programs, tutoring centres and small teams. It is generic enough for any business. One dashboard brings together projects, their tasks, documents, and a calendar with reminders. Terminology is configurable, so the same app can read as a nonprofit tool ("Programs", "Sessions") or a business tool ("Projects", "Meetings").
+Groundwork is a workplace management tool for program-based organizations: nonprofits, youth programs, tutoring centres and small teams. It is generic enough for any business. One dashboard brings together projects, their tasks, documents, and a calendar with reminders. Each organization picks a preset that sets its words, so the same app can read as a nonprofit tool ("Programs", "Sessions") or a business tool ("Projects", "Meetings").
 
 Built with Next.js 16 (App Router, TypeScript strict), Tailwind CSS 4 and Supabase (Postgres, magic-link auth, storage, row-level security).
 
@@ -50,7 +50,7 @@ New users create an organization and become its owner. Owners and managers invit
 | `npm run typecheck`         | `next typegen` then `tsc --noEmit` (TypeScript strict)                                 |
 | `npm run lint`              | ESLint (Next core-web-vitals and TypeScript rules), zero warnings allowed              |
 | `npm run check:labels`      | Fails if a primitive label (Project, Task, Session…) is hard-coded instead of using `t()` |
-| `npm test`                  | Vitest unit tests: `t()`, contrast and theme logic, dates, filters, validation, layout |
+| `npm test`                  | Vitest unit tests: `t()`, the fixed theme and its contrast, dates, filters, validation, layout |
 | `npm run test:db`           | pgTAP tests (`supabase test db`): RLS, tenant isolation, roles, storage, invitations   |
 | `npm run test:e2e`          | Playwright smoke tests (starts the dev server if needed; needs Supabase running and `npm run seed`) |
 | `npm run seed`              | Idempotent demo data; rebuilds only the demo organization on each run                  |
@@ -149,7 +149,7 @@ components/                UI, by feature; components/ui holds the primitives
 lib/
   supabase/                server, browser and service-role clients, generated types
   terminology/             t(), defaults, client provider
-  theme/                   colour maths, two-scale theme derivation, contrast gate
+  theme/                   colour maths, the fixed two-scale theme, contrast checks
   dates.ts, validation.ts, queries.ts, org.ts, dashboard-layout.ts …
 proxy.ts                   session refresh and redirect to /login (Next 16's "middleware")
 supabase/migrations/       one migration per concern, RLS alongside each table
@@ -162,4 +162,4 @@ docs/decisions.md          every judgement call, with reasons
 
 ## Design system in one paragraph
 
-There are two colour scales, navy (`#1F2D4D`) and bone (`#FBF9F4`, `#F5F1E8`, `#DDD6C8`). Every other colour is a tint or shade derived from those two. Tailwind's default palette and shadows are removed, so nothing else can creep in. The sidebar rail is a solid navy-over-bone tint (`#555E74`). Status is always shown by label and icon, never by colour alone. Owners and managers can change the navy base and switch light or dark mode; the app derives the rest and rejects any change that drops text contrast below 4.5:1. Animation is CSS only and switches off under `prefers-reduced-motion`.
+There are two colour scales, navy (`#163260`) and bone (`#FBF9F4`, `#F5F1E8`, `#DDD6C8`). Every other colour is a tint or shade derived from those two. Tailwind's default palette and shadows are removed, so nothing else can creep in. The sidebar rail is a solid navy-over-bone tint (`#4D6284`). Status is always shown by label and icon, never by colour alone. The theme is fixed: every token is derived from the navy in `lib/theme/theme.ts`, written into `app/globals.css`, and a unit test checks that the two match and that every text pair stays at 4.5:1 or more. Animation is CSS only and switches off under `prefers-reduced-motion`.

@@ -146,3 +146,11 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 **D61. `can_view_task()` exists now and every task read goes through it.** In this phase it returns true for any member of the task's organization, which matches today's rules, and the `tasks` select policy calls it. Phase 3 narrows it to project membership and phase 4 adds personal and shared tasks, including "owners see each other's work; nobody else has equal-rank visibility". Every task in this phase belongs to a project, so there are no personal tasks for that rule to apply to yet.
 
 **D62. A project's "owner" field is now labelled "Lead".** "Owner" is now a role name, and `check:labels` rejects role names written into UI copy. The field is the person responsible for a project, which is what phase 3's project lead role is, so the label anticipates it. The column (`owner_membership_id`) is unchanged.
+
+## Settings (owner's decisions)
+
+**D63. No Terminology tab.** The owner removed it as not needed. Each organization's words now come from its preset alone. `t()` still applies any custom labels saved before the change, but they can't be edited, so applying a preset clears them. The `terminology_overrides` column stays, so nothing is deleted by a migration; dropping it is a separate, destructive step for the owner to approve. The e2e step that saved and cleared a custom label is gone with the feature.
+
+**D64. No Theme tab; the base navy is fixed at #163260.** The owner removed the theme setting and chose #163260 (it was #1F2D4D). There is no dark mode any more, because it was only reachable from that tab. Every token is still derived from the navy (`lib/theme/theme.ts`) and written into `app/globals.css`, so the org shell no longer sets inline colours; a unit test checks that the CSS matches the derived values and that every text pair passes 4.5:1 (the lowest is secondary sidebar text at 5.1:1). The `theme` columns on `organizations` and `presets` are no longer read and stay in place for the same reason as D63. The logo keeps its own colours.
+
+**D65. Project colours follow the new navy.** The project palette is re-derived from #163260 (same tints, same names), and a migration moves each stored project colour to the matching new value, so projects keep their look and the edit form still recognises them.

@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createTranslator, resolveAll, toLabelMap, type Translate } from "@/lib/terminology/t";
-import { deriveTokens, readTheme, type ThemeSettings, type ThemeTokens } from "@/lib/theme/theme";
 import { DEFAULT_TZ, isValidTimeZone, todayIn } from "@/lib/dates";
 import { canManageOrg, type Role } from "@/lib/roles";
 import type { Database } from "@/lib/supabase/database.types";
@@ -43,8 +42,6 @@ export type OrgContext = {
   userEmail: string;
   t: Translate;
   labels: ReturnType<typeof resolveAll>;
-  theme: ThemeSettings;
-  tokens: ThemeTokens;
   tz: string;
   today: string;
   base: string; // "/{slug}"
@@ -52,7 +49,7 @@ export type OrgContext = {
 
 /**
  * Everything a page in /[orgSlug] needs: the org (via RLS, so non-members
- * get a 404), the viewer's membership, t(), theme and time zone.
+ * get a 404), the viewer's membership, t() and time zone.
  * Cached per request, so the layout and page share one lookup.
  */
 export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => {
@@ -69,7 +66,6 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
   if (!membership) notFound();
 
   const t = createTranslator(toLabelMap(preset?.labels), toLabelMap(org.terminology_overrides));
-  const theme = readTheme(org.theme);
 
   return {
     org,
@@ -80,8 +76,6 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
     userEmail: user.email ?? "",
     t,
     labels: resolveAll(t),
-    theme,
-    tokens: deriveTokens(theme),
     tz,
     today: todayIn(tz),
     base: `/${org.slug}`,

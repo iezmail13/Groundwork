@@ -46,16 +46,3 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   "section.calendar": { one: "Calendar", other: "Calendar" },
   "section.settings": { one: "Settings", other: "Settings" },
 };
-
-/** Human description of each key, shown in Settings > Terminology. */
-export const LABEL_GROUPS: { title: string; keys: LabelKey[] }[] = [
-  { title: "Things you work with", keys: ["project", "task", "event", "document", "member"] },
-  { title: "Statuses", keys: ["status.todo", "status.in_progress", "status.done", "status.active", "status.archived"] },
-  { title: "Roles", keys: ["role.owner", "role.manager", "role.admin", "role.staff"] },
-  { title: "Sections", keys: ["section.dashboard", "section.calendar", "section.settings"] },
-];
-
-/** Keys whose singular and plural are the same word (statuses, sections). */
-export const SINGLE_FORM_KEYS: ReadonlySet<LabelKey> = new Set(
-  LABEL_KEYS.filter((k) => k.startsWith("status.") || k.startsWith("section.")),
-);
