@@ -8,6 +8,7 @@ export const PRIMITIVE_WORDS = [
   "member", "members", "program", "programs", "session", "sessions", "meeting", "meetings",
   "subject", "subjects", "lesson", "lessons", "tutor", "tutors", "material", "materials",
   "team member", "team members",
+  "owner", "owners", "manager", "managers", "admin", "admins", "staff",
 ];
 
 // Status labels are ordinary phrases in lower case ("to do that"), so they

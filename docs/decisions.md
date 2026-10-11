@@ -134,3 +134,15 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 
 **D57. Packages.** Google sign-in is configured in Supabase Auth and needs no package. The ICS feed is plain text written by a route handler, so it needs none either. If either turns out to need one, the reason is recorded here first.
 
+
+## Roles (Part B, phase 1)
+
+**D58. Existing roles map onto the ladder by power, not by name.** The old `admin` (full control) became `owner` and the old `member` became `staff`, by renaming the enum values, so every existing membership and invitation keeps what it could do. `manager` and `admin` are new values between them. The new values are added in their own migration because PostgreSQL can't use an enum value in the transaction that adds it. Custom role labels move with their roles: an organization that had renamed "Admin" now has that label on Owner.
+
+**D59. What each rank can do at the organization level, for now.** Owners and managers change settings, invite people, see pending invitations and delete anyone's projects, tasks, events and documents. Only owners delete the organization or the activity log. Admins have no organization-level powers beyond staff yet; their extra powers come with project roles in phase 3, where a project admin manages that project. Managers can invite, promote, demote and remove only people ranked below them (admins and staff) and can't change their own role; owners can do all of it, including making other owners. The database enforces this (`can_grant_role`, `can_manage_member`), and the settings page offers only the choices it will accept. Anyone can leave, except the last owner.
+
+**D60. Ownership transfer promotes first, then steps the owner down to manager.** `transfer_ownership` runs both updates in one transaction, so the last-owner guard always sees an owner. The old owner becomes a manager rather than staff so they keep running things day to day; the new owner can change that. Ownership can't go to someone outside the organization or to yourself. Because the person who started it is no longer an owner, the page reloads with a status line instead of a dialog message.
+
+**D61. `can_view_task()` exists now and every task read goes through it.** In this phase it returns true for any member of the task's organization, which matches today's rules, and the `tasks` select policy calls it. Phase 3 narrows it to project membership and phase 4 adds personal and shared tasks, including "owners see each other's work; nobody else has equal-rank visibility". Every task in this phase belongs to a project, so there are no personal tasks for that rule to apply to yet.
+
+**D62. A project's "owner" field is now labelled "Lead".** "Owner" is now a role name, and `check:labels` rejects role names written into UI copy. The field is the person responsible for a project, which is what phase 3's project lead role is, so the label anticipates it. The column (`owner_membership_id`) is unchanged.

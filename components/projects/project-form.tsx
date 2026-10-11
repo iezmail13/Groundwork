@@ -60,9 +60,9 @@ export function ProjectForm({
         <Textarea id="project-description" name="description" maxLength={4000} defaultValue={project?.description ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Owner" htmlFor="project-owner" error={errors.ownerMembershipId}>
+        <Field label="Lead" htmlFor="project-owner" error={errors.ownerMembershipId}>
           <Select id="project-owner" name="ownerMembershipId" defaultValue={project?.owner_membership_id ?? ""}>
-            <option value="">No owner</option>
+            <option value="">No lead</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}

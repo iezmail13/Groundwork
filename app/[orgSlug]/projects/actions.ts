@@ -74,7 +74,7 @@ export async function deleteProject(_prev: ActionState, formData: FormData): Pro
   const supabase = await createClient();
   const { data, error } = await supabase.from("projects").delete().eq("id", parsed.data.id).select("id");
   if (error) return dbFailure(error);
-  if (!data?.length) return failure("Only an admin or the person who created this can delete it.");
+  if (!data?.length) return failure("Only the person who created this, or someone who manages the organization, can delete it.");
   revalidateOrg();
   redirect(`/${parsed.data.orgSlug}/projects`);
 }

@@ -55,7 +55,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
   const docs = (data ?? []) as DocumentRow[];
   const filtering = Boolean(q || project || tag);
   const plural = t("document", "other");
-  const canDelete = (d: DocumentRow) => ctx.isAdmin || d.uploaded_by === ctx.userId;
+  const canDelete = (d: DocumentRow) => ctx.canManage || d.uploaded_by === ctx.userId;
   const withParams = (patch: Record<string, string>) => {
     const next = new URLSearchParams({ ...(q ? { q } : {}), ...(project ? { project } : {}), ...(tag ? { tag } : {}), ...patch });
     for (const [k, v] of [...next.entries()]) if (!v) next.delete(k);

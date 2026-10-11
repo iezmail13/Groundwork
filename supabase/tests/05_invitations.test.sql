@@ -17,7 +17,7 @@ select is((select count(*)::int from public.get_invitation('nope')), 0, 'no prev
 -- Oscar accepts the invitation meant for him.
 select tests.as_user('c0000000-0000-0000-0000-00000000000c');
 select is(public.accept_invitation('token-b'), 'org-b', 'the invited user can accept');
-select is((select role::text from public.memberships where user_id = 'c0000000-0000-0000-0000-00000000000c'), 'member', 'with the invited role');
+select is((select role::text from public.memberships where user_id = 'c0000000-0000-0000-0000-00000000000c'), 'staff', 'with the invited role');
 select is(public.accept_invitation('token-b'), 'org-b', 'accepting twice is harmless for the same user');
 select is((select count(*)::int from public.projects), 1, 'and can now see B''s projects');
 

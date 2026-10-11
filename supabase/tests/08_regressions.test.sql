@@ -58,8 +58,8 @@ update public.tasks set assignee_membership_id = null where id = 'aaaaaaaa-4444-
 reset role;
 select is((select count(*)::int from public.activity_log where entity_id = 'aaaaaaaa-4444-0000-0000-0000000000ee' and action = 'updated'), 2, 'assigning and unassigning by hand are still logged');
 
--- ...but the last admin of an organization still can't be deleted
-select throws_ok($$ delete from auth.users where id = 'a0000000-0000-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one admin', 'deleting the only admin of an organization is refused');
+-- ...but the last owner of an organization still can't be deleted
+select throws_ok($$ delete from auth.users where id = 'a0000000-0000-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one owner', 'deleting the only owner of an organization is refused');
 
 select * from finish();
 rollback;

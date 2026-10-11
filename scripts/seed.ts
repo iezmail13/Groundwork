@@ -415,14 +415,14 @@ async function main() {
   must(
     await db
       .from("invitations")
-      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", role: "member", invited_by: jordan })
+      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", role: "staff", invited_by: jordan })
       .select("id"),
     "invitation",
   );
 
   console.log(
     `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, 8 events, ${docs.length} documents.\n` +
-      `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (admin).`,
+      `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }
 

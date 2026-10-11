@@ -56,7 +56,7 @@ export async function deleteEvent(_prev: ActionState, formData: FormData): Promi
   const supabase = await createClient();
   const { data, error } = await supabase.from("events").delete().eq("id", parsed.data.id).select("id");
   if (error) return dbFailure(error);
-  if (!data?.length) return failure("Only an admin or the person who created this can delete it.");
+  if (!data?.length) return failure("Only the person who created this, or someone who manages the organization, can delete it.");
   revalidatePath("/[orgSlug]", "layout");
   return success("Deleted.");
 }

@@ -2,8 +2,8 @@
 set client_min_messages = warning;
 -- Everything happens inside the test's transaction and is rolled back.
 --
--- Organization A: alice (admin), mia (member)
--- Organization B: bob (admin), bea (member)
+-- Organization A: alice (owner), mia (staff)
+-- Organization B: bob (owner), bea (staff)
 -- oscar: signed up, belongs to no organization
 
 create extension if not exists pgtap with schema extensions;
@@ -63,14 +63,14 @@ insert into public.organizations (id, name, slug, preset_key) values
   ('bbbbbbbb-0000-0000-0000-000000000000', 'Org B', 'org-b', 'business');
 
 insert into public.memberships (id, organization_id, user_id, role) values
-  ('aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'admin'),
-  ('aaaaaaaa-1111-0000-0000-00000000000b', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000b', 'member'),
-  ('bbbbbbbb-1111-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000a', 'admin'),
-  ('bbbbbbbb-1111-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000b', 'member');
+  ('aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'owner'),
+  ('aaaaaaaa-1111-0000-0000-00000000000b', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000b', 'staff'),
+  ('bbbbbbbb-1111-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000a', 'owner'),
+  ('bbbbbbbb-1111-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000b', 'staff');
 
 insert into public.invitations (id, organization_id, email, role, token, invited_by) values
-  ('aaaaaaaa-2222-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'newbie@a.test', 'member', 'token-a', 'a0000000-0000-0000-0000-00000000000a'),
-  ('bbbbbbbb-2222-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'oscar@c.test', 'member', 'token-b', 'b0000000-0000-0000-0000-00000000000a');
+  ('aaaaaaaa-2222-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'newbie@a.test', 'staff', 'token-a', 'a0000000-0000-0000-0000-00000000000a'),
+  ('bbbbbbbb-2222-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'oscar@c.test', 'staff', 'token-b', 'b0000000-0000-0000-0000-00000000000a');
 
 insert into public.projects (id, organization_id, name, created_by) values
   ('aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'A project', 'a0000000-0000-0000-0000-00000000000a'),

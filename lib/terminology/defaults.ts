@@ -13,8 +13,10 @@ export const LABEL_KEYS = [
   "status.done",
   "status.active",
   "status.archived",
+  "role.owner",
+  "role.manager",
   "role.admin",
-  "role.member",
+  "role.staff",
   "section.dashboard",
   "section.calendar",
   "section.settings",
@@ -36,8 +38,10 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   "status.done": { one: "Done", other: "Done" },
   "status.active": { one: "Active", other: "Active" },
   "status.archived": { one: "Archived", other: "Archived" },
+  "role.owner": { one: "Owner", other: "Owners" },
+  "role.manager": { one: "Manager", other: "Managers" },
   "role.admin": { one: "Admin", other: "Admins" },
-  "role.member": { one: "Member", other: "Members" },
+  "role.staff": { one: "Staff", other: "Staff" },
   "section.dashboard": { one: "Dashboard", other: "Dashboard" },
   "section.calendar": { one: "Calendar", other: "Calendar" },
   "section.settings": { one: "Settings", other: "Settings" },
@@ -47,7 +51,7 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
 export const LABEL_GROUPS: { title: string; keys: LabelKey[] }[] = [
   { title: "Things you work with", keys: ["project", "task", "event", "document", "member"] },
   { title: "Statuses", keys: ["status.todo", "status.in_progress", "status.done", "status.active", "status.archived"] },
-  { title: "Roles", keys: ["role.admin", "role.member"] },
+  { title: "Roles", keys: ["role.owner", "role.manager", "role.admin", "role.staff"] },
   { title: "Sections", keys: ["section.dashboard", "section.calendar", "section.settings"] },
 ];
 

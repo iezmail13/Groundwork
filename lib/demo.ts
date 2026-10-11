@@ -4,10 +4,10 @@
 export const DEMO_ORG = { name: "Northside Youth Collective", slug: "northside-youth-collective", preset: "nonprofit" };
 
 export const DEMO_USERS = [
-  { email: "jordan@northside.example.org", fullName: "Jordan Ellis", role: "admin" },
-  { email: "priya@northside.example.org", fullName: "Priya Shah", role: "member" },
-  { email: "marcus@northside.example.org", fullName: "Marcus Chen", role: "member" },
-  { email: "sofia@northside.example.org", fullName: "Sofia Alvarez", role: "member" },
+  { email: "jordan@northside.example.org", fullName: "Jordan Ellis", role: "owner" },
+  { email: "priya@northside.example.org", fullName: "Priya Shah", role: "manager" },
+  { email: "marcus@northside.example.org", fullName: "Marcus Chen", role: "admin" },
+  { email: "sofia@northside.example.org", fullName: "Sofia Alvarez", role: "staff" },
 ] as const;
 
 export function devShortcutEnabled(): boolean {

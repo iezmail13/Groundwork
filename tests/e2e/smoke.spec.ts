@@ -258,7 +258,7 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   expect(pageErrors).toEqual([]);
 });
 
-test("invitations: invite, accept by magic link, change role, remove, last-admin guard", async ({ page, browser, request }) => {
+test("invitations: invite, accept by magic link, change role, remove, last-owner guard", async ({ page, browser, request }) => {
   const invitee = `invitee-${Date.now()}@example.org`;
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in as Jordan Ellis" }).click();
@@ -271,12 +271,14 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(page.getByText("That person is already in this organization.")).toBeVisible();
 
   await page.getByLabel("Email", { exact: true }).fill(invitee);
-  await page.getByLabel("Role", { exact: true }).selectOption("admin");
+  // an owner can hand out every role, highest first
+  await expect(page.getByLabel("Role", { exact: true }).locator("option")).toHaveText(["Owner", "Manager", "Admin", "Staff"]);
+  await page.getByLabel("Role", { exact: true }).selectOption("manager");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   const link = await page.getByLabel("Invite link", { exact: true }).inputValue();
-  // the form starts fresh, so the next invite can't silently inherit the Admin role
+  // the form starts fresh, so the next invite can't silently inherit a higher role
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("Role", { exact: true })).toHaveValue("member");
+  await expect(page.getByLabel("Role", { exact: true })).toHaveValue("staff");
   expect(link).toMatch(/\/invite\/[0-9a-f]{64}$/);
 
   // the invitee opens the link in their own browser, signs in, and accepts
@@ -293,23 +295,59 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await other.close();
 
-  // they joined as an admin; demote them, then remove them
+  // they joined as a manager; demote them, then remove them
   await visit(page, "/northside-youth-collective/settings?view=members");
   const row = page.getByRole("row").filter({ hasText: invitee });
   await expect(row).toBeVisible();
-  await expect(row.getByRole("combobox")).toHaveValue("admin");
-  await row.getByRole("combobox").selectOption("member");
+  await expect(row.getByRole("combobox")).toHaveValue("manager");
+  await row.getByRole("combobox").selectOption("staff");
   await row.getByRole("button", { name: "Update" }).click();
   await page.reload();
-  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("member");
+  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("staff");
   await page.getByRole("button", { name: `Remove ${invitee}` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
   await expect(page.getByRole("row").filter({ hasText: invitee })).toHaveCount(0);
 
-  // the only admin can't leave
+  // the owner can start a transfer to anyone who isn't already an owner, and back out
+  await page.getByRole("button", { name: "Transfer ownership" }).click();
+  const transfer = page.getByRole("dialog", { name: "Transfer ownership" });
+  await expect(transfer.getByLabel("New owner").locator("option:not([disabled])")).toHaveText(["Priya Shah", "Marcus Chen", "Sofia Alvarez"]);
+  await transfer.getByRole("button", { name: "Cancel" }).click();
+  await expect(transfer).toBeHidden();
+
+  // the only owner can't leave
   await page.getByRole("button", { name: "Leave the organization" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Leave" }).click();
-  await expect(page.getByRole("dialog").getByText("An organization must keep at least one admin")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("An organization must keep at least one owner")).toBeVisible();
+});
+
+test("role ladder: managers grant only lower roles, staff see settings read-only", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  // the owner outranks a manager, so their row is read-only
+  const owner = page.getByRole("row").filter({ hasText: "Jordan Ellis" });
+  await expect(owner.getByRole("combobox")).toHaveCount(0);
+  await expect(owner.getByText("Owner", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Jordan Ellis" })).toHaveCount(0);
+  // a manager can change and invite only the ranks below them
+  await expect(page.getByLabel("Role for Marcus Chen").locator("option")).toHaveText(["Admin", "Staff"]);
+  await expect(page.getByLabel("Role", { exact: true }).locator("option")).toHaveText(["Admin", "Staff"]);
+  await expect(page.getByRole("button", { name: "Transfer ownership" })).toHaveCount(0);
+
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await visit(staff, "/northside-youth-collective/settings?view=members");
+  await expect(staff.getByText("Only owners and managers can change settings.")).toBeVisible();
+  await expect(staff.getByRole("combobox")).toHaveCount(0);
+  await expect(staff.getByRole("heading", { name: "Invite someone" })).toHaveCount(0);
+  // staff can still leave on their own
+  await expect(staff.getByRole("button", { name: "Leave the organization" })).toBeVisible();
+  await context.close();
 });
 
 test("sign-in links work on another device and survive mail scanners", async ({ browser, request }) => {

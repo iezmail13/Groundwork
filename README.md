@@ -18,12 +18,12 @@ npm run dev             # http://localhost:3000
 
 Open http://localhost:3000/login. In development, the login page has a **Development shortcut**: one-click sign-in as any seeded demo user, no email needed:
 
-| Person        | Email                         | Role   |
-| ------------- | ----------------------------- | ------ |
-| Jordan Ellis  | jordan@northside.example.org  | admin  |
-| Priya Shah    | priya@northside.example.org   | member |
-| Marcus Chen   | marcus@northside.example.org  | member |
-| Sofia Alvarez | sofia@northside.example.org   | member |
+| Person        | Email                         | Role    |
+| ------------- | ----------------------------- | ------- |
+| Jordan Ellis  | jordan@northside.example.org  | owner   |
+| Priya Shah    | priya@northside.example.org   | manager |
+| Marcus Chen   | marcus@northside.example.org  | admin   |
+| Sofia Alvarez | sofia@northside.example.org   | staff   |
 
 The shortcut isn't rendered, and its server action refuses to run, when `NODE_ENV` is `production` (for example under `npm run build && npm start`). It also needs `SUPABASE_SERVICE_ROLE_KEY`, so it never appears on a deployment without one.
 
@@ -39,7 +39,7 @@ Locally, Supabase doesn't send real email. Every message goes to **Mailpit**, th
 
 The emails come from `supabase/templates/`. The deploy pipeline installs the same templates on the hosted project (on a new Free-plan Supabase project, Supabase only allows that once custom SMTP is set up). Because nothing is verified until the button is pressed, mail-security scanners that open every link can't use up the token, and the link works on any device or browser, not just the one that asked for it. Local email is rate-limited to 100 per hour (`supabase/config.toml`); after editing a template, restart with `npx supabase stop && npx supabase start`.
 
-New users create an organization and become its admin. Admins invite people in **Settings → Members**: enter an email and role, then copy the invite link and send it yourself. Groundwork doesn't email invitations. The invitee opens the link, signs in with that exact email address, and joins.
+New users create an organization and become its owner. Owners and managers invite people in **Settings → Members**: enter an email and role, then copy the invite link and send it yourself. Groundwork doesn't email invitations. The invitee opens the link, signs in with that exact email address, and joins.
 
 ## Scripts
 
@@ -115,7 +115,7 @@ Until the settings below exist, the Deploy job finishes without deploying and it
    | Variable | `APP_URL` *(optional, later)* | leave unset for the first deploy; see *Custom domain* below   |
 
 5. **Run it:** merge to `main`, or open Actions → CI → Run workflow on `main`. When the Deploy job finishes, its summary shows the live URL.
-6. **Open the URL, sign in with your email, and create your organization.** You're its admin; invite your team from Settings → Members.
+6. **Open the URL, sign in with your email, and create your organization.** You're its owner; invite your team from Settings → Members.
 
 To redeploy at any time, run CI on `main` again (Actions → CI → Run workflow). Re-running an older run never redeploys an older commit; only the latest commit on `main` is deployed.
 
@@ -162,4 +162,4 @@ docs/decisions.md          every judgement call, with reasons
 
 ## Design system in one paragraph
 
-There are two colour scales, navy (`#1F2D4D`) and bone (`#FBF9F4`, `#F5F1E8`, `#DDD6C8`). Every other colour is a tint or shade derived from those two. Tailwind's default palette and shadows are removed, so nothing else can creep in. The sidebar rail is a solid navy-over-bone tint (`#555E74`). Status is always shown by label and icon, never by colour alone. An admin can change the navy base and switch light or dark mode; the app derives the rest and rejects any change that drops text contrast below 4.5:1. Animation is CSS only and switches off under `prefers-reduced-motion`.
+There are two colour scales, navy (`#1F2D4D`) and bone (`#FBF9F4`, `#F5F1E8`, `#DDD6C8`). Every other colour is a tint or shade derived from those two. Tailwind's default palette and shadows are removed, so nothing else can creep in. The sidebar rail is a solid navy-over-bone tint (`#555E74`). Status is always shown by label and icon, never by colour alone. Owners and managers can change the navy base and switch light or dark mode; the app derives the rest and rejects any change that drops text contrast below 4.5:1. Animation is CSS only and switches off under `prefers-reduced-motion`.

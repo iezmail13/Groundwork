@@ -318,6 +318,15 @@ isOneToOne: false
             "accept_invitation":
 { Args: { "token": string }; Returns: string
                            },
+"can_grant_role":
+{ Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
+                           },
+"can_manage_member":
+{ Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
+                           },
+"can_view_task":
+{ Args: { "task_id": string }; Returns: boolean
+                           },
 "create_organization":
 { Args: { "name": string,"preset_key": string }; Returns: {
               "created_at": string,
@@ -339,7 +348,7 @@ isOneToOne: false
               "accepted_at": string,"email": string,"expires_at": string,"organization_name": string,"organization_slug": string,"role": Database["public"]['Enums']["member_role"]
             }[]
                            },
-"has_role":
+"has_permission":
 { Args: { "org_id": string,"required": Database["public"]['Enums']["member_role"] }; Returns: boolean
                            },
 "is_member":
@@ -348,10 +357,16 @@ isOneToOne: false
 "my_membership_id":
 { Args: { "org_id": string }; Returns: string
                            },
+"my_rank":
+{ Args: { "org_id": string }; Returns: number
+                           },
 "recent_projects":
 { Args: { "max_rows"?: number,"org_id": string }; Returns: {
               "color": string,"id": string,"last_activity_at": string,"name": string
             }[]
+                           },
+"role_rank":
+{ Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
                            },
 "shares_org":
 { Args: { "other_user": string }; Returns: boolean
@@ -364,10 +379,13 @@ isOneToOne: false
                            },
 "tags_to_text":
 { Args: { "tags": (string)[] }; Returns: string
+                           },
+"transfer_ownership":
+{ Args: { "new_owner_membership_id": string,"org_id": string }; Returns: undefined
                            }
           }
           Enums: {
-            "member_role": "admin"|"member","project_status": "active"|"archived","task_status": "todo"|"in_progress"|"done"
+            "member_role": "owner"|"manager"|"admin"|"staff","project_status": "active"|"archived","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -487,7 +505,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "member_role": ["admin", "member"],"project_status": ["active", "archived"],"task_status": ["todo", "in_progress", "done"]
+            "member_role": ["owner", "manager", "admin", "staff"],"project_status": ["active", "archived"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const
