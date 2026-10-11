@@ -10,7 +10,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
 import { keepValues } from "@/lib/forms";
-import type { Role } from "@/lib/roles";
+import { grantableProjectRoles, type Role } from "@/lib/roles";
+import { lower } from "@/lib/terminology/t";
 
 export type PresetChoice = { key: string; name: string; words: string[] };
 
@@ -115,37 +116,99 @@ export function OrganizationForm({
   );
 }
 
-export function InviteForm({ organizationId, roles }: { organizationId: string; roles: Role[] }) {
+export type GrantableProject = { id: string; name: string; myRank: number };
+
+export function InviteForm({
+  organizationId,
+  roles,
+  projects,
+}: {
+  organizationId: string;
+  roles: Role[];
+  /** Projects the inviter can grant (they're a project admin or lead there). */
+  projects: GrantableProject[];
+}) {
   const t = useT();
   const [state, action, pending] = useActionState(inviteMember, idle);
   const [copied, setCopied] = useState(false);
+  const [role, setRole] = useState<Role>("staff");
+  const [handled, setHandled] = useState<number | undefined>();
   const formRef = useRef<HTMLFormElement>(null);
-  // start fresh after each invite, so the next one doesn't inherit the email or a higher role
+  // start fresh after each invite, so the next one doesn't inherit the email, a higher role or project access
+  if (state.status === "success" && state.at !== handled) {
+    setHandled(state.at);
+    setRole("staff");
+  }
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();
   }, [state]);
   const link = state.status === "success" ? state.data?.link : undefined;
   const e = state.fieldErrors ?? {};
+  const projectWord = lower(t("project", "other"));
   return (
     <div className="flex flex-col gap-3">
-      <form ref={formRef} action={action} onSubmit={keepValues(action)} className="flex flex-wrap items-end gap-3" noValidate>
+      <form ref={formRef} action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="organizationId" value={organizationId} />
-        <Field label="Email" htmlFor="invite-email" error={e.email} className="min-w-64 flex-1">
-          <Input id="invite-email" name="email" type="email" required placeholder="name@example.org" invalid={Boolean(e.email)} />
-        </Field>
-        <Field label="Role" htmlFor="invite-role" error={e.role}>
-          <Select id="invite-role" name="role" defaultValue="staff">
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {t(`role.${r}`)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <SubmitButton pending={pending} pendingLabel="Creating…">
-          <UserPlus aria-hidden className="size-4" />
-          Invite
-        </SubmitButton>
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Name" htmlFor="invite-name" error={e.name} className="min-w-48 flex-1">
+            <Input id="invite-name" name="name" maxLength={120} autoComplete="off" invalid={Boolean(e.name)} />
+          </Field>
+          <Field label="Email" htmlFor="invite-email" error={e.email} className="min-w-64 flex-1">
+            <Input id="invite-email" name="email" type="email" required placeholder="name@example.org" invalid={Boolean(e.email)} />
+          </Field>
+          <Field label="Role" htmlFor="invite-role" error={e.role}>
+            <Select id="invite-role" name="role" value={role} onChange={(ev) => setRole(ev.target.value as Role)}>
+              {roles.map((r) => (
+                <option key={r} value={r}>
+                  {t(`role.${r}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        {projects.length ? (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 font-heading text-sm font-semibold">
+              {t("project", "other")} they join
+            </legend>
+            <p className="text-sm text-ink-muted">
+              They&apos;ll only see the {projectWord} you add them to
+              {roles.includes("owner") ? ` (${lower(t("role.owner", "other"))} see all of them)` : ""}.
+            </p>
+            <ul className="divide-y divide-rule border-y border-rule">
+              {projects.map((p) => {
+                const options = grantableProjectRoles(p.myRank, role);
+                return (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                    <label htmlFor={`grant-${p.id}`} className="min-w-0 flex-1 font-semibold">
+                      {p.name}
+                    </label>
+                    <select
+                      id={`grant-${p.id}`}
+                      name={`grant.${p.id}`}
+                      defaultValue=""
+                      key={role}
+                      className={`${inputClass.replace("w-full", "")} w-40 shrink-0 py-1.5`}
+                    >
+                      <option value="">Not added</option>
+                      {options.map((r) => (
+                        <option key={r} value={r}>
+                          {t(`project_role.${r}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                );
+              })}
+            </ul>
+          </fieldset>
+        ) : null}
+        <div>
+          <SubmitButton pending={pending} pendingLabel="Creating…">
+            <UserPlus aria-hidden className="size-4" />
+            Invite
+          </SubmitButton>
+        </div>
       </form>
       <FormMessage state={state} />
       {link ? (

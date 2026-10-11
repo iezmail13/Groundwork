@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Archive, ArrowLeft, CalendarDays, Download, FileText, ListChecks } from "lucide-react";
+import { Archive, ArrowLeft, CalendarDays, Download, FileText, ListChecks, Lock, Users } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ProjectDot } from "@/components/tasks/badges";
@@ -13,6 +13,9 @@ import { NewEventButton, EventRowButton } from "@/components/calendar/event-butt
 import { UploadButton } from "@/components/documents/upload-form";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { getMembers, getOrgContext } from "@/lib/org";
+import { getAssigneeNames, getMyProjectRank, getProjectRoster } from "@/lib/projects";
+import { ProjectPeople } from "@/components/projects/people";
+import { rankOf } from "@/lib/roles";
 import { DOCUMENT_SELECT, EVENT_SELECT, getProjectOptions, TASK_SELECT, type DocumentRow, type EventRow, type TaskRow } from "@/lib/queries";
 import { sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
@@ -44,24 +47,31 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
   if (!project) notFound();
 
   const supabase = await createClient();
-  const [{ data: taskData }, { data: eventData }, { data: docData }, members, projects] = await Promise.all([
+  const [{ data: taskData }, { data: eventData }, { data: docData }, members, projects, roster, myRank, assigneeNames] = await Promise.all([
     supabase.from("tasks").select(TASK_SELECT).eq("project_id", project.id).order("position"),
     supabase.from("events").select(EVENT_SELECT).eq("project_id", project.id).order("starts_at"),
     supabase.from("documents").select(DOCUMENT_SELECT).eq("project_id", project.id).order("pinned", { ascending: false }).order("created_at", { ascending: false }),
     getMembers(org.id),
     getProjectOptions(org.id),
+    getProjectRoster(org.id, project.id),
+    getMyProjectRank(project.id),
+    getAssigneeNames(org.id),
   ]);
   const tasks = (taskData ?? []) as TaskRow[];
   const events = (eventData ?? []) as EventRow[];
   const docs = (docData ?? []) as DocumentRow[];
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
   const done = tasks.filter((x) => x.status === "done").length;
   const archived = project.status === "archived";
-  const canDelete = ctx.canManage || project.created_by === ctx.userId;
+  // project admins and leads edit it; leads (and owners) delete it
+  const canEdit = myRank >= 2;
+  const canDelete = myRank >= 3;
+  // anyone's items: project admins and leads, owners, and org managers on the project
+  const canManageItems = !archived && (myRank >= 2 || (myRank >= 1 && rankOf(ctx.role) >= 3));
+  const onProject = new Set(roster.map((r) => r.membershipId));
+  const leads = roster.filter((r) => r.role === "lead").map((r) => r.name);
   const nowIso = new Date().toISOString();
   const upcoming = events.filter((e) => e.ends_at >= nowIso);
   const past = events.filter((e) => e.ends_at < nowIso).reverse().slice(0, 5);
-  const memberOptions = members.map((m) => ({ id: m.id, name: m.name }));
   const projectsForForms = archived ? [...projects, { id: project.id, name: project.name }] : projects;
 
   const eventWhen = (e: EventRow) =>
@@ -91,7 +101,11 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               ) : (
                 <Badge variant="outline">{t("status.active")}</Badge>
               )}
-              {project.owner_membership_id ? <span>Lead: {memberName.get(project.owner_membership_id)}</span> : null}
+              {leads.length ? (
+                <span>
+                  {t("project_role.lead", leads.length === 1 ? "one" : "other")}: {leads.join(", ")}
+                </span>
+              ) : null}
               {project.start_date || project.end_date ? (
                 <span>
                   {project.start_date ? formatDate(project.start_date) : "—"} to{" "}
@@ -103,24 +117,32 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
         }
         actions={
           <>
-            <EditProjectButton
-              organizationId={org.id}
-              members={memberOptions}
-              project={{
-                id: project.id,
-                name: project.name,
-                description: project.description,
-                color: project.color,
-                owner_membership_id: project.owner_membership_id,
-                start_date: project.start_date,
-                end_date: project.end_date,
-              }}
-            />
-            <ArchiveProjectButton id={project.id} archived={archived} />
+            {canEdit && !archived ? (
+              <EditProjectButton
+                organizationId={org.id}
+                project={{
+                  id: project.id,
+                  name: project.name,
+                  description: project.description,
+                  color: project.color,
+                  start_date: project.start_date,
+                  end_date: project.end_date,
+                }}
+              />
+            ) : null}
+            {canEdit ? <ArchiveProjectButton id={project.id} archived={archived} /> : null}
             {canDelete ? <DeleteProjectButton id={project.id} orgSlug={org.slug} name={project.name} /> : null}
           </>
         }
       />
+
+      {archived ? (
+        <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
+          <Lock aria-hidden className="size-4" />
+          This {lower(t("project"))} is {lower(t("status.archived"))}, so everything in it is read-only.
+          {canEdit ? " Restore it to make changes." : ""}
+        </p>
+      ) : null}
 
       <section aria-labelledby="project-tasks" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -132,14 +154,14 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
             <ProgressBar done={done} total={tasks.length} label={`${project.name} progress`} />
           </div>
         </div>
-        <QuickAddTask organizationId={org.id} projectId={project.id} idSuffix="project" />
+        {archived ? null : <QuickAddTask organizationId={org.id} projectId={project.id} idSuffix="project" />}
         {tasks.length ? (
           <TaskTable
-            tasks={sortTasks(tasks, { key: "status", dir: "asc" }, memberName)}
+            tasks={sortTasks(tasks, { key: "status", dir: "asc" }, assigneeNames)}
             base={base}
             today={today}
             t={t}
-            memberName={memberName}
+            memberName={assigneeNames}
             showProject={false}
             caption={`${t("task", "other")} in ${project.name}`}
           />
@@ -157,7 +179,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               <CalendarDays aria-hidden className="size-5" />
               {t("event", "other")}
             </h2>
-            <NewEventButton organizationId={org.id} projects={projectsForForms} date={today} projectId={project.id} />
+            {archived ? null : <NewEventButton organizationId={org.id} projects={projectsForForms} date={today} projectId={project.id} />}
           </div>
           {upcoming.length === 0 && past.length === 0 ? (
             <p className="border-y border-dashed border-rule py-6 text-center text-ink-muted">
@@ -173,7 +195,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                       <EventRowButton
                         organizationId={org.id}
                         projects={projectsForForms}
-                        values={toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId)}
+                        values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId))}
                         when={eventWhen(e)}
                         location={e.location}
                       />
@@ -192,7 +214,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                         <EventRowButton
                           organizationId={org.id}
                           projects={projectsForForms}
-                          values={toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId)}
+                          values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId))}
                           when={eventWhen(e)}
                           location={e.location}
                         />
@@ -211,7 +233,9 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               <FileText aria-hidden className="size-5" />
               {t("document", "other")}
             </h2>
-            <UploadButton organizationId={org.id} projects={projectsForForms} projectId={project.id} variant="secondary" />
+            {archived ? null : (
+              <UploadButton organizationId={org.id} projects={projectsForForms} projectId={project.id} variant="secondary" />
+            )}
           </div>
           {docs.length ? (
             <ul className="divide-y divide-rule border-y border-rule">
@@ -240,6 +264,27 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
           )}
         </section>
       </div>
+
+      <section aria-labelledby="project-people" className="flex flex-col gap-3">
+        <h2 id="project-people" className="flex items-center gap-2 text-xl font-bold">
+          <Users aria-hidden className="size-5" />
+          People
+        </h2>
+        <ProjectPeople
+          organizationId={org.id}
+          projectId={project.id}
+          orgSlug={org.slug}
+          myRank={myRank}
+          myMembershipId={ctx.membershipId}
+          roster={roster}
+          candidates={members
+            .filter((m) => m.role !== "owner" && !onProject.has(m.id))
+            .map((m) => ({ membershipId: m.id, name: m.name, orgRole: m.role }))}
+          owners={members.filter((m) => m.role === "owner").map((m) => m.name)}
+          adminsToAdd={members.filter((m) => m.role === "admin" && !onProject.has(m.id)).length}
+          archived={archived}
+        />
+      </section>
     </div>
   );
 }

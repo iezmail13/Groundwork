@@ -32,14 +32,19 @@ export function readSort(params: Record<string, string | string[] | undefined>):
   return { key, dir: params.dir === "desc" ? "desc" : "asc" };
 }
 
+/** A task's assignee: a membership id, a pending invitation id, or null. */
+export function assigneeOf(task: Pick<TaskRow, "assignee_membership_id" | "assignee_invitation_id">): string | null {
+  return task.assignee_membership_id ?? task.assignee_invitation_id ?? null;
+}
+
 /** Applies filters in memory (also used to test the rules). */
 export function filterTasks(tasks: TaskRow[], f: TaskFilters, today: string, myMembershipId: string): TaskRow[] {
   const weekEnd = addDays(today, 7);
   return tasks.filter((task) => {
     if (f.project && task.project_id !== f.project) return false;
     if (f.assignee === "me" && task.assignee_membership_id !== myMembershipId) return false;
-    if (f.assignee === "none" && task.assignee_membership_id) return false;
-    if (f.assignee && f.assignee !== "me" && f.assignee !== "none" && task.assignee_membership_id !== f.assignee) return false;
+    if (f.assignee === "none" && assigneeOf(task)) return false;
+    if (f.assignee && f.assignee !== "me" && f.assignee !== "none" && assigneeOf(task) !== f.assignee) return false;
     if (f.status && task.status !== f.status) return false;
     const due = task.due_date;
     switch (f.due) {
@@ -71,7 +76,7 @@ export function sortTasks(tasks: TaskRow[], sort: Sort, memberName: Map<string, 
       case "project":
         return task.project?.name ?? null;
       case "assignee":
-        return task.assignee_membership_id ? (memberName.get(task.assignee_membership_id) ?? null) : null;
+        return memberName.get(assigneeOf(task) ?? "") ?? null;
       case "status":
         return STATUS_ORDER[task.status];
       case "due":

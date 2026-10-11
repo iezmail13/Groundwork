@@ -7,6 +7,7 @@ import { TaskTable, type SortKey } from "@/components/tasks/task-table";
 import { FilterBar } from "@/components/tasks/filter-bar";
 import { QuickAddTask } from "@/components/tasks/quick-add";
 import { getMembers, getOrgContext, initials } from "@/lib/org";
+import { getAssigneeNames } from "@/lib/projects";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { filterTasks, readFilters, readSort, sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
@@ -25,16 +26,16 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   const { t, org, base, today } = ctx;
   const supabase = await createClient();
 
-  const [{ data, error }, members, projects] = await Promise.all([
+  const [{ data, error }, members, projects, memberName] = await Promise.all([
     supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).order("position").limit(2000),
     getMembers(org.id),
     getProjectOptions(org.id),
+    getAssigneeNames(org.id),
   ]);
   if (error) throw error;
   const all = (data ?? []) as TaskRow[];
   const filters = readFilters(sp);
   const sort = readSort(sp);
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
   // the board shows every status as a column, so the status filter is list-only
   const visible = filterTasks(all, view === "board" ? { ...filters, status: undefined } : filters, today, ctx.membershipId);
   const plural = t("task", "other");
@@ -86,7 +87,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
               today={today}
               organizationId={org.id}
               projects={projects}
-              memberInitials={Object.fromEntries(members.map((m) => [m.id, { initials: initials(m.name), name: m.name }]))}
+              memberInitials={Object.fromEntries([...memberName].map(([assigneeId, name]) => [assigneeId, { initials: initials(name), name }]))}
             />
           ) : (
             <div className="flex flex-col gap-4">

@@ -17,7 +17,6 @@ export const projectInput = z
     name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(120, "Use 120 characters or fewer."),
     description: optionalText(4000, "Use 4,000 characters or fewer."),
     color: z.enum(PROJECT_COLOR_VALUES, { error: "Pick one of the colours." }).optional(),
-    ownerMembershipId: id.optional(),
     startDate: isoDate.optional(),
     endDate: isoDate.optional(),
   })
@@ -44,7 +43,11 @@ export const taskUpdateInput = z.object({
   description: optionalText(4000, "Use 4,000 characters or fewer."),
   status: taskStatus,
   dueDate: isoDate.optional(),
-  assigneeMembershipId: id.optional(),
+  // "m:<membership id>" for a member, "i:<invitation id>" for a pending invitee
+  assignee: z
+    .string()
+    .regex(/^[mi]:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Choose who it's for.")
+    .optional(),
 });
 
 export const taskMoveInput = z.object({

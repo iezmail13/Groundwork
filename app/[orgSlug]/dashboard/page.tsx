@@ -67,7 +67,8 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     })),
     activity: activity.map((a) => ({
       id: a.id,
-      actor: a.actor_membership_id ? (memberName.get(a.actor_membership_id) ?? "Someone") : "Someone",
+      // a person who has since left keeps the name stored with the entry
+      actor: (a.actor_membership_id ? memberName.get(a.actor_membership_id) : undefined) ?? a.metadata.actor_name ?? "Someone",
       sentence: describeActivity(a, t),
       label: a.metadata.label ?? null,
       href: activityHref(a, base),

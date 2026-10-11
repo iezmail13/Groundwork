@@ -18,6 +18,8 @@ function task(id: string, patch: Partial<TaskRow>): TaskRow {
     position: 0,
     project_id: P1,
     assignee_membership_id: null,
+    assignee_invitation_id: null,
+    needs_assignee: false,
     completed_at: null,
     created_by: null,
     project: { id: P1, name: "Alpha", color: null, status: "active" },
@@ -42,6 +44,15 @@ describe("task filters", () => {
     expect(ids(filterTasks(tasks, { due: "week" }, today, ME))).toEqual(["today", "soon"]);
     expect(ids(filterTasks(tasks, { due: "later" }, today, ME))).toEqual(["later"]);
     expect(ids(filterTasks(tasks, { due: "none" }, today, ME))).toEqual(["undated"]);
+  });
+
+  it("treats a pending invitee as an assignee", () => {
+    const INVITE = "55555555-5555-4555-8555-555555555555";
+    const withInvitee = [...tasks, task("pending", { assignee_invitation_id: INVITE })];
+    expect(ids(filterTasks(withInvitee, { assignee: INVITE }, today, ME))).toEqual(["pending"]);
+    expect(ids(filterTasks(withInvitee, { assignee: "none" }, today, ME))).not.toContain("pending");
+    const names = new Map([[INVITE, "Alex Rivera (pending)"]]);
+    expect(ids(sortTasks(withInvitee, { key: "assignee", dir: "asc" }, names))[0]).toBe("pending");
   });
 
   it("filters by assignee, project and status", () => {

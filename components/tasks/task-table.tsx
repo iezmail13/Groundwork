@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { DueBadge, ProjectDot, TaskStatusBadge } from "./badges";
+import { DueBadge, NeedsAssigneeBadge, ProjectDot, TaskStatusBadge } from "./badges";
+import { assigneeOf } from "@/lib/task-filters";
 import { TaskCheckbox } from "./task-checkbox";
 import type { TaskRow } from "@/lib/queries";
 import type { Translate } from "@/lib/terminology/t";
@@ -105,8 +106,10 @@ export function TaskTable({
                 </td>
               ) : null}
               <td className="py-2.5 pr-4 text-sm">
-                {task.assignee_membership_id ? (
-                  memberName.get(task.assignee_membership_id)
+                {assigneeOf(task) ? (
+                  memberName.get(assigneeOf(task)!)
+                ) : task.needs_assignee && task.status !== "done" ? (
+                  <NeedsAssigneeBadge />
                 ) : (
                   <span className="text-ink-muted">Unassigned</span>
                 )}

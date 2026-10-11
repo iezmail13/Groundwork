@@ -6,9 +6,10 @@ import { MembersTable, PendingInvites, TransferOwnership } from "@/components/se
 import { getMembers, getOrgContext } from "@/lib/org";
 import { createClient } from "@/lib/supabase/server";
 import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
-import { grantableRoles, type Role } from "@/lib/roles";
+import { grantableRoles } from "@/lib/roles";
 import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
+import { getProjectOptions } from "@/lib/queries";
 
 const VIEWS = ["preset", "members", "organization"] as const;
 type View = (typeof VIEWS)[number];
@@ -44,7 +45,13 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
         </p>
       ) : null}
       {view === "preset" ? <PresetPanel orgId={org.id} current={org.preset_key} disabled={!canManage} /> : null}
-      {view === "members" ? <MembersPanel orgSlug={orgSlug} transferred={sp.notice === "transferred"} /> : null}
+      {view === "members" ? (
+        <MembersPanel
+          orgSlug={orgSlug}
+          transferred={sp.notice === "transferred"}
+          removed={sp.notice === "removed" ? { handed: count(sp.handed), flagged: count(sp.flagged) } : null}
+        />
+      ) : null}
       {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
     </div>
   );
@@ -63,21 +70,55 @@ async function PresetPanel({ orgId, current, disabled }: { orgId: string; curren
   return <PresetForm organizationId={orgId} current={current} presets={choices} disabled={disabled} />;
 }
 
-async function MembersPanel({ orgSlug, transferred }: { orgSlug: string; transferred: boolean }) {
+/** A small non-negative count from the query string. */
+function count(value: string | string[] | undefined): number {
+  const n = Number(typeof value === "string" ? value : 0);
+  return Number.isInteger(n) && n >= 0 && n < 100000 ? n : 0;
+}
+
+async function MembersPanel({
+  orgSlug,
+  transferred,
+  removed,
+}: {
+  orgSlug: string;
+  transferred: boolean;
+  removed: { handed: number; flagged: number } | null;
+}) {
   const ctx = await getOrgContext(orgSlug);
   const { t, org, canManage, role, today, tz } = ctx;
   const supabase = await createClient();
-  const [members, { data: invitations }, origin] = await Promise.all([
+  const [members, { data: invitations }, origin, projects, { data: ranks }] = await Promise.all([
     getMembers(org.id),
     canManage
-      ? supabase.from("invitations").select("id, email, role, token, expires_at").eq("organization_id", org.id).is("accepted_at", null).order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as { id: string; email: string; role: Role; token: string; expires_at: string }[] }),
+      ? supabase
+          .from("invitations")
+          .select("id, email, name, role, token, expires_at, grants:invitation_projects(role, project:projects(name))")
+          .eq("organization_id", org.id)
+          .is("accepted_at", null)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
     siteOrigin(),
+    getProjectOptions(org.id),
+    supabase.rpc("my_project_ranks", { org_id: org.id }),
   ]);
+  const rankOfProject = new Map((ranks ?? []).map((r) => [r.project_id, r.rank]));
+  // granting a project needs project admin or lead there
+  const grantable = projects
+    .map((p) => ({ id: p.id, name: p.name, myRank: rankOfProject.get(p.id) ?? 0 }))
+    .filter((p) => p.myRank >= 2);
   const now = new Date().toISOString();
 
   return (
     <div className="flex flex-col gap-8">
+      {removed ? (
+        <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
+          <CircleCheck aria-hidden className="size-4" />
+          Removed.
+          {removed.handed ? ` ${removed.handed} open ${lower(t("task", removed.handed === 1 ? "one" : "other"))} handed over.` : ""}
+          {removed.flagged ? ` ${removed.flagged} flagged for a new assignee.` : ""}
+        </p>
+      ) : null}
       {transferred ? (
         <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
           <CircleCheck aria-hidden className="size-4" />
@@ -120,7 +161,7 @@ async function MembersPanel({ orgSlug, transferred }: { orgSlug: string; transfe
               Create an invitation, then copy the link and send it to them. They sign in with that email address to join.
               Links expire after 14 days.
             </p>
-            <InviteForm organizationId={org.id} roles={grantableRoles(role)} />
+            <InviteForm organizationId={org.id} roles={grantableRoles(role)} projects={grantable} />
           </section>
           <section aria-labelledby="pending-heading" className="flex flex-col gap-3">
             <h2 id="pending-heading" className="text-xl font-bold">
@@ -130,7 +171,9 @@ async function MembersPanel({ orgSlug, transferred }: { orgSlug: string; transfe
               invites={(invitations ?? []).map((i) => ({
                 id: i.id,
                 email: i.email,
+                name: i.name,
                 role: i.role,
+                projects: (i.grants ?? []).flatMap((g) => (g.project ? [`${g.project.name} (${t(`project_role.${g.role}`)})`] : [])),
                 link: `${origin}/invite/${i.token}`,
                 expires: formatRelativeDate(dateInZone(new Date(i.expires_at), tz), today),
                 expired: i.expires_at < now,

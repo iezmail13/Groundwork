@@ -83,6 +83,9 @@ export type SmtpSettings = {
   senderName?: string;
 };
 
+/** Google sign-in for Supabase Auth: an OAuth client from Google Cloud. */
+export type GoogleSettings = { clientId?: string; secret?: string };
+
 export type EmailTemplate = { subject: string; html: string };
 export type EmailTemplates = { magicLink?: EmailTemplate; confirmation?: EmailTemplate };
 
@@ -98,7 +101,12 @@ export function hasSmtp(smtp: SmtpSettings): boolean {
  * Email templates are sent separately (buildTemplateConfig), because Supabase
  * refuses template changes on new Free-plan projects without custom SMTP.
  */
-export function buildAuthSettings(appUrl: string, smtp: SmtpSettings = {}, extraRedirects: string[] = []) {
+export function buildAuthSettings(
+  appUrl: string,
+  smtp: SmtpSettings = {},
+  extraRedirects: string[] = [],
+  google: GoogleSettings = {},
+) {
   const origin = normalizeAppUrl(appUrl);
   const allow = [`${origin}/**`, ...extraRedirects.map((u) => u.trim()).filter(Boolean)];
   const body: Record<string, string | number | boolean> = {
@@ -123,6 +131,24 @@ export function buildAuthSettings(appUrl: string, smtp: SmtpSettings = {}, extra
       smtp_admin_email: smtp.from!.trim(),
       smtp_sender_name: smtp.senderName?.trim() || "Groundwork",
       rate_limit_email_sent: 60,
+    });
+  }
+
+  // Google is turned on only with both halves of the OAuth client; with
+  // neither, whatever is set in the Supabase dashboard is left alone.
+  const clientId = google.clientId?.trim();
+  const secret = google.secret?.trim();
+  if (clientId || secret) {
+    if (!clientId || !secret) {
+      throw new Error(`Google sign-in is partly configured; missing: ${clientId ? "GOOGLE_CLIENT_SECRET" : "GOOGLE_CLIENT_ID"}.`);
+    }
+    if (!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+      throw new Error("GOOGLE_CLIENT_ID should look like 1234-abc.apps.googleusercontent.com.");
+    }
+    Object.assign(body, {
+      external_google_enabled: true,
+      external_google_client_id: clientId,
+      external_google_secret: secret,
     });
   }
   return body;

@@ -37,5 +37,8 @@ export default defineConfig({
         url: `${baseURL}/login`,
         reuseExistingServer: true,
         timeout: 180_000,
+        // show the Google button so its hand-off to Supabase can be tested
+        // (Google itself isn't configured locally; the test stops at the redirect)
+        env: { ...process.env, NEXT_PUBLIC_GOOGLE_SIGN_IN: "true" } as Record<string, string>,
       },
 });

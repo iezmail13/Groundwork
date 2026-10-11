@@ -15,13 +15,15 @@ export type TaskRow = {
   position: number;
   project_id: string;
   assignee_membership_id: string | null;
+  assignee_invitation_id: string | null;
+  needs_assignee: boolean;
   completed_at: string | null;
   created_by: string | null;
   project: { id: string; name: string; color: string | null; status: ProjectStatus } | null;
 };
 
 export const TASK_SELECT =
-  "id, title, description, status, due_date, position, project_id, assignee_membership_id, completed_at, created_by, project:projects(id, name, color, status)";
+  "id, title, description, status, due_date, position, project_id, assignee_membership_id, assignee_invitation_id, needs_assignee, completed_at, created_by, project:projects(id, name, color, status)";
 
 export type ProjectOption = { id: string; name: string };
 
@@ -103,7 +105,7 @@ export type ActivityRow = {
   entity_type: string;
   entity_id: string;
   action: string;
-  metadata: { label?: string; project_id?: string; from?: string; to?: string };
+  metadata: { label?: string; project_id?: string; from?: string; to?: string; actor_name?: string };
   created_at: string;
   actor_membership_id: string | null;
 };

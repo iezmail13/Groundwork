@@ -30,7 +30,8 @@ import { moveTask } from "@/app/[orgSlug]/tasks/actions";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import type { TaskRow, TaskStatus } from "@/lib/queries";
-import { DueBadge, ProjectDot, TaskStatusIcon } from "./badges";
+import { DueBadge, NeedsAssigneeBadge, ProjectDot, TaskStatusIcon } from "./badges";
+import { assigneeOf } from "@/lib/task-filters";
 import { QuickAddTask } from "./quick-add";
 import type { ProjectOption } from "@/lib/queries";
 
@@ -240,7 +241,7 @@ export function TaskBoard({
                       task={task}
                       base={base}
                       today={today}
-                      assignee={task.assignee_membership_id ? memberInitials[task.assignee_membership_id] : undefined}
+                      assignee={assigneeOf(task) ? memberInitials[assigneeOf(task)!] : undefined}
                       prev={COLUMNS[ci - 1]}
                       next={COLUMNS[ci + 1]}
                       labelFor={label}
@@ -351,6 +352,7 @@ function SortableCard({
           ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <DueBadge dueDate={task.due_date} status={task.status} today={today} />
+            {!assignee && task.needs_assignee && task.status !== "done" ? <NeedsAssigneeBadge /> : null}
             {assignee ? (
               <span
                 className="inline-flex size-6 items-center justify-center rounded-full border border-ink font-heading text-[0.6rem] font-bold"

@@ -3,14 +3,15 @@
 -- Rank ceilings, managers and admins, and ownership transfer are in 10_role_ladder.
 begin;
 \ir fixtures.inc
-select plan(36);
+select plan(38);
 
 -- Mia is staff in A ---------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');
 
 select is((select count(*)::int from public.projects), 1, 'member sees the org''s projects');
 select is((select count(*)::int from public.profiles), 2, 'member sees co-member profiles only');
-select lives_ok($$ insert into public.projects (organization_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', 'Mia project') $$, 'member can create a project');
+select throws_ok($$ insert into public.projects (organization_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', 'Mia project') $$, '42501', null, 'staff cannot create a project');
+select is(tests.affected($q$ update public.projects set name = 'Renamed by Mia' where id = 'aaaaaaaa-3333-0000-0000-000000000000' $q$), 0, 'staff cannot edit a project''s details');
 select is(tests.affected($q$ update public.tasks set status = 'in_progress' where id = 'aaaaaaaa-4444-0000-0000-000000000000' $q$), 1, 'member can edit any task');
 select lives_ok($$ insert into public.events (organization_id, title, starts_at, ends_at) values ('aaaaaaaa-0000-0000-0000-000000000000', 'Mia event', now(), now()) $$, 'member can create an event');
 select is(tests.affected($q$ update public.documents set pinned = true where id = 'aaaaaaaa-6666-0000-0000-000000000000' $q$), 1, 'member can pin a document');
@@ -30,13 +31,14 @@ select is(tests.affected($q$ delete from public.tasks where id = 'aaaaaaaa-4444-
 select is(tests.affected($q$ delete from public.events where id = 'aaaaaaaa-5555-0000-0000-000000000000' $q$), 0, 'member cannot delete someone else''s event');
 select is(tests.affected($q$ delete from public.documents where id = 'aaaaaaaa-6666-0000-0000-000000000000' $q$), 0, 'member cannot delete someone else''s document');
 select is(tests.affected($q$ delete from public.activity_log $q$), 0, 'member cannot delete activity');
-select is(tests.affected($q$ delete from public.projects where name = 'Mia project' $q$), 1, 'member can delete their own project');
-select throws_ok($$ update public.projects set created_by = 'a0000000-0000-0000-0000-00000000000b' where id = 'aaaaaaaa-3333-0000-0000-000000000000' $$, '42501', null, 'created_by cannot be rewritten');
 
 -- Alice is the only owner of A --------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 
 select is(tests.affected($q$ update public.organizations set name = 'Org A renamed' where id = 'aaaaaaaa-0000-0000-0000-000000000000' $q$), 1, 'owner can rename the organization');
+select lives_ok($$ insert into public.projects (organization_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', 'Alice project') $$, 'owner can create a project');
+select throws_ok($$ update public.projects set created_by = 'a0000000-0000-0000-0000-00000000000b' where id = 'aaaaaaaa-3333-0000-0000-000000000000' $$, '42501', null, 'created_by cannot be rewritten');
+select is(tests.affected($q$ delete from public.projects where name = 'Alice project' $q$), 1, 'owner can delete a project');
 select is(tests.affected($q$ delete from public.events where title = 'Mia event' $q$), 1, 'owner can delete anyone''s event');
 select is((select count(*)::int from public.invitations), 1, 'owner sees invitations');
 select throws_ok($$ update public.memberships set role = 'manager' where id = 'aaaaaaaa-1111-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one owner', 'the last owner cannot be demoted');

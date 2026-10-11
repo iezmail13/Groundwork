@@ -15,7 +15,16 @@ import { DialogButton } from "@/components/ui/modal";
 import { Field, inputClass, Select } from "@/components/ui/field";
 
 export type MemberRow = { id: string; name: string; email: string; role: Role; isYou: boolean };
-export type InviteRow = { id: string; email: string; role: Role; link: string; expires: string; expired: boolean };
+export type InviteRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  projects: string[];
+  link: string;
+  expires: string;
+  expired: boolean;
+};
 
 /** Everyone sees the list; controls appear only where the viewer's rank allows them. */
 export function MembersTable({ members, viewerRole, orgSlug }: { members: MemberRow[]; viewerRole: Role; orgSlug: string }) {
@@ -49,7 +58,9 @@ export function MembersTable({ members, viewerRole, orgSlug }: { members: Member
                 )}
               </td>
               <td className="py-2.5 text-right">
-                {m.isYou || canManageMember(viewerRole, m.role) ? <RemoveButton member={m} orgSlug={orgSlug} /> : null}
+                {m.isYou || canManageMember(viewerRole, m.role) ? (
+                  <RemoveButton member={m} orgSlug={orgSlug} heirs={members.filter((x) => x.id !== m.id)} />
+                ) : null}
               </td>
             </tr>
           ))}
@@ -86,7 +97,7 @@ function RoleSelect({ member, viewerRole, orgSlug }: { member: MemberRow; viewer
   );
 }
 
-function RemoveButton({ member, orgSlug }: { member: MemberRow; orgSlug: string }) {
+function RemoveButton({ member, orgSlug, heirs }: { member: MemberRow; orgSlug: string; heirs: MemberRow[] }) {
   const t = useT();
   return (
     <DialogButton
@@ -97,7 +108,7 @@ function RemoveButton({ member, orgSlug }: { member: MemberRow; orgSlug: string 
       ariaLabel={`${member.isYou ? "Leave the organization" : `Remove ${member.name}`}`}
       title={member.isYou ? "Leave this organization?" : `Remove ${member.name}?`}
     >
-      {(close) => <RemoveForm member={member} orgSlug={orgSlug} onCancel={close} memberWord={lower(t("member"))} />}
+      {(close) => <RemoveForm member={member} orgSlug={orgSlug} heirs={heirs} onCancel={close} memberWord={lower(t("member"))} />}
     </DialogButton>
   );
 }
@@ -105,14 +116,17 @@ function RemoveButton({ member, orgSlug }: { member: MemberRow; orgSlug: string 
 function RemoveForm({
   member,
   orgSlug,
+  heirs,
   onCancel,
   memberWord,
 }: {
   member: MemberRow;
   orgSlug: string;
+  heirs: MemberRow[];
   onCancel: () => void;
   memberWord: string;
 }) {
+  const t = useT();
   const [state, action] = useActionState(removeMember, idle);
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -121,8 +135,19 @@ function RemoveForm({
       <p>
         {member.isYou
           ? "You'll lose access straight away, and would need a new invitation to come back."
-          : `${member.name} will lose access straight away. Their work stays; anything assigned to them becomes unassigned. You can invite them back later as a ${memberWord}.`}
+          : `${member.name} will lose access straight away. You can invite them back later as a ${memberWord}.`}{" "}
+        Finished work and history stay as they are.
       </p>
+      <Field label={`Hand over open ${lower(t("task", "other"))} to`} htmlFor={`heir-${member.id}`} hint="Anything the person you choose can't see is flagged for a new assignee instead.">
+        <Select id={`heir-${member.id}`} name="reassignTo" defaultValue="">
+          <option value="">Nobody: flag it for a new assignee</option>
+          {heirs.map((h) => (
+            <option key={h.id} value={h.id}>
+              {h.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <FormMessage state={state} />
       <div className="flex justify-end gap-2 border-t border-rule pt-4">
         <Button variant="secondary" onClick={onCancel}>
@@ -213,10 +238,14 @@ export function PendingInvites({ invites }: { invites: InviteRow[] }) {
       {invites.map((inv) => (
         <li key={inv.id} className="flex flex-wrap items-center gap-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <p className="font-semibold">{inv.email}</p>
+            <p className="font-semibold">
+              {inv.name ? `${inv.name} · ` : ""}
+              {inv.email}
+            </p>
             <p className="text-sm text-ink-muted">
               {t(`role.${inv.role}`)} · {inv.expired ? <strong className="text-ink">Expired</strong> : `Expires ${inv.expires}`}
             </p>
+            {inv.projects.length ? <p className="text-sm text-ink-muted">Joins {inv.projects.join(", ")}</p> : null}
           </div>
           <Button
             variant="secondary"

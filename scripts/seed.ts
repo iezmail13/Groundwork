@@ -251,7 +251,6 @@ async function main() {
           name: "Homework Club",
           description: "Twice-weekly after-school homework help for grades 5 to 8 at the community centre.",
           color: "#163260",
-          owner_membership_id: m(priya!),
           start_date: day(-40),
           end_date: day(70),
           created_by: priya,
@@ -261,7 +260,6 @@ async function main() {
           name: "Winter Coat Drive",
           description: "Collect, clean and hand out winter coats to families in the neighbourhood before December.",
           color: "#72829B",
-          owner_membership_id: m(marcus!),
           start_date: day(-10),
           end_date: day(55),
           created_by: marcus,
@@ -271,7 +269,6 @@ async function main() {
           name: "Teen Mentorship Circle",
           description: "Weekly evening circle pairing high-school students with volunteer mentors.",
           color: "#445A7E",
-          owner_membership_id: m(sofia!),
           start_date: day(-25),
           end_date: day(120),
           created_by: sofia,
@@ -285,6 +282,24 @@ async function main() {
   const CD = p("Winter Coat Drive");
   const MC = p("Teen Mentorship Circle");
 
+  // Each creator joined their project as the highest role their org role
+  // allows (Priya leads, Marcus administers, Sofia is staff). Jordan owns the
+  // organization and sees everything. Sofia isn't on Homework Club, so it's
+  // private from her.
+  must(
+    await db
+      .from("project_members")
+      .insert([
+        { organization_id: org.id, project_id: HC, membership_id: m(marcus!), role: "staff" },
+        { organization_id: org.id, project_id: CD, membership_id: m(priya!), role: "staff" },
+        { organization_id: org.id, project_id: CD, membership_id: m(sofia!), role: "staff" },
+        { organization_id: org.id, project_id: MC, membership_id: m(priya!), role: "lead" },
+        { organization_id: org.id, project_id: MC, membership_id: m(marcus!), role: "staff" },
+      ])
+      .select("id"),
+    "project members",
+  );
+
   type Seed = [project: string, title: string, due: number | null, status: "todo" | "in_progress" | "done", assignee: string | null, by: string];
   const tasks: Seed[] = [
     [HC, "Confirm room booking for November", -3, "todo", jordan!, priya!],
@@ -293,7 +308,7 @@ async function main() {
     [HC, "Recruit two more math volunteers", 4, "in_progress", priya!, jordan!],
     [HC, "Send progress notes to families", 6, "todo", priya!, priya!],
     [HC, "Order new graph-paper notebooks", 12, "todo", null, priya!],
-    [HC, "Set up a quiet reading corner", 18, "todo", sofia!, priya!],
+    [HC, "Set up a quiet reading corner", 18, "todo", marcus!, priya!],
     [HC, "Review volunteer police checks", -5, "todo", jordan!, jordan!],
     [CD, "Book the van for collection days", -2, "todo", marcus!, marcus!],
     [CD, "Design the coat drive flyer", -12, "done", sofia!, marcus!],
@@ -412,13 +427,25 @@ async function main() {
     );
   }
 
-  must(
+  // a volunteer who hasn't joined yet, already granted Homework Club and
+  // assigned a task there
+  const invite = must(
     await db
       .from("invitations")
-      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", role: "staff", invited_by: jordan })
-      .select("id"),
+      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", name: "Alex Rivera", role: "staff", invited_by: jordan })
+      .select("id")
+      .single(),
     "invitation",
   );
+  must(
+    await db
+      .from("invitation_projects")
+      .insert({ organization_id: org.id, invitation_id: invite.id, project_id: HC, role: "staff" })
+      .select("id"),
+    "invitation grant",
+  );
+  const notebooks = insertedTasks.find((x) => x.title === "Order new graph-paper notebooks")!.id;
+  must(await db.from("tasks").update({ assignee_invitation_id: invite.id }).eq("id", notebooks).select("id"), "invitee task");
 
   console.log(
     `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, 8 events, ${docs.length} documents.\n` +
