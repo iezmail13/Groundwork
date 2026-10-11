@@ -108,7 +108,7 @@ export function CalendarView({
       <Modal
         open={dialog?.type === "create" || dialog?.type === "edit"}
         onClose={close}
-        title={dialog?.type === "edit" ? `Edit ${eventLabel}` : `New ${eventLabel}`}
+        title={dialog?.type === "edit" ? (dialog.values.locked ? dialog.values.title : `Edit ${eventLabel}`) : `New ${eventLabel}`}
       >
         {dialog?.type === "create" ? (
           <EventForm organizationId={organizationId} projects={projects} event={newEventValues(dialog.date)} onDone={close} />

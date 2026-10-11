@@ -43,6 +43,8 @@ New users create an organization and become its owner. Owners and managers invit
 
 People see only the projects they're on; owners see every project. On a project, leads manage everyone, project admins manage staff, and someone's organization role caps their project role. Pending invitees can be assigned work on the projects their invitation grants. Removing someone, or leaving, hands their open work to a person you choose, and flags anything that person can't see as **Needs assignee**.
 
+What someone makes (a project, task, calendar item or document) can't be edited or deleted by anyone ranked below the role they held when they made it. The creator, people of the same rank and higher ranks can; a task's assignee can still move it and mark it done. The database enforces this, and the app shows such items read-only with a note saying why.
+
 ## Scripts
 
 | Script                      | What it does                                                                           |

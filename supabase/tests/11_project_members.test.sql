@@ -4,7 +4,7 @@
 -- and each project role can only manage the ones below it.
 begin;
 \ir fixtures.inc
-select plan(76);
+select plan(81);
 
 select set_config('storage.allow_delete_query', 'true', true);
 
@@ -97,9 +97,16 @@ select is((select count(*)::int from public.tasks where project_id = 'aaaaaaaa-3
 select lives_ok($$ insert into public.project_members (organization_id, project_id, membership_id, role) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000e', 'staff') $$, 'a project admin can add staff');
 select throws_ok($$ insert into public.project_members (organization_id, project_id, membership_id, role) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000f', 'admin') $$, '42501', null, 'a project admin cannot add another admin');
 select is(tests.affected($q$ update public.project_members set role = 'staff' where membership_id = 'aaaaaaaa-1111-0000-0000-00000000000c' and project_id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $q$), 0, 'a project admin cannot change the lead');
-select is(tests.affected($q$ update public.projects set description = 'Edited by Ada' where id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $q$), 1, 'a project admin can edit the project');
+-- the private project and its items were made by Alice, an owner, so they're
+-- protected from lower ranks (13_creator_rank); Ada's powers are shown below
+-- on things made by people ranked at or below her
+select throws_ok($$ update public.projects set description = 'Edited by Ada' where id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $$, '42501', null, 'a project admin cannot edit a project an owner created');
 select is(tests.affected($q$ delete from public.projects where id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $q$), 0, 'a project admin cannot delete the project');
-select is(tests.affected($q$ delete from public.events where id = 'aaaaaaaa-5555-0000-0000-0000000000a2' $q$), 1, 'a project admin can delete anyone''s item in the project');
+select throws_ok($$ delete from public.events where id = 'aaaaaaaa-5555-0000-0000-0000000000a2' $$, '42501', null, 'a project admin cannot delete an owner''s item in the project');
+select tests.as_user('a0000000-0000-0000-0000-00000000000e');
+select lives_ok($$ insert into public.events (id, organization_id, project_id, title, starts_at, ends_at) values ('aaaaaaaa-5555-0000-0000-0000000000e1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'Sam meeting', now(), now()) $$, 'project staff add an item');
+select tests.as_user('a0000000-0000-0000-0000-00000000000d');
+select is(tests.affected($q$ delete from public.events where id = 'aaaaaaaa-5555-0000-0000-0000000000e1' $q$), 1, 'a project admin can delete anyone else''s item in the project');
 
 -- Project staff manage nobody, but can leave ------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
@@ -161,12 +168,17 @@ select is(tests.affected($q$ update public.projects set status = 'active' where 
 select tests.as_user('a0000000-0000-0000-0000-00000000000d');
 select lives_ok($$ insert into public.projects (id, organization_id, name) values ('aaaaaaaa-3333-0000-0000-0000000000a3', 'aaaaaaaa-0000-0000-0000-000000000000', 'Ada project') $$, 'an org admin can create a project');
 select is((select role::text from public.project_members where project_id = 'aaaaaaaa-3333-0000-0000-0000000000a3'), 'admin', 'and joins it as project admin, their ceiling');
+select is(tests.affected($q$ update public.projects set description = 'Edited by Ada' where id = 'aaaaaaaa-3333-0000-0000-0000000000a3' $q$), 1, 'a project admin can edit the project');
 select tests.as_user('a0000000-0000-0000-0000-00000000000c');
 select is(tests.affected($q$ update public.project_members set role = 'lead' where membership_id = 'aaaaaaaa-1111-0000-0000-00000000000c' $q$), 0, 'a manager cannot promote themselves to lead');
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select is(tests.affected($q$ update public.project_members set role = 'lead' where membership_id = 'aaaaaaaa-1111-0000-0000-00000000000c' $q$), 1, 'an owner can make a manager lead');
 select tests.as_user('a0000000-0000-0000-0000-00000000000c');
-select is(tests.affected($q$ delete from public.projects where id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $q$), 1, 'a lead can delete their project');
+select throws_ok($$ delete from public.projects where id = 'aaaaaaaa-3333-0000-0000-0000000000a2' $$, '42501', null, 'a lead cannot delete a project an owner created');
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
+select lives_ok($$ insert into public.project_members (organization_id, project_id, membership_id, role) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a3', 'aaaaaaaa-1111-0000-0000-00000000000c', 'lead') $$, 'an owner makes the manager lead of Ada''s project');
+select tests.as_user('a0000000-0000-0000-0000-00000000000c');
+select is(tests.affected($q$ delete from public.projects where id = 'aaaaaaaa-3333-0000-0000-0000000000a3' $q$), 1, 'a lead can delete their project');
 
 select tests.as_anon();
 select throws_ok($$ select public.can_view_project('aaaaaaaa-3333-0000-0000-000000000000') $$, '42501', null, 'anon cannot call can_view_project');

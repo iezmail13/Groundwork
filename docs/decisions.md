@@ -190,3 +190,16 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 - **No new packages.** The component imports `cn` from `@/lib/utils`, as shadcn components do. This repo isn't a shadcn project (no `components.json`, by the landing brief's own instruction), so `lib/utils.ts` has a dependency-free `cn` that joins class names. It doesn't merge conflicting Tailwind classes, which nothing here needs. The app's primitives already live in `components/ui`, so the component sits there unchanged in path.
 
 The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behind them go faint, and the headline and subhead have a halo in the page colour. The copy, layout, buttons and links are unchanged.
+
+## Creator protection (owner's request)
+
+**D80. Lower ranks can't change what a higher rank made.** The owner asked that people can't edit tasks, calendar items and other work created by someone ranked above them. Projects, tasks, calendar items and documents now store `created_by_role`, the org role their creator held when they made them; the database stamps it from the membership on insert (whatever the client sends) and it can't be changed. A trigger, `guard_creator_rank`, refuses an edit or delete by anyone ranked below that role who isn't the creator. The creator, equal ranks and higher ranks are allowed, and because the role is kept on the row the protection survives the creator being demoted or leaving. It narrows D67: a project admin or an org manager can no longer edit or delete items in their project that someone ranked above them made.
+
+- **The assignee exception.** A task's assignee may change its status and board position (mark it done, move it between columns) whatever its creator's rank. Nothing else.
+- **Saving without changes is allowed**, so an unchanged form never errors.
+- **The app's own bookkeeping isn't blocked.** The guard applies to the `authenticated` role, which is who runs a person's own edits. Security-definer functions (member removal, accepting or declining an invitation, roster changes) and foreign-key cascades run as their owner, so unassigning someone who leaves still works. pgTAP checks both.
+- **Existing rows** took their creator's current role, since the role at creation wasn't recorded. Rows whose creator had already left have no role and stay unprotected.
+- **Org rank, not project role**, decides: project roles are capped by the org role anyway.
+- **In the app** the item is shown read-only with a note naming the creator's role ("An admin made this, so only they or someone ranked admin or above can change it."); board cards lose their drag handle and move buttons and show a lock; list checkboxes are disabled unless the viewer is the assignee. If the database refuses anyway, the error says why.
+- **Tests changed with the rule.** Five older pgTAP assertions said staff could edit and pin an owner's items and that a project admin or lead could edit or delete an owner's project or items. They now assert the new rule, and each is paired with a new assertion showing the same power on items made by an equal or lower rank, so the project-role coverage is kept.
+

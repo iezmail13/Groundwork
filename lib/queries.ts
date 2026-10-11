@@ -2,6 +2,8 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
+type Role = Database["public"]["Enums"]["member_role"];
+
 export type TaskStatus = Database["public"]["Enums"]["task_status"];
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
@@ -19,11 +21,13 @@ export type TaskRow = {
   needs_assignee: boolean;
   completed_at: string | null;
   created_by: string | null;
+  /** The org role its creator held when they made it (see guard_creator_rank). */
+  created_by_role: Role | null;
   project: { id: string; name: string; color: string | null; status: ProjectStatus } | null;
 };
 
 export const TASK_SELECT =
-  "id, title, description, status, due_date, position, project_id, assignee_membership_id, assignee_invitation_id, needs_assignee, completed_at, created_by, project:projects(id, name, color, status)";
+  "id, title, description, status, due_date, position, project_id, assignee_membership_id, assignee_invitation_id, needs_assignee, completed_at, created_by, created_by_role, project:projects(id, name, color, status)";
 
 export type ProjectOption = { id: string; name: string };
 
@@ -63,11 +67,12 @@ export type EventRow = {
   location: string | null;
   project_id: string | null;
   created_by: string | null;
+  created_by_role: Role | null;
   project: { id: string; name: string } | null;
 };
 
 export const EVENT_SELECT =
-  "id, title, description, starts_at, ends_at, all_day, location, project_id, created_by, project:projects(id, name)";
+  "id, title, description, starts_at, ends_at, all_day, location, project_id, created_by, created_by_role, project:projects(id, name)";
 
 /** Events overlapping [fromIso, toIso). */
 export async function getEvents(orgId: string, fromIso: string, toIso: string): Promise<EventRow[]> {
@@ -92,13 +97,14 @@ export type DocumentRow = {
   pinned: boolean;
   project_id: string | null;
   uploaded_by: string | null;
+  created_by_role: Role | null;
   created_at: string;
   project: { id: string; name: string } | null;
   uploader: { full_name: string | null; email: string } | null;
 };
 
 export const DOCUMENT_SELECT =
-  "id, name, mime_type, size_bytes, tags, pinned, project_id, uploaded_by, created_at, project:projects(id, name), uploader:profiles(full_name, email)";
+  "id, name, mime_type, size_bytes, tags, pinned, project_id, uploaded_by, created_by_role, created_at, project:projects(id, name), uploader:profiles(full_name, email)";
 
 export type ActivityRow = {
   id: string;

@@ -31,6 +31,7 @@ const HINTS: Record<string, string> = {
   assignee_not_on_project: "That person can't see this work, so it can't be assigned to them. Add them to it first.",
   project_role_ceiling: "Their organization role doesn't allow that role here. Choose a lower one.",
   project_archived: "This is archived and read-only. Restore it to make changes.",
+  outranked_by_creator: "Someone ranked above you made this, so only they or someone at or above their rank can change it.",
 };
 
 /** Maps a Postgres/PostgREST error to a message people can act on. */

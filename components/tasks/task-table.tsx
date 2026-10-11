@@ -85,7 +85,7 @@ export function TaskTable({
           {tasks.map((task) => (
             <tr key={task.id} className="border-b border-rule hover:bg-tint">
               <td className="py-2.5">
-                <TaskCheckbox id={task.id} title={task.title} done={task.status === "done"} />
+                <TaskCheckbox id={task.id} title={task.title} done={task.status === "done"} creator={task} />
               </td>
               <th scope="row" className="py-2.5 pr-4 font-normal">
                 <Link

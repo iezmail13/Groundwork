@@ -623,3 +623,28 @@ test("Google sign-in hands off to Supabase and comes back to the callback", asyn
   // (Next.js renders its own, empty role=alert route announcer as well)
   await expect(page.getByRole("alert").filter({ hasText: "Google sign-in didn't finish" })).toBeVisible();
 });
+
+test("what a higher rank made is read-only for lower ranks, except that its assignee can finish it", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+
+  // Marcus (admin) made this one and it's his: Sofia (staff) can read it, not change it
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await expect(page.getByRole("checkbox", { name: /^Done: Book the van for collection days/ })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Book the van for collection days" }).click();
+  await expect(page.getByText(/An admin made this, so only they or someone ranked admin or above can change it\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+  await expect(page.getByLabel("Title")).toHaveCount(0);
+
+  // Marcus made this one too, but it's assigned to Sofia, so she can mark it done
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await page.getByRole("link", { name: "Recruit sorting-day volunteers" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(page.getByText(/As its assignee, you can still mark it done\./)).toBeVisible();
+  const done = page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" });
+  await done.click();
+  await expect(done).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" })).toHaveAttribute("aria-checked", "true");
+});

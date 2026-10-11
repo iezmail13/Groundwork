@@ -25,7 +25,9 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, Lock } from "lucide-react";
+import { canMoveTask } from "@/lib/roles";
+import { useViewer } from "@/lib/viewer";
 import { moveTask } from "@/app/[orgSlug]/tasks/actions";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
@@ -308,8 +310,11 @@ function SortableCard({
   labelFor: (s: TaskStatus) => string;
   onMove: (task: TaskRow, to: TaskStatus) => void;
 }) {
+  // someone ranked above the viewer made it, and it isn't theirs to move
+  const movable = canMoveTask(useViewer(), task);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
+    disabled: !movable,
   });
   const style = {
     transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
@@ -326,6 +331,7 @@ function SortableCard({
       }`}
     >
       <div className="flex items-start gap-2">
+        {movable ? (
         <button
           ref={setActivatorNodeRef}
           id={`card-${task.id}`}
@@ -337,6 +343,17 @@ function SortableCard({
         >
           <GripVertical aria-hidden className="size-4" />
         </button>
+        ) : (
+          <span
+            role="img"
+            id={`card-${task.id}`}
+            className="-ml-1 mt-0.5 inline-flex size-6 shrink-0 items-center justify-center text-ink-muted"
+            aria-label="Locked: someone ranked above you made this"
+            title="Someone ranked above you made this, so only they, someone at or above their rank, or its assignee can move it."
+          >
+            <Lock aria-hidden className="size-4" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <Link
             href={`${base}/tasks/${task.id}`}
@@ -363,7 +380,7 @@ function SortableCard({
               </span>
             ) : null}
             <span className="ml-auto flex gap-1">
-              {prev ? (
+              {movable && prev ? (
                 <button
                   type="button"
                   onClick={() => onMove(task, prev)}
@@ -374,7 +391,7 @@ function SortableCard({
                   <ChevronLeft aria-hidden className="size-4" />
                 </button>
               ) : null}
-              {next ? (
+              {movable && next ? (
                 <button
                   type="button"
                   onClick={() => onMove(task, next)}
