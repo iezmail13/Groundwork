@@ -30,7 +30,8 @@ async function main() {
   if (mode === "--check") {
     if (!arg || !isAttachedDomain(list, arg)) {
       throw new Error(
-        `APP_URL ${arg ?? "(empty)"} is not a domain of this Vercel project. Add it under Project → Settings → Domains, ` +
+        `APP_URL ${arg ?? "(empty)"} is not a domain that this Vercel project serves directly (a domain set to ` +
+          "redirect, like www to the apex, doesn't count; use the one it redirects to). Add it under Project → Settings → Domains, " +
           "then run the deploy again. On the very first deploy the project doesn't exist yet: leave APP_URL unset, " +
           "deploy once, then add the domain and set APP_URL.",
       );
