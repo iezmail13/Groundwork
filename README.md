@@ -123,8 +123,8 @@ To redeploy at any time, run CI on `main` again (Actions → CI → Run workflow
 
 After the first deploy has created the Vercel project:
 
-1. Add the domain under Vercel → `groundwork` → Settings → Domains and point its DNS at Vercel.
-2. Once Vercel shows the domain as valid, set the `APP_URL` variable to it (`https://app.your-domain` or just `app.your-domain`) and run CI on `main` again. Sign-in emails and invite links then always use that domain.
+1. Add the domain under Vercel → `groundwork` → Settings → Domains and point its DNS at Vercel. For an apex domain, also add `www.` and set it to redirect (308) to the apex. A CAA record `0 issue "letsencrypt.org"` limits certificates to the authority Vercel uses.
+2. Once Vercel shows the domain as valid, set the `APP_URL` variable to it (`https://your-domain` or just `your-domain`) and run CI on `main` again. Use the domain that serves the site, not one set to redirect: the deploy refuses a redirecting domain. Sign-in emails and invite links then always use that domain, and the `*.vercel.app` address forwards to it (308).
 
 Without `APP_URL`, every production domain of the project can receive sign-in links, but only domains that existed at the last deploy are on Supabase's redirect allow-list. After adding a domain, run the deploy again; until then, sign-in links requested from it open on the main production URL instead.
 
