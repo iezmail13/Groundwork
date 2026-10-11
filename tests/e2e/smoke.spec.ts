@@ -620,5 +620,6 @@ test("Google sign-in hands off to Supabase and comes back to the callback", asyn
   await page.unroute("**/auth/v1/authorize**");
   await page.goto("/auth/callback?error=access_denied");
   await expect(page).toHaveURL(/\/login\?error=google/);
-  await expect(page.getByRole("alert")).toContainText("Google sign-in didn't finish");
+  // (Next.js renders its own, empty role=alert route announcer as well)
+  await expect(page.getByRole("alert").filter({ hasText: "Google sign-in didn't finish" })).toBeVisible();
 });
