@@ -305,7 +305,10 @@ test("invitations: invite, accept by magic link, change role, remove, last-owner
   // the owner can start a transfer to anyone who isn't already an owner, and back out
   await page.getByRole("button", { name: "Transfer ownership" }).click();
   const transfer = page.getByRole("dialog", { name: "Transfer ownership" });
-  await expect(transfer.getByLabel("New owner").locator("option:not([disabled])")).toHaveText(["Priya Shah", "Marcus Chen", "Sofia Alvarez"]);
+  // everyone who isn't already an owner; seeded members share a join time, so compare without order
+  const candidates = transfer.getByLabel("New owner").locator("option:not([disabled])");
+  await expect(candidates).toHaveCount(3);
+  expect((await candidates.allTextContents()).sort()).toEqual(["Marcus Chen", "Priya Shah", "Sofia Alvarez"]);
   await transfer.getByRole("button", { name: "Cancel" }).click();
   await expect(transfer).toBeHidden();
 
