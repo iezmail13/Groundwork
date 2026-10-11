@@ -50,13 +50,14 @@ $$;
 
 grant execute on all functions in schema tests to authenticated, anon;
 
-insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+-- every fixture user has confirmed their email, as a real sign-in does
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
 values
-  ('a0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'alice@a.test', '{"full_name":"Alice Admin"}', now(), now()),
-  ('a0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'mia@a.test', '{"full_name":"Mia Member"}', now(), now()),
-  ('b0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bob@b.test', '{"full_name":"Bob Admin"}', now(), now()),
-  ('b0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bea@b.test', '{"full_name":"Bea Member"}', now(), now()),
-  ('c0000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'oscar@c.test', '{"full_name":"Oscar Outsider"}', now(), now());
+  ('a0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'alice@a.test', '{"full_name":"Alice Admin"}', now(), now(), now()),
+  ('a0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'mia@a.test', '{"full_name":"Mia Member"}', now(), now(), now()),
+  ('b0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bob@b.test', '{"full_name":"Bob Admin"}', now(), now(), now()),
+  ('b0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bea@b.test', '{"full_name":"Bea Member"}', now(), now(), now()),
+  ('c0000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'oscar@c.test', '{"full_name":"Oscar Outsider"}', now(), now(), now());
 
 insert into public.organizations (id, name, slug, preset_key) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Org A', 'org-a', 'nonprofit'),
@@ -75,6 +76,12 @@ insert into public.invitations (id, organization_id, email, role, token, invited
 insert into public.projects (id, organization_id, name, created_by) values
   ('aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'A project', 'a0000000-0000-0000-0000-00000000000a'),
   ('bbbbbbbb-3333-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'B project', 'b0000000-0000-0000-0000-00000000000a');
+
+-- mia and bea are on their organization's project; alice and bob own theirs
+-- (the creator trigger adds them as lead)
+insert into public.project_members (organization_id, project_id, membership_id, role) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000b', 'staff'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-3333-0000-0000-000000000000', 'bbbbbbbb-1111-0000-0000-00000000000b', 'staff');
 
 insert into public.tasks (id, organization_id, project_id, title, created_by) values
   ('aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'A task', 'a0000000-0000-0000-0000-00000000000a'),
