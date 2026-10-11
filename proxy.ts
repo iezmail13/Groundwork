@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm"];
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/auth/confirm"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/");
@@ -9,7 +9,7 @@ function isPublic(pathname: string) {
 
 /**
  * Refreshes the Supabase session cookie on every request and sends signed-out
- * visitors to /login. Authorization itself is enforced by RLS, not here.
+ * visitors to /login (except on public pages, such as the landing page at /). Authorization itself is enforced by RLS, not here.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -39,7 +39,7 @@ export async function proxy(request: NextRequest) {
   if (!signedIn && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
+    url.search = `?next=${encodeURIComponent(pathname + search)}`;
     const redirect = NextResponse.redirect(url);
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
     return redirect;

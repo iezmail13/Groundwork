@@ -179,3 +179,12 @@ export function checkLoginPage(status: number, html: string): SmokeResult {
   }
   return { ok: problems.length === 0, problems };
 }
+
+/** Checks the live landing page at /: rendered, with its headline and a way to sign in. */
+export function checkLandingPage(status: number, html: string): SmokeResult {
+  const problems: string[] = [];
+  if (status !== 200) problems.push(`/ returned HTTP ${status}`);
+  if (!html.includes("Run your organization on solid ground.")) problems.push("/ doesn't show the landing page headline");
+  if (!/href="\/login"/.test(html)) problems.push("/ has no link to /login");
+  return { ok: problems.length === 0, problems };
+}
