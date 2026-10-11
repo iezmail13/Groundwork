@@ -444,11 +444,16 @@ isOneToOne: false
                            },
 "my_pending_invitations":
 { Args: Record<PropertyKey, never>; Returns: {
-              "expires_at": string,"invited_by_name": string,"organization_name": string,"organization_slug": string,"project_names": (string)[],"role": Database["public"]['Enums']["member_role"],"token": string
+              "expires_at": string,"invited_by_name": string,"organization_name": string,"organization_slug": string,"preset_key": string,"project_names": (string)[],"role": Database["public"]['Enums']["member_role"],"token": string
             }[]
                            },
 "my_project_rank":
 { Args: { "project_id": string }; Returns: number
+                           },
+"my_project_ranks":
+{ Args: { "org_id": string }; Returns: {
+              "project_id": string,"rank": number
+            }[]
                            },
 "my_rank":
 { Args: { "org_id": string }; Returns: number

@@ -13,3 +13,8 @@ export const DEMO_USERS = [
 export function devShortcutEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
+
+/** Google sign-in shows only once it's configured in Supabase Auth (set at build time). */
+export function googleSignInEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === "true";
+}

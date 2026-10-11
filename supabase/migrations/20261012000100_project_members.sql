@@ -178,6 +178,21 @@ as $$
   select exists (select 1 from public.projects p where p.id = project_id and p.status = 'active');
 $$;
 
+-- The caller's rank on every project they can see in an organization.
+create function public.my_project_ranks(org_id uuid)
+returns table (project_id uuid, rank int)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, public.my_project_rank(p.id)
+  from public.projects p
+  where p.organization_id = org_id and public.my_project_rank(p.id) > 0;
+$$;
+
+revoke execute on function public.my_project_ranks(uuid) from public, anon;
+grant execute on function public.my_project_ranks(uuid) to authenticated, service_role;
 revoke execute on function public.my_project_rank(uuid) from public, anon;
 revoke execute on function public.can_view_project(uuid) from public, anon;
 revoke execute on function public.can_manage_project_content(uuid) from public, anon;

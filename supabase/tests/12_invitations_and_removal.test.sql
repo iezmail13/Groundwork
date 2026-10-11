@@ -4,14 +4,14 @@
 -- (or leaving) reassigns or flags their open work and keeps their history.
 begin;
 \ir fixtures.inc
-select plan(44);
+select plan(45);
 
 -- Max (manager) leads A's private project; Sam (staff) is on both projects.
 insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
 values
   ('a0000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'max@a.test', '{"full_name":"Max Manager"}', now(), now(), now()),
   ('a0000000-0000-0000-0000-00000000000e', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sam@a.test', '{"full_name":"Sam Staff"}', now(), now(), now()),
-  ('d0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'new@a.test', '{"full_name":"Nia New"}', now(), now(), now());
+  ('d0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'new@a.test', '{}', now(), now(), now());
 -- an account whose email nobody has confirmed
 insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
 values ('d0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'unverified@a.test', '{}', now(), now());
@@ -81,8 +81,8 @@ select throws_ok($$ select public.accept_invitation('token-unverified') $$, '425
 
 select tests.as_user('d0000000-0000-0000-0000-00000000000a');
 select is(
-  (select row(organization_name, role, invited_by_name, project_names)::text from public.my_pending_invitations()),
-  row('Org A', 'staff'::public.member_role, 'Max Manager', array['Private project'])::text,
+  (select row(organization_name, role, invited_by_name, project_names, preset_key)::text from public.my_pending_invitations()),
+  row('Org A', 'staff'::public.member_role, 'Max Manager', array['Private project'], 'nonprofit')::text,
   'a verified invitee sees their pending invitation, who sent it and its projects'
 );
 select is(public.accept_invitation('token-new'), 'org-a', 'and can accept it');
@@ -94,6 +94,7 @@ select is(
   'work assigned while pending is now theirs'
 );
 select is((select count(*)::int from public.my_pending_invitations()), 0, 'and the invitation is no longer pending');
+select is((select full_name from public.profiles where id = 'd0000000-0000-0000-0000-00000000000a'), 'Nia New', 'a nameless account takes the name they were invited under');
 
 -- Declining ------------------------------------------------------------------------------
 reset role;

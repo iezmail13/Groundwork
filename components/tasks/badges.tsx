@@ -1,4 +1,4 @@
-import { CalendarClock, Circle, CircleCheck, CircleDot, Clock, TriangleAlert } from "lucide-react";
+import { CalendarClock, Circle, CircleCheck, CircleDot, Clock, TriangleAlert, UserRoundX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { dueState, formatRelativeDate } from "@/lib/dates";
 import type { TaskStatus } from "@/lib/queries";
@@ -47,6 +47,15 @@ export function DueBadge({ dueDate, status, today }: { dueDate: string | null; s
     <Badge variant="quiet" icon={<CalendarClock aria-hidden className="size-3.5" />}>
       <span className="sr-only">Due </span>
       {when}
+    </Badge>
+  );
+}
+
+/** Open work whose assignee left; shown until someone takes it over. */
+export function NeedsAssigneeBadge() {
+  return (
+    <Badge variant="outline" icon={<UserRoundX aria-hidden className="size-3.5" />}>
+      Needs assignee
     </Badge>
   );
 }

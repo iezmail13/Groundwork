@@ -263,6 +263,11 @@ begin
   insert into public.profiles (id, email)
   values (uid, coalesce(user_email, ''))
   on conflict (id) do nothing;
+  -- the name they were invited under, unless they've already given their own
+  if inv.name is not null then
+    update public.profiles p set full_name = inv.name
+    where p.id = uid and coalesce(btrim(p.full_name), '') = '';
+  end if;
 
   insert into public.memberships (organization_id, user_id, role)
   values (inv.organization_id, uid, inv.role)
@@ -307,7 +312,8 @@ returns table (
   role public.member_role,
   invited_by_name text,
   expires_at timestamptz,
-  project_names text[]
+  project_names text[],
+  preset_key text
 )
 language sql
 stable
@@ -326,7 +332,8 @@ as $$
        from public.invitation_projects ip join public.projects pr on pr.id = ip.project_id
        where ip.invitation_id = i.id),
       '{}'
-    )
+    ),
+    o.preset_key
   from public.invitations i
   join public.organizations o on o.id = i.organization_id
   left join public.profiles p on p.id = i.invited_by

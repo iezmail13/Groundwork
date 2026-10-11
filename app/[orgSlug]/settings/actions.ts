@@ -8,7 +8,7 @@ import { dbFailure, failure, formObject, invalid, success, type ActionState } fr
 import { id, slugInput } from "@/lib/validation";
 import { siteOrigin } from "@/lib/urls";
 import { getOrgContext } from "@/lib/org";
-import { ROLES } from "@/lib/roles";
+import { PROJECT_ROLES, ROLES } from "@/lib/roles";
 import { lower } from "@/lib/terminology/t";
 
 function revalidateOrg() {
@@ -77,15 +77,33 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
   return success("Saved.");
 }
 
+const grantRole = z.enum(PROJECT_ROLES);
+
+/**
+ * Creates an invitation (or refreshes the pending one for that address, so
+ * work already assigned to it stays put) with a name, an org role and project
+ * grants. Grants arrive as `grant.<projectId>` = role; an empty value means
+ * not included.
+ */
 export async function inviteMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const raw = formObject(formData);
   const parsed = z
     .object({
       organizationId: id,
       email: z.email("Enter a valid email address.").max(254),
+      name: z.string().max(120, "Use 120 characters or fewer.").optional(),
       role,
     })
-    .safeParse({ ...formObject(formData), email: String(formData.get("email") ?? "").trim().toLowerCase() });
+    .safeParse({ ...raw, email: String(formData.get("email") ?? "").trim().toLowerCase() });
   if (!parsed.success) return invalid(parsed.error);
+  const grants: { projectId: string; role: z.infer<typeof grantRole> }[] = [];
+  for (const [key, value] of Object.entries(raw)) {
+    if (!key.startsWith("grant.") || !value) continue;
+    const projectId = id.safeParse(key.slice("grant.".length));
+    const grant = grantRole.safeParse(value);
+    if (!projectId.success || !grant.success) return failure("Check the roles you chose.");
+    grants.push({ projectId: projectId.data, role: grant.data });
+  }
   const { supabase, allowed } = await requireManager(parsed.data.organizationId);
   if (!allowed) return failure(NOT_ALLOWED);
   const d = parsed.data;
@@ -101,16 +119,46 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
   const { data: auth } = await supabase.auth.getUser();
   // one pending invitation per address: refresh it instead of duplicating
   // (exact match: emails are stored lowercase, and ilike would treat "_" as a wildcard)
-  await supabase.from("invitations").delete().eq("organization_id", d.organizationId).eq("email", d.email).is("accepted_at", null);
-  const { data: invite, error } = await supabase
+  const { data: pending } = await supabase
     .from("invitations")
-    .insert({ organization_id: d.organizationId, email: d.email, role: d.role, invited_by: auth.user?.id })
-    .select("token")
-    .single();
+    .select("id")
+    .eq("organization_id", d.organizationId)
+    .eq("email", d.email)
+    .is("accepted_at", null)
+    .maybeSingle();
+  const values = {
+    role: d.role,
+    name: d.name ?? null,
+    expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  const { data: invite, error } = pending
+    ? await supabase.from("invitations").update(values).eq("id", pending.id).select("id, token").single()
+    : await supabase
+        .from("invitations")
+        .insert({ organization_id: d.organizationId, email: d.email, invited_by: auth.user?.id, ...values })
+        .select("id, token")
+        .single();
+  if (error?.code === "42501" || error?.code === "PGRST116") return failure("You can't give that role.", { role: ["You can't give that role."] });
   if (error || !invite) return dbFailure(error);
+
+  if (grants.length) {
+    const { error: grantError } = await supabase.from("invitation_projects").upsert(
+      grants.map((g) => ({ organization_id: d.organizationId, invitation_id: invite.id, project_id: g.projectId, role: g.role })),
+      { onConflict: "invitation_id,project_id" },
+    );
+    if (grantError) {
+      // a brand-new invitation without the access it was meant to grant is no use
+      if (!pending) await supabase.from("invitations").delete().eq("id", invite.id);
+      return dbFailure(grantError);
+    }
+  }
   revalidateOrg();
   const link = `${await siteOrigin()}/invite/${invite.token}`;
-  return success(`Invitation created for ${d.email}. Copy the link and send it to them.`, { link });
+  return success(`Invitation ${pending ? "updated" : "created"} for ${d.email}. Copy the link and send it to them.`, {
+    link,
+    invitationId: invite.id,
+    name: d.name || d.email,
+  });
 }
 
 export async function revokeInvitation(formData: FormData): Promise<void> {
@@ -139,23 +187,34 @@ export async function changeRole(_prev: ActionState, formData: FormData): Promis
   return success("Role updated.");
 }
 
+/**
+ * Removes someone, or lets you leave. Their open work goes to the person
+ * chosen (where that person can see it) and the rest is flagged for a new
+ * assignee; finished work and their history stay.
+ */
 export async function removeMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ membershipId: id, orgSlug: z.string().min(1) }).safeParse(formObject(formData));
+  const parsed = z
+    .object({ membershipId: id, orgSlug: z.string().min(1), reassignTo: id.optional() })
+    .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const { data, error } = await supabase
-    .from("memberships")
-    .delete()
-    .eq("id", parsed.data.membershipId)
-    .select("id, user_id");
+  const { data: target } = await supabase.from("memberships").select("user_id").eq("id", parsed.data.membershipId).maybeSingle();
+  const { data, error } = await supabase.rpc("remove_member", {
+    membership_id: parsed.data.membershipId,
+    reassign_to: parsed.data.reassignTo,
+  });
   if (isLastOwner(error)) return failure(await lastOwnerMessage(parsed.data.orgSlug));
+  if (error?.code === "42501" || error?.code === "P0002") return failure(NOT_ALLOWED_MEMBER);
   if (error) return dbFailure(error);
-  if (!data?.length) return failure(NOT_ALLOWED_MEMBER);
   revalidateOrg();
   // leaving yourself: this organization is no longer yours to view
-  if (data[0]!.user_id === auth.user?.id) redirect("/");
-  return success("Removed.");
+  if (target?.user_id === auth.user?.id) redirect("/");
+  // their row (and this dialog) is gone, so report on the page
+  const result = (data ?? {}) as { reassigned?: number; flagged?: number };
+  redirect(
+    `/${parsed.data.orgSlug}/settings?view=members&notice=removed&handed=${result.reassigned ?? 0}&flagged=${result.flagged ?? 0}`,
+  );
 }
 
 export async function transferOwnership(_prev: ActionState, formData: FormData): Promise<ActionState> {

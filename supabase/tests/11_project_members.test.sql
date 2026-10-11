@@ -4,7 +4,7 @@
 -- and each project role can only manage the ones below it.
 begin;
 \ir fixtures.inc
-select plan(74);
+select plan(76);
 
 select set_config('storage.allow_delete_query', 'true', true);
 
@@ -68,8 +68,11 @@ select is(tests.affected($q$ delete from storage.objects where name = 'aaaaaaaa-
 select throws_ok($$ insert into public.tasks (organization_id, project_id, title) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'sneak') $$, '42501', null, 'cannot add tasks to it');
 select throws_ok($$ insert into public.project_members (organization_id, project_id, membership_id) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000b') $$, '42501', null, 'cannot add herself to it');
 
+select is((select count(*)::int from public.my_project_ranks('aaaaaaaa-0000-0000-0000-000000000000')), 1, 'my_project_ranks lists only the projects she is on');
+
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select is((select count(*)::int from public.projects), 2, 'an owner sees every project without being added');
+select is((select array_agg(rank) from public.my_project_ranks('aaaaaaaa-0000-0000-0000-000000000000')), array[3, 3], 'and ranks as lead on each');
 select is((select count(*)::int from public.tasks), 2, 'and every task');
 select is((select count(*)::int from storage.objects where name = 'aaaaaaaa-0000-0000-0000-000000000000/a2-secret.pdf'), 1, 'and every stored file');
 

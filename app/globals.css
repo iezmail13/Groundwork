@@ -121,10 +121,29 @@ dialog.gw-dialog::backdrop {
 dialog.gw-dialog[open] {
   animation: dialog-in 160ms var(--ease-out);
 }
+/* A drawer: full height on the right, over the page and any open form. */
+dialog.gw-drawer {
+  margin: 0 0 0 auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: min(460px, 100vw);
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+}
+dialog.gw-drawer[open] {
+  animation: drawer-in 200ms var(--ease-out);
+}
 
 /* ------------------------------------------------------------------------ */
 /* Animation: CSS only, and all of it disabled under prefers-reduced-motion. */
 /* ------------------------------------------------------------------------ */
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
 
 @keyframes dialog-in {
   from {
