@@ -6,6 +6,7 @@ import { AcceptInviteForm } from "@/components/auth/accept-invite-form";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { isPast } from "@/lib/dates";
+import { googleSignInEnabled } from "@/lib/demo";
 import { createTranslator } from "@/lib/terminology/t";
 
 export const metadata: Metadata = { title: "Invitation" };
@@ -57,7 +58,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
         title={title}
         subtitle={`You've been invited with the ${t(`role.${invite.role}`)} role. Sign in with ${invite.email} to accept.`}
       >
-        <LoginForm next={`/invite/${token}`} defaultEmail={invite.email} />
+        <LoginForm next={`/invite/${token}`} defaultEmail={invite.email} google={googleSignInEnabled()} />
       </AuthFrame>
     );
   }

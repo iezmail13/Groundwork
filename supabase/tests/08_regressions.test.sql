@@ -35,9 +35,11 @@ insert into public.documents (id, organization_id, name, storage_path, mime_type
 insert into public.invitations (organization_id, email, token, invited_by) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'friend@a.test', 'token-mia', 'a0000000-0000-0000-0000-00000000000b');
 
--- a client still can't clear authorship itself
-select tests.as_user('a0000000-0000-0000-0000-00000000000b');
+-- a client still can't clear authorship itself, even with rights to edit the
+-- project (Alice owns the organization; Mia, as staff, can't edit it at all)
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select throws_ok($$ update public.projects set created_by = null where id = 'aaaaaaaa-3333-0000-0000-0000000000ee' $$, '42501', null, 'clients cannot null created_by directly');
+select tests.as_user('a0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ update public.documents set uploaded_by = null where id = 'aaaaaaaa-6666-0000-0000-0000000000ee' $$, '42501', null, 'clients cannot null uploaded_by directly');
 
 reset role;

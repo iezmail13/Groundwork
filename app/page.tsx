@@ -11,14 +11,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * Signed-out visitors get the landing page. Signed-in people go to their
- * last-used organization, or to create one.
+ * Signed-out visitors get the landing page. Signed-in people see any pending
+ * invitations first, then go to their last-used organization, or to create one.
  */
-export default async function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
   if (!user) return <Landing />;
+
+  // invitations waiting for their verified email come first
+  if ((await searchParams).skip !== "invitations") {
+    const { data: pending } = await supabase.rpc("my_pending_invitations");
+    if (pending?.length) redirect("/invitations");
+  }
 
   const { data: memberships } = await supabase
     .from("memberships")

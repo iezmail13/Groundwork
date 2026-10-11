@@ -25,9 +25,18 @@ export function invalid(error: z.ZodError): ActionState {
   return failure(formErrors[0] ?? "Check the highlighted fields.", fieldErrors as ActionState["fieldErrors"]);
 }
 
+// Database rules that raise with a hint. Their raw messages name primitive
+// words, so the app words them itself.
+const HINTS: Record<string, string> = {
+  assignee_not_on_project: "That person can't see this work, so it can't be assigned to them. Add them to it first.",
+  project_role_ceiling: "Their organization role doesn't allow that role here. Choose a lower one.",
+  project_archived: "This is archived and read-only. Restore it to make changes.",
+};
+
 /** Maps a Postgres/PostgREST error to a message people can act on. */
 export function dbFailure(error: { code?: string; message?: string; hint?: string | null } | null): ActionState {
   if (!error) return failure("Something went wrong. Try again.");
+  if (error.hint && HINTS[error.hint]) return failure(HINTS[error.hint]!);
   switch (error.code) {
     case "42501":
       return failure("You don't have permission to do that.");

@@ -1,6 +1,7 @@
 // npx tsx scripts/deploy/configure-auth.ts https://your-app.example
 // Points Supabase Auth at the deployed app (site URL, redirect allow-list),
-// at your mail provider when SMTP_* variables are set, and installs
+// at your mail provider when SMTP_* variables are set, turns on Google sign-in
+// when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set, and installs
 // Groundwork's sign-in email templates.
 // Needs SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.
 import { appendFileSync, readFileSync } from "node:fs";
@@ -44,7 +45,10 @@ async function main() {
     from: process.env.SMTP_FROM,
     senderName: process.env.SMTP_SENDER_NAME,
   };
-  const settings = buildAuthSettings(appUrl, smtp, (process.env.EXTRA_REDIRECT_URLS ?? "").split(","));
+  const settings = buildAuthSettings(appUrl, smtp, (process.env.EXTRA_REDIRECT_URLS ?? "").split(","), {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    secret: process.env.GOOGLE_CLIENT_SECRET,
+  });
   const templates = buildTemplateConfig({
     magicLink: template("magic_link.html", "Your Groundwork sign-in link"),
     confirmation: template("confirmation.html", "Confirm your email for Groundwork"),
@@ -54,7 +58,8 @@ async function main() {
   const res = await fetch(endpoint, { method: "PATCH", headers, body: JSON.stringify(settings) });
   if (!res.ok) throw new Error(`Supabase Management API returned ${res.status}: ${await res.text()}`);
   console.log(
-    `Auth configured: site URL ${settings.site_url}; redirects ${settings.uri_allow_list}; custom SMTP ${hasSmtp(smtp) ? "on" : "off"}.`,
+    `Auth configured: site URL ${settings.site_url}; redirects ${settings.uri_allow_list}; custom SMTP ${hasSmtp(smtp) ? "on" : "off"}; ` +
+      `Google sign-in ${settings.external_google_enabled ? "on" : "unchanged"}.`,
   );
 
   // 2. the email templates, which Supabase may refuse without custom SMTP

@@ -46,7 +46,8 @@ export async function updateTask(_prev: ActionState, formData: FormData): Promis
       description: d.description ?? null,
       status: d.status,
       due_date: d.dueDate ?? null,
-      assignee_membership_id: d.assigneeMembershipId ?? null,
+      assignee_membership_id: d.assignee?.startsWith("m:") ? d.assignee.slice(2) : null,
+      assignee_invitation_id: d.assignee?.startsWith("i:") ? d.assignee.slice(2) : null,
     })
     .eq("id", d.id)
     .select("id");

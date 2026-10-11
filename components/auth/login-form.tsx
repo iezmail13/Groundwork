@@ -8,11 +8,23 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { keepValues } from "@/lib/forms";
+import { GoogleButton } from "./google-button";
 
-export function LoginForm({ next, defaultEmail }: { next?: string; defaultEmail?: string }) {
+export function LoginForm({ next, defaultEmail, google = false }: { next?: string; defaultEmail?: string; google?: boolean }) {
   const [state, action, pending] = useActionState(sendMagicLink, idle);
   const sent = state.status === "success";
   return (
+    <div className="flex flex-col gap-5">
+      {google ? (
+        <>
+          <GoogleButton next={next} />
+          <p className="flex items-center gap-3 text-sm text-ink-muted" aria-hidden>
+            <span className="h-px flex-1 bg-rule" />
+            or
+            <span className="h-px flex-1 bg-rule" />
+          </p>
+        </>
+      ) : null}
     <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Work email" htmlFor="email" error={state.fieldErrors?.email}>
@@ -33,5 +45,6 @@ export function LoginForm({ next, defaultEmail }: { next?: string; defaultEmail?
       </SubmitButton>
       <FormMessage state={state} />
     </form>
+    </div>
   );
 }

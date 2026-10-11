@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { ProjectDot } from "@/components/tasks/badges";
 import { ProgressBar } from "@/components/projects/progress";
 import { NewProjectButton } from "@/components/projects/project-dialogs";
-import { getMembers, getOrgContext } from "@/lib/org";
+import { getOrgContext } from "@/lib/org";
+import { getProjectLeads } from "@/lib/projects";
+import { rankOf } from "@/lib/roles";
 import { getProjectProgress } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/dates";
@@ -27,19 +29,20 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
 
   let query = supabase
     .from("projects")
-    .select("id, name, description, status, color, owner_membership_id, start_date, end_date, updated_at")
+    .select("id, name, description, status, color, start_date, end_date, updated_at")
     .eq("organization_id", org.id)
     .order("status")
     .order("name");
   if (view === "archived") query = query.eq("status", "archived");
-  const [{ data: projects, error }, progress, members] = await Promise.all([
+  const [{ data: projects, error }, progress, leads] = await Promise.all([
     query,
     getProjectProgress(org.id),
-    getMembers(org.id),
+    getProjectLeads(org.id),
   ]);
   if (error) throw error;
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
   const plural = t("project", "other");
+  // creating a project needs org admin or above
+  const newButton = rankOf(ctx.role) >= 2 ? <NewProjectButton organizationId={org.id} /> : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,7 +53,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
           { label: "All", href: `${base}/projects`, active: view === "all" },
           { label: t("status.archived"), href: `${base}/projects?view=archived`, active: view === "archived" },
         ]}
-        actions={<NewProjectButton organizationId={org.id} members={members.map((m) => ({ id: m.id, name: m.name }))} />}
+        actions={newButton}
       />
 
       {!projects?.length ? (
@@ -63,10 +66,13 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
           <EmptyState
             icon={<FolderKanban />}
             title={`No ${lower(plural)} yet`}
-            action={<NewProjectButton organizationId={org.id} members={members.map((m) => ({ id: m.id, name: m.name }))} />}
+            action={newButton}
           >
             {plural} group your {lower(t("task", "other"))}, {lower(t("event", "other"))} and{" "}
-            {lower(t("document", "other"))}. Create the first one to get started.
+            {lower(t("document", "other"))}.{" "}
+            {newButton
+              ? "Create the first one to get started."
+              : `You'll see the ones you're added to here.`}
           </EmptyState>
         )
       ) : (
@@ -78,7 +84,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
             <thead>
               <tr className="border-b border-ink font-heading text-sm">
                 <th scope="col" className="py-2 pr-4 font-semibold">Name</th>
-                <th scope="col" className="py-2 pr-4 font-semibold">Lead</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">{t("project_role.lead", "other")}</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Progress</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Dates</th>
                 <th scope="col" className="py-2 font-semibold">Status</th>
@@ -99,7 +105,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
                       ) : null}
                     </th>
                     <td className="py-3 pr-4 text-sm">
-                      {p.owner_membership_id ? memberName.get(p.owner_membership_id) : <span className="text-ink-muted">None</span>}
+                      {leads.get(p.id)?.join(", ") || <span className="text-ink-muted">None</span>}
                     </td>
                     <td className="py-3 pr-4">
                       <ProgressBar done={prog.done} total={prog.total} label={`${p.name} progress`} />

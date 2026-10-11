@@ -6,7 +6,7 @@ import { idle } from "@/lib/action-state";
 import { PROJECT_COLORS, DEFAULT_PROJECT_COLOR } from "@/lib/palette";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
@@ -17,19 +17,16 @@ export type ProjectFormValues = {
   name: string;
   description: string | null;
   color: string | null;
-  owner_membership_id: string | null;
   start_date: string | null;
   end_date: string | null;
 };
 
 export function ProjectForm({
   organizationId,
-  members,
   project,
   onDone,
 }: {
   organizationId: string;
-  members: { id: string; name: string }[];
   project?: ProjectFormValues;
   onDone: () => void;
 }) {
@@ -60,16 +57,6 @@ export function ProjectForm({
         <Textarea id="project-description" name="description" maxLength={4000} defaultValue={project?.description ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Lead" htmlFor="project-owner" error={errors.ownerMembershipId}>
-          <Select id="project-owner" name="ownerMembershipId" defaultValue={project?.owner_membership_id ?? ""}>
-            <option value="">No lead</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <fieldset>
           <legend className="mb-1.5 font-heading text-sm font-semibold">Colour</legend>
           <div className="flex flex-wrap gap-2">

@@ -9,8 +9,10 @@
 # One-time setup (repo Settings → Secrets and variables → Actions):
 #   secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, VERCEL_TOKEN
 #              SMTP_PASS (for real sign-in email)
+#              GOOGLE_CLIENT_SECRET (for Google sign-in)
 #   variables: SUPABASE_PROJECT_REF
 #              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (for real sign-in email)
+#              GOOGLE_CLIENT_ID (for Google sign-in, with the secret above)
 #              APP_URL (optional; a custom domain added to the Vercel project
 #                after the first deploy, e.g. https://app.example.org)
 #              VERCEL_SCOPE (optional; defaults to the token's default team)
@@ -44,6 +46,7 @@ jobs:
       SMTP_PORT: ${{ vars.SMTP_PORT }}
       SMTP_USER: ${{ vars.SMTP_USER }}
       SMTP_FROM: ${{ vars.SMTP_FROM }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
     steps:
       - name: Check configuration
         id: cfg
@@ -145,6 +148,8 @@ jobs:
         if: steps.cfg.outputs.ready == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # the Google button shows only when both halves of the OAuth client are set
+          NEXT_PUBLIC_GOOGLE_SIGN_IN: ${{ (vars.GOOGLE_CLIENT_ID != '' && secrets.GOOGLE_CLIENT_SECRET != '') && 'true' || 'false' }}
         run: npx --yes vercel@62 build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to production
@@ -175,6 +180,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: npx tsx scripts/deploy/configure-auth.ts "$PRODUCTION_URL"
 
       - name: Smoke-test the live site

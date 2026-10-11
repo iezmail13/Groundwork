@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteTask, updateTask } from "@/app/[orgSlug]/tasks/actions";
 import { idle } from "@/lib/action-state";
@@ -13,21 +13,45 @@ import { DialogButton } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { ProjectOption, TaskRow } from "@/lib/queries";
 import { keepValues } from "@/lib/forms";
+import { AddMemberDrawer, type InviteContext } from "./add-member-drawer";
+
+type AssigneeOption = { value: string; name: string };
 
 export function TaskEditForm({
   task,
   projects,
-  members,
+  assigneeOptions,
+  invite,
   orgSlug,
 }: {
   task: TaskRow;
   projects: ProjectOption[];
-  members: { id: string; name: string }[];
+  /** Who each project's work can go to: its members, owners and pending invitees. */
+  assigneeOptions: Record<string, AssigneeOption[]>;
+  /** Present when the viewer can invite people. */
+  invite: InviteContext | null;
   orgSlug: string;
 }) {
   const t = useT();
   const [state, action, pending] = useActionState(updateTask, idle);
   const e = state.fieldErrors ?? {};
+  const [projectId, setProjectId] = useState(task.project_id);
+  const [assignee, setAssignee] = useState(
+    task.assignee_membership_id ? `m:${task.assignee_membership_id}` : task.assignee_invitation_id ? `i:${task.assignee_invitation_id}` : "",
+  );
+  // invitees added from the drawer, per project, until the page reloads
+  const [added, setAdded] = useState<Record<string, AssigneeOption[]>>({});
+  const options = [...(assigneeOptions[projectId] ?? []), ...(added[projectId] ?? [])];
+  const onInvited = useCallback(
+    (option: AssigneeOption) => {
+      setAdded((prev) => ({ ...prev, [projectId]: [...(prev[projectId] ?? []), option] }));
+      setAssignee(option.value);
+    },
+    [projectId],
+  );
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
+  // inviting from here grants this project, which needs project admin or lead
+  const canInviteHere = invite !== null && (invite.projectRanks[projectId] ?? 0) >= 2;
   return (
     <div className="flex max-w-2xl flex-col gap-4">
     <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
@@ -40,7 +64,17 @@ export function TaskEditForm({
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("project")} htmlFor="task-project" error={e.projectId}>
-          <Select id="task-project" name="projectId" defaultValue={task.project_id}>
+          <Select
+            id="task-project"
+            name="projectId"
+            value={projectId}
+            onChange={(ev) => {
+              const next = ev.target.value;
+              setProjectId(next);
+              // keep the assignee only if they can see the new project too
+              if (!(assigneeOptions[next] ?? []).some((o) => o.value === assignee)) setAssignee("");
+            }}
+          >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -55,16 +89,23 @@ export function TaskEditForm({
             <option value="done">{t("status.done")}</option>
           </Select>
         </Field>
-        <Field label="Assignee" htmlFor="task-assignee" error={e.assigneeMembershipId}>
-          <Select id="task-assignee" name="assigneeMembershipId" defaultValue={task.assignee_membership_id ?? ""}>
-            <option value="">Unassigned</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="flex flex-col gap-1.5">
+          <Field label="Assignee" htmlFor="task-assignee" error={e.assignee}>
+            <Select id="task-assignee" name="assignee" value={assignee} onChange={(ev) => setAssignee(ev.target.value)}>
+              <option value="">Unassigned</option>
+              {options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {canInviteHere ? (
+            <div>
+              <AddMemberDrawer invite={invite} projectId={projectId} projectName={projectName} onInvited={onInvited} />
+            </div>
+          ) : null}
+        </div>
         <Field label="Due date" htmlFor="task-due" error={e.dueDate}>
           <Input id="task-due" name="dueDate" type="date" defaultValue={task.due_date ?? ""} />
         </Field>

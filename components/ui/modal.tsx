@@ -13,12 +13,15 @@ export function Modal({
   onClose,
   title,
   description,
+  drawer = false,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
   description?: ReactNode;
+  /** Slide in from the side, over whatever form is open underneath. */
+  drawer?: boolean;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -35,7 +38,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className="gw-dialog m-auto"
+      className={drawer ? "gw-dialog gw-drawer" : "gw-dialog m-auto"}
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       onClose={onClose}

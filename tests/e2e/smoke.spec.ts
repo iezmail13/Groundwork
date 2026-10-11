@@ -497,3 +497,128 @@ test("reduced motion disables animation", async ({ browser }) => {
   expect(swing).toBe("none");
   await context.close();
 });
+
+// Phase 2: project membership, invitations with project access, Google sign-in.
+// These run last because they add people to the seeded organization.
+
+test("projects are private to their people; leaving frees work for reassignment", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Homework Club" }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Homework Club");
+  const projectUrl = page.url();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+
+  // the lead takes Marcus off the project: his open work there is flagged
+  await page.getByRole("button", { name: "Remove Marcus Chen from this program" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toHaveCount(0);
+  const snacks = page.getByRole("row").filter({ hasText: "Restock snack cupboard" });
+  await expect(snacks.getByText("Needs assignee")).toBeVisible();
+
+  // and puts him back, then hands the task to him again from the task form
+  await page.getByLabel("Person", { exact: true }).selectOption({ label: "Marcus Chen" });
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toBeVisible();
+  await snacks.getByRole("link", { name: "Restock snack cupboard" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByLabel("Assignee").selectOption({ label: "Marcus Chen" });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByText("Needs assignee")).toHaveCount(0);
+
+  // Sofia isn't on Homework Club: it's missing from her list and its page is not found
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await visit(staff, "/northside-youth-collective/projects");
+  await expect(staff.getByRole("link", { name: "Winter Coat Drive" }).first()).toBeVisible();
+  await expect(staff.getByRole("link", { name: "Homework Club" })).toHaveCount(0);
+  await staff.goto(projectUrl);
+  await expect(staff.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await visit(staff, "/northside-youth-collective/tasks?view=list");
+  await expect(staff.getByRole("link", { name: "Restock snack cupboard" })).toHaveCount(0);
+  await context.close();
+});
+
+test("invite from a task: a pending assignee, then join through the invitations page", async ({ page, browser, request }) => {
+  const email = `robin-${Date.now()}@example.org`;
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Jordan Ellis" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Homework Club" }).first().click();
+  await page.getByRole("link", { name: "Set up a quiet reading corner" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+
+  // a half-written change survives the drawer
+  await page.getByLabel("Description").fill("Beanbags and the donated picture books.");
+  await page.getByRole("button", { name: "Add team member" }).click();
+  const drawer = page.getByRole("dialog", { name: "Add a team member" });
+  await drawer.getByLabel("Name").fill("Robin Tester");
+  await drawer.getByLabel("Email").fill(email);
+  await drawer.getByRole("button", { name: "Invite" }).click();
+  await expect(drawer.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
+  await drawer.getByRole("button", { name: "Back to the form" }).click();
+  await expect(page.getByLabel("Assignee").locator("option:checked")).toHaveText("Robin Tester (pending)");
+  await expect(page.getByLabel("Description")).toHaveValue("Beanbags and the donated picture books.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+
+  // the invitation shows its project in settings
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  await expect(page.getByText(`Robin Tester · ${email}`)).toBeVisible();
+  await expect(page.getByText("Joins Homework Club (Staff)").first()).toBeVisible();
+
+  // Robin signs in normally and is shown the invitation before anything else
+  const context = await browser.newContext();
+  const guest = await context.newPage();
+  await signInWithMagicLink(guest, request, email);
+  await expect(guest).toHaveURL(/\/invitations$/);
+  await expect(guest.getByText("Northside Youth Collective", { exact: true })).toBeVisible();
+  await expect(guest.getByText("Program: Homework Club")).toBeVisible();
+  await guest.getByRole("button", { name: "Join Northside Youth Collective" }).click();
+  await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
+  // they see only the project they were given, with the task waiting for them
+  await visit(guest, "/northside-youth-collective/projects");
+  await expect(guest.getByRole("link", { name: "Homework Club" }).first()).toBeVisible();
+  await expect(guest.getByRole("link", { name: "Winter Coat Drive" })).toHaveCount(0);
+  await visit(guest, "/northside-youth-collective/tasks?view=list&assignee=me");
+  await expect(guest.getByRole("link", { name: "Set up a quiet reading corner" })).toBeVisible();
+  await context.close();
+
+  // removing them hands their open work to someone on the project
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  await page.getByRole("button", { name: "Remove Robin Tester" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Hand over open tasks to").selectOption({ label: "Priya Shah" });
+  await dialog.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Removed. 1 open task handed over." })).toBeVisible();
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await expect(page.getByRole("row").filter({ hasText: "Set up a quiet reading corner" })).toContainText("Priya Shah");
+});
+
+test("Google sign-in hands off to Supabase and comes back to the callback", async ({ page }) => {
+  let authorize: URL | undefined;
+  // Google isn't configured locally: stop at the hand-off and check what was asked for
+  await page.route("**/auth/v1/authorize**", async (route) => {
+    authorize = new URL(route.request().url());
+    await route.fulfill({ status: 200, contentType: "text/plain", body: "stopped at the hand-off" });
+  });
+  await page.goto("/login?next=/invitations");
+  await page.locator("button", { hasText: "Continue with Google" }).click();
+  await expect.poll(() => authorize?.searchParams.get("provider")).toBe("google");
+  const back = new URL(authorize!.searchParams.get("redirect_to")!);
+  expect(back.pathname).toBe("/auth/callback");
+  expect(back.searchParams.get("next")).toBe("/invitations");
+
+  // if Google sends the person back with an error, they land on sign-in with a way forward
+  await page.unroute("**/auth/v1/authorize**");
+  await page.goto("/auth/callback?error=access_denied");
+  await expect(page).toHaveURL(/\/login\?error=google/);
+  await expect(page.getByRole("alert")).toContainText("Google sign-in didn't finish");
+});

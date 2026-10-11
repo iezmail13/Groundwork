@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
-import { DueBadge, TaskStatusBadge } from "@/components/tasks/badges";
+import { DueBadge, NeedsAssigneeBadge, TaskStatusBadge } from "@/components/tasks/badges";
+import { Lock } from "lucide-react";
 import { TaskEditForm } from "@/components/tasks/task-edit-form";
-import { getMembers, getOrgContext } from "@/lib/org";
+import { getOrgContext } from "@/lib/org";
+import { getAssigneeOptions } from "@/lib/projects";
+import { canManageOrg, grantableRoles } from "@/lib/roles";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { formatTimestamp } from "@/lib/dates";
@@ -34,7 +37,24 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
   const task = await loadTask(org.id, taskId);
   if (!task) notFound();
 
-  const [projects, members] = await Promise.all([getProjectOptions(org.id, true), getMembers(org.id)]);
+  const supabase = await createClient();
+  const [projects, assigneeOptions, { data: ranks }] = await Promise.all([
+    getProjectOptions(org.id),
+    getAssigneeOptions(org.id),
+    supabase.rpc("my_project_ranks", { org_id: org.id }),
+  ]);
+  // an archived project's tasks can't be edited, but it still shows as the current project
+  const projectChoices =
+    task.project && !projects.some((p) => p.id === task.project_id)
+      ? [...projects, { id: task.project.id, name: task.project.name }]
+      : projects;
+  const invite = canManageOrg(ctx.role)
+    ? {
+        organizationId: org.id,
+        roles: grantableRoles(ctx.role),
+        projectRanks: Object.fromEntries((ranks ?? []).map((r) => [r.project_id, r.rank])),
+      }
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,6 +68,9 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
           <span className="flex flex-wrap items-center gap-2">
             <TaskStatusBadge status={task.status} label={t(`status.${task.status}`)} />
             <DueBadge dueDate={task.due_date} status={task.status} today={today} />
+            {task.needs_assignee && !task.assignee_membership_id && !task.assignee_invitation_id && task.status !== "done" ? (
+              <NeedsAssigneeBadge />
+            ) : null}
             {task.project ? (
               <Link href={`${base}/projects/${task.project.id}`} className="text-sm hover:underline">
                 in {task.project.name}
@@ -59,12 +82,23 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
           </span>
         }
       />
+      {task.project?.status === "archived" ? (
+        <div className="flex max-w-2xl flex-col gap-3">
+          <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
+            <Lock aria-hidden className="size-4" />
+            {task.project.name} is {lower(t("status.archived"))}, so this {lower(t("task"))} is read-only.
+          </p>
+          {task.description ? <p className="whitespace-pre-wrap">{task.description}</p> : null}
+        </div>
+      ) : (
       <TaskEditForm
         task={task}
-        projects={projects}
-        members={members.map((m) => ({ id: m.id, name: m.name }))}
+        projects={projectChoices}
+        assigneeOptions={assigneeOptions}
+        invite={invite}
         orgSlug={org.slug}
       />
+      )}
     </div>
   );
 }

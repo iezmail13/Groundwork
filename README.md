@@ -39,7 +39,9 @@ Locally, Supabase doesn't send real email. Every message goes to **Mailpit**, th
 
 The emails come from `supabase/templates/`. The deploy pipeline installs the same templates on the hosted project (on a new Free-plan Supabase project, Supabase only allows that once custom SMTP is set up). Because nothing is verified until the button is pressed, mail-security scanners that open every link can't use up the token, and the link works on any device or browser, not just the one that asked for it. Local email is rate-limited to 100 per hour (`supabase/config.toml`); after editing a template, restart with `npx supabase stop && npx supabase start`.
 
-New users create an organization and become its owner. Owners and managers invite people in **Settings → Members**: enter an email and role, then copy the invite link and send it yourself. Groundwork doesn't email invitations. The invitee opens the link, signs in with that exact email address, and joins.
+New users create an organization and become its owner. Owners and managers invite people in **Settings → Members**, or from a task's **Add member** button: enter a name, email, role and the projects they'll join, then copy the invite link and send it yourself. Groundwork doesn't email invitations. The invitee opens the link and signs in with that exact email address (or just signs in: invitations for a verified address are shown straight after sign-in) and joins.
+
+People see only the projects they're on; owners see every project. On a project, leads manage everyone, project admins manage staff, and someone's organization role caps their project role. Pending invitees can be assigned work on the projects their invitation grants. Removing someone, or leaving, hands their open work to a person you choose, and flags anything that person can't see as **Needs assignee**.
 
 ## Scripts
 
@@ -113,11 +115,24 @@ Until the settings below exist, the Deploy job finishes without deploying and it
    | Variable | `VERCEL_SCOPE` *(optional)* | the Vercel team slug to deploy into; defaults to the token account's default team |
    | Variable | `VERCEL_PROJECT_NAME` *(optional)* | defaults to `groundwork`                                   |
    | Variable | `APP_URL` *(optional, later)* | leave unset for the first deploy; see *Custom domain* below   |
+   | Variable | `GOOGLE_CLIENT_ID` *(optional)* | for Google sign-in; see *Google sign-in* below              |
+   | Secret   | `GOOGLE_CLIENT_SECRET` *(optional)* | for Google sign-in; see *Google sign-in* below          |
 
 5. **Run it:** merge to `main`, or open Actions → CI → Run workflow on `main`. When the Deploy job finishes, its summary shows the live URL.
 6. **Open the URL, sign in with your email, and create your organization.** You're its owner; invite your team from Settings → Members.
 
 To redeploy at any time, run CI on `main` again (Actions → CI → Run workflow). Re-running an older run never redeploys an older commit; only the latest commit on `main` is deployed.
+
+### Google sign-in
+
+Optional. Until both settings below exist, the sign-in page offers only the email link.
+
+1. In [Google Cloud Console](https://console.cloud.google.com), create a project (or pick one), then open **APIs & Services → OAuth consent screen**. Choose **External**, fill in the app name (Groundwork), a support email and your domain, and add the scopes `email`, `profile` and `openid`. Publish the app when you're ready for people outside your test users.
+2. Open **APIs & Services → Credentials → Create credentials → OAuth client ID**. Choose **Web application**. Under **Authorized redirect URIs**, add `https://<your-project-ref>.supabase.co/auth/v1/callback` (the project ref from step 1 above). Leave the JavaScript origins empty.
+3. Copy the **Client ID** into the GitHub variable `GOOGLE_CLIENT_ID` and the **Client secret** into the GitHub secret `GOOGLE_CLIENT_SECRET`. Never paste either into an issue, chat or commit.
+4. Redeploy. The deploy turns Google on in Supabase Auth and builds the app with the **Continue with Google** button. If only one of the two is set, the deploy stops and says which is missing.
+
+Supabase links a Google sign-in to an existing account only when Google says the address is verified, and Groundwork only matches invitations to verified addresses.
 
 ### Custom domain
 

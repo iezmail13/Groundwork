@@ -139,16 +139,48 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
-                },"invitations": {
+                },"invitation_projects": {
                   Row: {
-                    "accepted_at": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string | null,"organization_id": string,"role": Database["public"]['Enums']["member_role"],"token": string
+                    "created_at": string,"id": string,"invitation_id": string,"organization_id": string,"project_id": string,"role": Database["public"]['Enums']["project_role"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "accepted_at"?: string | null,"created_at"?: string,"email": string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null,"organization_id": string,"role"?: Database["public"]['Enums']["member_role"],"token"?: string
+                    "created_at"?: string,"id"?: string,"invitation_id": string,"organization_id": string,"project_id": string,"role"?: Database["public"]['Enums']["project_role"]
                   }
                   Update: {
-                    "accepted_at"?: string | null,"created_at"?: string,"email"?: string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null,"organization_id"?: string,"role"?: Database["public"]['Enums']["member_role"],"token"?: string
+                    "created_at"?: string,"id"?: string,"invitation_id"?: string,"organization_id"?: string,"project_id"?: string,"role"?: Database["public"]['Enums']["project_role"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "invitation_projects_invitation_id_organization_id_fkey"
+      columns: ["invitation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "invitations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "invitation_projects_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invitation_projects_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"invitations": {
+                  Row: {
+                    "accepted_at": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string | null,"name": string | null,"organization_id": string,"role": Database["public"]['Enums']["member_role"],"token": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accepted_at"?: string | null,"created_at"?: string,"email": string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null,"name"?: string | null,"organization_id": string,"role"?: Database["public"]['Enums']["member_role"],"token"?: string
+                  }
+                  Update: {
+                    "accepted_at"?: string | null,"created_at"?: string,"email"?: string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null,"name"?: string | null,"organization_id"?: string,"role"?: Database["public"]['Enums']["member_role"],"token"?: string
                   }
                   Relationships: [
                     {
@@ -239,6 +271,38 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"project_members": {
+                  Row: {
+                    "created_at": string,"id": string,"membership_id": string,"organization_id": string,"project_id": string,"role": Database["public"]['Enums']["project_role"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"membership_id": string,"organization_id": string,"project_id": string,"role"?: Database["public"]['Enums']["project_role"]
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"membership_id"?: string,"organization_id"?: string,"project_id"?: string,"role"?: Database["public"]['Enums']["project_role"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "project_members_membership_id_organization_id_fkey"
+      columns: ["membership_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "memberships"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "project_members_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "project_members_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"projects": {
                   Row: {
                     "color": string | null,"created_at": string,"created_by": string | null,"description": string | null,"end_date": string | null,"id": string,"name": string,"organization_id": string,"owner_membership_id": string | null,"start_date": string | null,"status": Database["public"]['Enums']["project_status"],"updated_at": string
@@ -273,17 +337,23 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "assignee_membership_id": string | null,"completed_at": string | null,"created_at": string,"created_by": string | null,"description": string | null,"due_date": string | null,"id": string,"organization_id": string,"position": number,"project_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
+                    "assignee_invitation_id": string | null,"assignee_membership_id": string | null,"completed_at": string | null,"created_at": string,"created_by": string | null,"description": string | null,"due_date": string | null,"id": string,"needs_assignee": boolean,"organization_id": string,"position": number,"project_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"organization_id": string,"position"?: number,"project_id": string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
+                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"project_id": string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"organization_id"?: string,"position"?: number,"project_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
+                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"project_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "tasks_assignee_invitation_fkey"
+      columns: ["assignee_invitation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "invitations"
+      referencedColumns: ["id","organization_id"]
+    },{
       foreignKeyName: "tasks_assignee_membership_id_organization_id_fkey"
       columns: ["assignee_membership_id","organization_id"]
 isOneToOne: false
@@ -318,11 +388,23 @@ isOneToOne: false
             "accept_invitation":
 { Args: { "token": string }; Returns: string
                            },
+"can_grant_project_role":
+{ Args: { "project_id": string,"role": Database["public"]['Enums']["project_role"] }; Returns: boolean
+                           },
 "can_grant_role":
 { Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
                            },
 "can_manage_member":
 { Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
+                           },
+"can_manage_project_content":
+{ Args: { "project_id": string }; Returns: boolean
+                           },
+"can_view_project":
+{ Args: { "project_id": string }; Returns: boolean
+                           },
+"can_view_storage_object":
+{ Args: { "object_name": string }; Returns: boolean
                            },
 "can_view_task":
 { Args: { "task_id": string }; Returns: boolean
@@ -343,6 +425,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"decline_invitation":
+{ Args: { "token": string }; Returns: undefined
+                           },
 "get_invitation":
 { Args: { "token": string }; Returns: {
               "accepted_at": string,"email": string,"expires_at": string,"organization_name": string,"organization_slug": string,"role": Database["public"]['Enums']["member_role"]
@@ -357,13 +442,49 @@ isOneToOne: false
 "my_membership_id":
 { Args: { "org_id": string }; Returns: string
                            },
+"my_pending_invitations":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "expires_at": string,"invited_by_name": string,"organization_name": string,"organization_slug": string,"preset_key": string,"project_names": (string)[],"role": Database["public"]['Enums']["member_role"],"token": string
+            }[]
+                           },
+"my_project_rank":
+{ Args: { "project_id": string }; Returns: number
+                           },
+"my_project_ranks":
+{ Args: { "org_id": string }; Returns: {
+              "project_id": string,"rank": number
+            }[]
+                           },
 "my_rank":
 { Args: { "org_id": string }; Returns: number
+                           },
+"my_verified_email":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"pending_invitees":
+{ Args: { "org_id": string }; Returns: {
+              "email": string,"id": string,"name": string,"project_id": string
+            }[]
+                           },
+"project_is_active":
+{ Args: { "project_id": string }; Returns: boolean
+                           },
+"project_rank_ceiling":
+{ Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
+                           },
+"project_role_for_rank":
+{ Args: { "rank": number }; Returns: Database["public"]['Enums']["project_role"]
+                           },
+"project_role_rank":
+{ Args: { "role": Database["public"]['Enums']["project_role"] }; Returns: number
                            },
 "recent_projects":
 { Args: { "max_rows"?: number,"org_id": string }; Returns: {
               "color": string,"id": string,"last_activity_at": string,"name": string
             }[]
+                           },
+"remove_member":
+{ Args: { "membership_id": string,"reassign_to"?: string }; Returns: Json
                            },
 "role_rank":
 { Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
@@ -385,7 +506,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "member_role": "owner"|"manager"|"admin"|"staff","project_status": "active"|"archived","task_status": "todo"|"in_progress"|"done"
+            "member_role": "owner"|"manager"|"admin"|"staff","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -505,7 +626,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "member_role": ["owner", "manager", "admin", "staff"],"project_status": ["active", "archived"],"task_status": ["todo", "in_progress", "done"]
+            "member_role": ["owner", "manager", "admin", "staff"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const
