@@ -33,8 +33,11 @@ export async function sendMagicLink(_prev: ActionState, formData: FormData): Pro
     },
   });
   if (error) {
-    if (error.status === 429) return failure("Too many sign-in emails were sent. Wait a minute and try again.");
-    return failure("We couldn't send the sign-in link. Check the address and try again.");
+    // the reason shows in the host's function logs (Vercel → Logs); never the address
+    console.error("sign-in email failed", { status: error.status, code: error.code, message: error.message });
+    if (error.status === 429) return failure("Too many sign-in emails were sent. Wait a few minutes and try again.");
+    if (error.code === "email_address_invalid") return failure("That address can't receive email. Check it and try again.");
+    return failure("We couldn't send the sign-in email just now. Try again in a few minutes.");
   }
   return success(`Check ${parsed.data.email} for a sign-in link. It works once and expires in an hour.`);
 }
