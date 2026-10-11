@@ -13,6 +13,7 @@ import {
   pickVercelScope,
   productionRedirects,
 } from "@/scripts/deploy/lib";
+import { buildCsp, canonicalRedirect } from "@/lib/security";
 
 describe("pickPublishableKey", () => {
   it("prefers the new publishable key", () => {
@@ -77,7 +78,9 @@ describe("Vercel domains", () => {
 
   it("checks that APP_URL is attached to the project", () => {
     expect(isAttachedDomain(domains, "https://app.northside.org")).toBe(true);
-    expect(isAttachedDomain(domains, "www.northside.org")).toBe(true);
+    expect(isAttachedDomain(domains, "app.northside.org")).toBe(true);
+    // www redirects to the app domain, so it can't be APP_URL
+    expect(isAttachedDomain(domains, "www.northside.org")).toBe(false);
     expect(isAttachedDomain(domains, "https://typo.northside.org")).toBe(false);
   });
 });
@@ -188,6 +191,33 @@ describe("checkLoginPage", () => {
     const r = checkLoginPage(200, "Email me a sign-in link <h2>Development shortcut</h2>");
     expect(r.ok).toBe(false);
     expect(r.problems[0]).toMatch(/shortcut/);
+  });
+});
+
+describe("security headers", () => {
+  it("allows only this app, Supabase and Stripe, with a per-request nonce", () => {
+    const csp = buildCsp({ nonce: "abc123", supabaseUrl: "https://ref.supabase.co", dev: false, https: true });
+    expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic' https://js.stripe.com");
+    expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co https://api.stripe.com");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("upgrade-insecure-requests");
+    expect(csp).not.toContain("unsafe-eval");
+  });
+  it("allows eval only in development, and upgrades requests only over https", () => {
+    const csp = buildCsp({ nonce: "n", supabaseUrl: "http://127.0.0.1:54321", dev: true, https: false });
+    expect(csp).toContain("'unsafe-eval'");
+    expect(csp).toContain("ws://127.0.0.1:54321");
+    expect(csp).not.toContain("upgrade-insecure-requests");
+  });
+  it("forwards only vercel.app hosts to the custom domain", () => {
+    expect(canonicalRedirect("groundwork-nine-black.vercel.app", "https://yourgroundwork.ca", "/login?next=%2F")).toBe(
+      "https://yourgroundwork.ca/login?next=%2F",
+    );
+    expect(canonicalRedirect("yourgroundwork.ca", "https://yourgroundwork.ca", "/")).toBeNull();
+    expect(canonicalRedirect("www.yourgroundwork.ca", "https://yourgroundwork.ca", "/")).toBeNull();
+    expect(canonicalRedirect("groundwork-nine-black.vercel.app", undefined, "/")).toBeNull();
+    expect(canonicalRedirect("a.vercel.app", "https://groundwork-nine-black.vercel.app", "/")).toBeNull();
+    expect(canonicalRedirect("localhost:3000", "http://localhost:3000", "/")).toBeNull();
   });
 });
 

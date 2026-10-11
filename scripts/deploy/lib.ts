@@ -64,10 +64,14 @@ export function productionRedirects(domains: VercelDomain[]): string[] {
   return productionDomains(domains).map((d) => `https://${d.name}/**`);
 }
 
-/** Whether a URL's host is attached to the Vercel project at all. */
+/**
+ * Whether a URL's host is attached to the Vercel project and serves it
+ * directly. A domain Vercel redirects (www to the apex, say) can't be the app
+ * URL: the vercel.app address forwards to it, and it would forward on again.
+ */
 export function isAttachedDomain(domains: VercelDomain[], url: string): boolean {
   const host = new URL(normalizeAppUrl(url)).host;
-  return domains.some((d) => d.name === host);
+  return domains.some((d) => d.name === host && !d.redirect);
 }
 
 export type SmtpSettings = {
