@@ -20,6 +20,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
 import { LogoBadge } from "@/components/logo";
 import { keepValues } from "@/lib/forms";
+import type { Role } from "@/lib/roles";
 
 export type PresetChoice = { key: string; name: string; words: string[] };
 
@@ -389,12 +390,12 @@ export function OrganizationForm({
   );
 }
 
-export function InviteForm({ organizationId }: { organizationId: string }) {
+export function InviteForm({ organizationId, roles }: { organizationId: string; roles: Role[] }) {
   const t = useT();
   const [state, action, pending] = useActionState(inviteMember, idle);
   const [copied, setCopied] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  // start fresh after each invite, so the next one doesn't inherit the email or an Admin role
+  // start fresh after each invite, so the next one doesn't inherit the email or a higher role
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();
   }, [state]);
@@ -408,9 +409,12 @@ export function InviteForm({ organizationId }: { organizationId: string }) {
           <Input id="invite-email" name="email" type="email" required placeholder="name@example.org" invalid={Boolean(e.email)} />
         </Field>
         <Field label="Role" htmlFor="invite-role" error={e.role}>
-          <Select id="invite-role" name="role" defaultValue="member">
-            <option value="member">{t("role.member")}</option>
-            <option value="admin">{t("role.admin")}</option>
+          <Select id="invite-role" name="role" defaultValue="staff">
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {t(`role.${r}`)}
+              </option>
+            ))}
           </Select>
         </Field>
         <SubmitButton pending={pending} pendingLabel="Creating…">

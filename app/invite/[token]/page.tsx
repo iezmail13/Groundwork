@@ -6,6 +6,7 @@ import { AcceptInviteForm } from "@/components/auth/accept-invite-form";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { isPast } from "@/lib/dates";
+import { createTranslator } from "@/lib/terminology/t";
 
 export const metadata: Metadata = { title: "Invitation" };
 
@@ -17,6 +18,8 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
     supabase.auth.getUser(),
   ]);
   const invite = invites?.[0];
+  // the organization's own labels aren't readable before joining, so the defaults
+  const t = createTranslator();
 
   if (!invite) {
     return (
@@ -43,7 +46,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
   if (expired) {
     return (
       <AuthFrame title={title} subtitle="This invitation has expired.">
-        <p className="text-ink-muted">Ask an admin of {invite.organization_name} to invite you again.</p>
+        <p className="text-ink-muted">Ask the person who invited you to {invite.organization_name} to send a new invitation.</p>
       </AuthFrame>
     );
   }
@@ -52,7 +55,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
     return (
       <AuthFrame
         title={title}
-        subtitle={`You've been invited as ${invite.role === "admin" ? "an admin" : "a teammate"}. Sign in with ${invite.email} to accept.`}
+        subtitle={`You've been invited with the ${t(`role.${invite.role}`)} role. Sign in with ${invite.email} to accept.`}
       >
         <LoginForm next={`/invite/${token}`} defaultEmail={invite.email} />
       </AuthFrame>

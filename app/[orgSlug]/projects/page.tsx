@@ -78,7 +78,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
             <thead>
               <tr className="border-b border-ink font-heading text-sm">
                 <th scope="col" className="py-2 pr-4 font-semibold">Name</th>
-                <th scope="col" className="py-2 pr-4 font-semibold">Owner</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Lead</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Progress</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Dates</th>
                 <th scope="col" className="py-2 font-semibold">Status</th>

@@ -57,7 +57,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
   const memberName = new Map(members.map((m) => [m.id, m.name]));
   const done = tasks.filter((x) => x.status === "done").length;
   const archived = project.status === "archived";
-  const canDelete = ctx.isAdmin || project.created_by === ctx.userId;
+  const canDelete = ctx.canManage || project.created_by === ctx.userId;
   const nowIso = new Date().toISOString();
   const upcoming = events.filter((e) => e.ends_at >= nowIso);
   const past = events.filter((e) => e.ends_at < nowIso).reverse().slice(0, 5);
@@ -91,7 +91,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               ) : (
                 <Badge variant="outline">{t("status.active")}</Badge>
               )}
-              {project.owner_membership_id ? <span>Owner: {memberName.get(project.owner_membership_id)}</span> : null}
+              {project.owner_membership_id ? <span>Lead: {memberName.get(project.owner_membership_id)}</span> : null}
               {project.start_date || project.end_date ? (
                 <span>
                   {project.start_date ? formatDate(project.start_date) : "—"} to{" "}
@@ -173,7 +173,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                       <EventRowButton
                         organizationId={org.id}
                         projects={projectsForForms}
-                        values={toEventFormValues(e, tz, ctx.isAdmin || e.created_by === ctx.userId)}
+                        values={toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId)}
                         when={eventWhen(e)}
                         location={e.location}
                       />
@@ -192,7 +192,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                         <EventRowButton
                           organizationId={org.id}
                           projects={projectsForForms}
-                          values={toEventFormValues(e, tz, ctx.isAdmin || e.created_by === ctx.userId)}
+                          values={toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId)}
                           when={eventWhen(e)}
                           location={e.location}
                         />

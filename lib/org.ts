@@ -6,10 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createTranslator, resolveAll, toLabelMap, type Translate } from "@/lib/terminology/t";
 import { deriveTokens, readTheme, type ThemeSettings, type ThemeTokens } from "@/lib/theme/theme";
 import { DEFAULT_TZ, isValidTimeZone, todayIn } from "@/lib/dates";
+import { canManageOrg, type Role } from "@/lib/roles";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
-export type Role = Database["public"]["Enums"]["member_role"];
+export type { Role };
 
 export type Member = {
   id: string; // membership id
@@ -36,7 +37,8 @@ export type OrgContext = {
   org: Organization;
   membershipId: string;
   role: Role;
-  isAdmin: boolean;
+  /** Owners and managers: settings, members, and deleting anyone's work. */
+  canManage: boolean;
   userId: string;
   userEmail: string;
   t: Translate;
@@ -73,7 +75,7 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
     org,
     membershipId: membership.id,
     role: membership.role,
-    isAdmin: membership.role === "admin",
+    canManage: canManageOrg(membership.role),
     userId: user.id,
     userEmail: user.email ?? "",
     t,

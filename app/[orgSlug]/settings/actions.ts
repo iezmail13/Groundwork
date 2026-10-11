@@ -10,27 +10,43 @@ import { validateTheme } from "@/lib/theme/theme";
 import { normalizeHex } from "@/lib/theme/color";
 import { id, slugInput } from "@/lib/validation";
 import { siteOrigin } from "@/lib/urls";
+import { getOrgContext } from "@/lib/org";
+import { ROLES } from "@/lib/roles";
+import { lower } from "@/lib/terminology/t";
 
 function revalidateOrg() {
   revalidatePath("/[orgSlug]", "layout");
 }
 
-/** Every settings change is admin-only; RLS enforces it, this gives a clear message first. */
-async function requireAdmin(organizationId: string) {
+/** Settings changes need manager rank or above; RLS enforces it, this gives a clear message first. */
+async function requireManager(organizationId: string) {
   const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("has_role", { org_id: organizationId, required: "admin" });
-  return { supabase, isAdmin: Boolean(isAdmin) };
+  const { data: allowed } = await supabase.rpc("has_permission", { org_id: organizationId, required: "manager" });
+  return { supabase, allowed: Boolean(allowed) };
 }
 
-const NOT_ADMIN = "Only admins can change settings.";
+const NOT_ALLOWED = "You don't have permission to change settings.";
+const NOT_ALLOWED_MEMBER = "You don't have permission to change that person's access.";
+
+const role = z.enum(ROLES, { error: "Choose a role." });
+
+/** The database refused because the organization would be left without an owner. */
+function isLastOwner(error: { hint?: string; message?: string } | null): boolean {
+  return error?.hint === "last_owner" || Boolean(error?.message?.includes("at least one owner"));
+}
+
+async function lastOwnerMessage(orgSlug: string): Promise<string> {
+  const { t } = await getOrgContext(orgSlug);
+  return `An organization must keep at least one ${lower(t("role.owner"))}. Transfer ownership or make someone else ${lower(t("role.owner"))} first.`;
+}
 
 export async function setPreset(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = z
     .object({ organizationId: id, preset: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/, "Choose a preset.") })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
-  const { supabase, isAdmin } = await requireAdmin(parsed.data.organizationId);
-  if (!isAdmin) return failure(NOT_ADMIN);
+  const { supabase, allowed } = await requireManager(parsed.data.organizationId);
+  if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase
     .from("organizations")
     .update({ preset_key: parsed.data.preset })
@@ -60,8 +76,8 @@ export async function saveTerminology(_prev: ActionState, formData: FormData): P
   }
   if (Object.keys(fieldErrors).length) return failure("Some labels are too long.", fieldErrors);
 
-  const { supabase, isAdmin } = await requireAdmin(orgId.data);
-  if (!isAdmin) return failure(NOT_ADMIN);
+  const { supabase, allowed } = await requireManager(orgId.data);
+  if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase.from("organizations").update({ terminology_overrides: overrides }).eq("id", orgId.data);
   if (error) return dbFailure(error);
   revalidateOrg();
@@ -81,8 +97,8 @@ export async function saveTheme(_prev: ActionState, formData: FormData): Promise
   const check = validateTheme(settings);
   if (!check.ok) return failure(check.reason, { navy: [check.reason] });
 
-  const { supabase, isAdmin } = await requireAdmin(parsed.data.organizationId);
-  if (!isAdmin) return failure(NOT_ADMIN);
+  const { supabase, allowed } = await requireManager(parsed.data.organizationId);
+  if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase.from("organizations").update({ theme: settings }).eq("id", parsed.data.organizationId);
   if (error) return dbFailure(error);
   revalidateOrg();
@@ -99,8 +115,8 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
     })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
-  const { supabase, isAdmin } = await requireAdmin(parsed.data.organizationId);
-  if (!isAdmin) return failure(NOT_ADMIN);
+  const { supabase, allowed } = await requireManager(parsed.data.organizationId);
+  if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase
     .from("organizations")
     .update({ name: parsed.data.name, slug: parsed.data.slug })
@@ -117,12 +133,12 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
     .object({
       organizationId: id,
       email: z.email("Enter a valid email address.").max(254),
-      role: z.enum(["admin", "member"], { error: "Choose a role." }),
+      role,
     })
     .safeParse({ ...formObject(formData), email: String(formData.get("email") ?? "").trim().toLowerCase() });
   if (!parsed.success) return invalid(parsed.error);
-  const { supabase, isAdmin } = await requireAdmin(parsed.data.organizationId);
-  if (!isAdmin) return failure(NOT_ADMIN);
+  const { supabase, allowed } = await requireManager(parsed.data.organizationId);
+  if (!allowed) return failure(NOT_ALLOWED);
   const d = parsed.data;
 
   const { data: existing } = await supabase
@@ -157,7 +173,7 @@ export async function revokeInvitation(formData: FormData): Promise<void> {
 }
 
 export async function changeRole(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ membershipId: id, role: z.enum(["admin", "member"]) }).safeParse(formObject(formData));
+  const parsed = z.object({ membershipId: id, orgSlug: z.string().min(1), role }).safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -165,17 +181,17 @@ export async function changeRole(_prev: ActionState, formData: FormData): Promis
     .update({ role: parsed.data.role })
     .eq("id", parsed.data.membershipId)
     .select("id");
-  if (error?.hint === "last_admin" || error?.message?.includes("at least one admin")) {
-    return failure("An organization must keep at least one admin. Promote someone else first.");
-  }
+  if (isLastOwner(error)) return failure(await lastOwnerMessage(parsed.data.orgSlug));
+  // a role above the caller's own fails the policy's check
+  if (error?.code === "42501") return failure(NOT_ALLOWED_MEMBER);
   if (error) return dbFailure(error);
-  if (!data?.length) return failure(NOT_ADMIN);
+  if (!data?.length) return failure(NOT_ALLOWED_MEMBER);
   revalidateOrg();
   return success("Role updated.");
 }
 
 export async function removeMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ membershipId: id }).safeParse(formObject(formData));
+  const parsed = z.object({ membershipId: id, orgSlug: z.string().min(1) }).safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -184,13 +200,34 @@ export async function removeMember(_prev: ActionState, formData: FormData): Prom
     .delete()
     .eq("id", parsed.data.membershipId)
     .select("id, user_id");
-  if (error?.hint === "last_admin" || error?.message?.includes("at least one admin")) {
-    return failure("An organization must keep at least one admin. Promote someone else first.");
-  }
+  if (isLastOwner(error)) return failure(await lastOwnerMessage(parsed.data.orgSlug));
   if (error) return dbFailure(error);
-  if (!data?.length) return failure(NOT_ADMIN);
+  if (!data?.length) return failure(NOT_ALLOWED_MEMBER);
   revalidateOrg();
   // leaving yourself: this organization is no longer yours to view
   if (data[0]!.user_id === auth.user?.id) redirect("/");
   return success("Removed.");
+}
+
+export async function transferOwnership(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = z
+    .object({ organizationId: id, orgSlug: z.string().min(1), membershipId: z.guid("Choose who takes over.") })
+    .safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("transfer_ownership", {
+    org_id: parsed.data.organizationId,
+    new_owner_membership_id: parsed.data.membershipId,
+  });
+  if (error?.code === "42501") {
+    const { t } = await getOrgContext(parsed.data.orgSlug);
+    return failure(`Only ${lower(t("role.owner", "other"))} can transfer ownership.`);
+  }
+  if (error?.code === "P0002" || error?.code === "22023") {
+    return failure(error.message, { membershipId: [error.message] });
+  }
+  if (error) return dbFailure(error);
+  revalidateOrg();
+  // the caller is no longer an owner, so the dialog they used is gone; say so on the page
+  redirect(`/${parsed.data.orgSlug}/settings?view=members&notice=transferred`);
 }

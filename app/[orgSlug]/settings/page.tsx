@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Lock } from "lucide-react";
+import { CircleCheck, Lock } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { InviteForm, OrganizationForm, PresetForm, TerminologyForm, ThemeForm, type PresetChoice } from "@/components/settings/forms";
-import { MembersTable, PendingInvites } from "@/components/settings/members";
+import { MembersTable, PendingInvites, TransferOwnership } from "@/components/settings/members";
 import { getMembers, getOrgContext } from "@/lib/org";
 import { createClient } from "@/lib/supabase/server";
-import { createTranslator, resolveAll, toLabelMap } from "@/lib/terminology/t";
+import { createTranslator, lower, resolveAll, toLabelMap } from "@/lib/terminology/t";
+import { grantableRoles, type Role } from "@/lib/roles";
 import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
 
@@ -22,7 +23,7 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
   const sp = await searchParams;
   const view: View = VIEWS.find((v) => v === sp.view) ?? "preset";
   const ctx = await getOrgContext(orgSlug);
-  const { t, org, base, isAdmin } = ctx;
+  const { t, org, base, canManage } = ctx;
   const tab = (v: View, label: string) => ({ label, href: `${base}/settings?view=${v}`, active: view === v });
 
   return (
@@ -38,17 +39,17 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           tab("organization", "Organization"),
         ]}
       />
-      {!isAdmin ? (
+      {!canManage ? (
         <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
           <Lock aria-hidden className="size-4" />
-          Only admins can change settings. You can see them here.
+          Only {lower(t("role.owner", "other"))} and {lower(t("role.manager", "other"))} can change settings. You can see them here.
         </p>
       ) : null}
-      {view === "preset" ? <PresetPanel orgId={org.id} current={org.preset_key} disabled={!isAdmin} /> : null}
-      {view === "terminology" ? <TerminologyPanel orgId={org.id} presetKey={org.preset_key} overrides={org.terminology_overrides} disabled={!isAdmin} /> : null}
-      {view === "theme" ? <ThemeForm organizationId={org.id} navy={ctx.theme.navy} mode={ctx.theme.mode} disabled={!isAdmin} /> : null}
-      {view === "members" ? <MembersPanel orgSlug={orgSlug} /> : null}
-      {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!isAdmin} /> : null}
+      {view === "preset" ? <PresetPanel orgId={org.id} current={org.preset_key} disabled={!canManage} /> : null}
+      {view === "terminology" ? <TerminologyPanel orgId={org.id} presetKey={org.preset_key} overrides={org.terminology_overrides} disabled={!canManage} /> : null}
+      {view === "theme" ? <ThemeForm organizationId={org.id} navy={ctx.theme.navy} mode={ctx.theme.mode} disabled={!canManage} /> : null}
+      {view === "members" ? <MembersPanel orgSlug={orgSlug} transferred={sp.notice === "transferred"} /> : null}
+      {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
     </div>
   );
 }
@@ -83,31 +84,54 @@ async function TerminologyPanel({
   return <TerminologyForm organizationId={orgId} presetLabels={presetLabels} overrides={toLabelMap(overrides)} disabled={disabled} />;
 }
 
-async function MembersPanel({ orgSlug }: { orgSlug: string }) {
+async function MembersPanel({ orgSlug, transferred }: { orgSlug: string; transferred: boolean }) {
   const ctx = await getOrgContext(orgSlug);
-  const { t, org, isAdmin, today, tz } = ctx;
+  const { t, org, canManage, role, today, tz } = ctx;
   const supabase = await createClient();
   const [members, { data: invitations }, origin] = await Promise.all([
     getMembers(org.id),
-    isAdmin
+    canManage
       ? supabase.from("invitations").select("id, email, role, token, expires_at").eq("organization_id", org.id).is("accepted_at", null).order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as { id: string; email: string; role: "admin" | "member"; token: string; expires_at: string }[] }),
+      : Promise.resolve({ data: [] as { id: string; email: string; role: Role; token: string; expires_at: string }[] }),
     siteOrigin(),
   ]);
   const now = new Date().toISOString();
 
   return (
     <div className="flex flex-col gap-8">
+      {transferred ? (
+        <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
+          <CircleCheck aria-hidden className="size-4" />
+          Ownership transferred. You&apos;re now {lower(t("role.manager"))}.
+        </p>
+      ) : null}
       <section aria-labelledby="members-heading" className="flex flex-col gap-3">
         <h2 id="members-heading" className="text-xl font-bold">
           {t("member", "other")} ({members.length})
         </h2>
         <MembersTable
-          isAdmin={isAdmin}
+          viewerRole={role}
+          orgSlug={org.slug}
           members={members.map((m) => ({ id: m.id, name: m.name, email: m.email, role: m.role, isYou: m.userId === ctx.userId }))}
         />
       </section>
-      {isAdmin ? (
+      {role === "owner" ? (
+        <section aria-labelledby="transfer-heading" className="flex flex-col gap-3">
+          <h2 id="transfer-heading" className="text-xl font-bold">
+            Ownership
+          </h2>
+          <p className="max-w-2xl text-ink-muted">
+            Hand the organization to someone else. They become {lower(t("role.owner"))} and you step down to{" "}
+            {lower(t("role.manager"))}. An organization always keeps at least one {lower(t("role.owner"))}.
+          </p>
+          <TransferOwnership
+            organizationId={org.id}
+            orgSlug={org.slug}
+            candidates={members.filter((m) => m.role !== "owner").map((m) => ({ id: m.id, name: m.name }))}
+          />
+        </section>
+      ) : null}
+      {canManage ? (
         <>
           <section aria-labelledby="invite-heading" className="flex flex-col gap-3">
             <h2 id="invite-heading" className="text-xl font-bold">
@@ -117,7 +141,7 @@ async function MembersPanel({ orgSlug }: { orgSlug: string }) {
               Create an invitation, then copy the link and send it to them. They sign in with that email address to join.
               Links expire after 14 days.
             </p>
-            <InviteForm organizationId={org.id} />
+            <InviteForm organizationId={org.id} roles={grantableRoles(role)} />
           </section>
           <section aria-labelledby="pending-heading" className="flex flex-col gap-3">
             <h2 id="pending-heading" className="text-xl font-bold">

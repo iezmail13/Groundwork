@@ -61,7 +61,7 @@ export default async function CalendarPage({ params, searchParams }: PageProps<"
         endDate: eventEndDate(e.ends_at, e.all_day, tz),
         timeLabel: e.all_day ? "All day" : formatTime(e.starts_at, tz),
         location: e.location,
-        values: toEventFormValues(e, tz, ctx.isAdmin || e.created_by === ctx.userId),
+        values: toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId),
       };
     }),
     ...(tasks ?? []).map((task) => ({

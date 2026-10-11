@@ -1,5 +1,5 @@
 -- Org A cannot read, insert, update or delete org B's rows in any table.
--- Alice is an admin of A (the most privileged role), and B is untouched.
+-- Alice is an owner of A (the most privileged role), and B is untouched.
 begin;
 \ir fixtures.inc
 select plan(46);
@@ -22,7 +22,7 @@ select is((select count(*)::int from public.organizations), 1, 'A sees exactly o
 
 -- insert ----------------------------------------------------------------------
 select throws_ok($$ insert into public.organizations (name, slug) values ('Sneaky', 'sneaky') $$, '42501', null, 'cannot insert organizations directly');
-select throws_ok($$ insert into public.memberships (organization_id, user_id, role) values ('bbbbbbbb-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'admin') $$, '42501', null, 'A cannot add itself to B');
+select throws_ok($$ insert into public.memberships (organization_id, user_id, role) values ('bbbbbbbb-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'owner') $$, '42501', null, 'A cannot add itself to B');
 select throws_ok($$ insert into public.invitations (organization_id, email) values ('bbbbbbbb-0000-0000-0000-000000000000', 'x@a.test') $$, '42501', null, 'A cannot invite into B');
 select throws_ok($$ insert into public.projects (organization_id, name) values ('bbbbbbbb-0000-0000-0000-000000000000', 'x') $$, '42501', null, 'A cannot insert B projects');
 select throws_ok($$ insert into public.tasks (organization_id, project_id, title) values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-3333-0000-0000-000000000000', 'x') $$, '42501', null, 'A cannot insert B tasks');
@@ -36,8 +36,8 @@ select throws_ok($$ insert into public.profiles (id, email) values ('b0000000-00
 
 -- update ----------------------------------------------------------------------
 select is(tests.affected($q$update public.organizations set name = 'pwned' where id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B organization');
-select is(tests.affected($q$update public.memberships set role = 'member' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B memberships');
-select is(tests.affected($q$update public.invitations set role = 'admin' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B invitations');
+select is(tests.affected($q$update public.memberships set role = 'staff' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B memberships');
+select is(tests.affected($q$update public.invitations set role = 'owner' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B invitations');
 select is(tests.affected($q$update public.projects set name = 'pwned' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B projects');
 select is(tests.affected($q$update public.tasks set title = 'pwned' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B tasks');
 select is(tests.affected($q$update public.events set title = 'pwned' where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000'$q$), 0, 'A cannot update B events');
@@ -71,7 +71,7 @@ select is(
   '("Org B",2,1,1,1,1,1)',
   'all of B''s rows are unchanged'
 );
-select is((select count(*)::int from public.invitations where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000' and role = 'member'), 1, 'B invitation unchanged');
+select is((select count(*)::int from public.invitations where organization_id = 'bbbbbbbb-0000-0000-0000-000000000000' and role = 'staff'), 1, 'B invitation unchanged');
 
 select * from finish();
 rollback;
