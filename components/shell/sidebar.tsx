@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   ClipboardCheck,
+  PiggyBank,
   ChevronsUpDown,
   FileText,
   FolderKanban,
@@ -34,6 +35,8 @@ type Props = {
   recent: RecentProject[];
   /** The viewer manages a participant roster somewhere (or could, as owner or manager). */
   showAttendance: boolean;
+  /** Owners and managers see Funds. */
+  showFunds: boolean;
   initialCollapsed: boolean;
 };
 
@@ -119,6 +122,7 @@ function SidebarBody({
   user,
   recent,
   showAttendance,
+  showFunds,
   collapsed,
   pathname,
   onToggle,
@@ -133,6 +137,7 @@ function SidebarBody({
     { href: `${base}/calendar`, label: t("section.calendar"), icon: CalendarDays },
     { href: `${base}/documents`, label: t("document", "other"), icon: FileText },
     ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
+    ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
   ];
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 

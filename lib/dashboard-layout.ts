@@ -9,6 +9,7 @@ export const WIDGET_IDS = [
   "project_progress",
   "recent_activity",
   "pinned_documents",
+  "funding",
 ] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
@@ -27,6 +28,7 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
     { id: "project_progress", size: "m", hidden: false },
     { id: "recent_activity", size: "m", hidden: false },
     { id: "pinned_documents", size: "l", hidden: false },
+    { id: "funding", size: "m", hidden: false },
   ],
 };
 

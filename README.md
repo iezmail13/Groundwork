@@ -45,6 +45,8 @@ People see only the projects they're on; owners see every project. On a project,
 
 A project can keep a participant roster (tick "Keeps a participant roster" in its settings). Its project admins and leads, and owners, then get **Attendance** in the sidebar: the people the program serves (with contact, guardian, emergency and care details), a phone-friendly check-in for each of its sessions (calendar items), and reports with attendance rates per person and per program, a comparison chart and CSV download. Project staff never see participant data. Archiving someone hides them but keeps their history; owners and managers can delete someone permanently for a privacy request, which erases their details and keeps their past marks anonymised so totals don't change.
 
+Owners and managers also get **Funds**: each fund (a grant, a donation drive, a budget) has a total that's split into labelled parts, shown as a bar chart with each part's amount and share. A fund, or any part of it, can be linked to a project, whose page then shows its funding; the dashboard's **Funding** widget shows how much of each fund is allocated. The database won't let parts add up to more than the fund. Nobody else sees funds.
+
 ## Scripts
 
 | Script                      | What it does                                                                           |

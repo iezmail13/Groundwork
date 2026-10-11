@@ -433,6 +433,45 @@ async function main() {
     "attendance",
   );
 
+  // Two funds, split into parts; owners and managers see them under Funds.
+  const funds = must(
+    await db
+      .from("funds")
+      .insert([
+        { organization_id: org.id, name: "Fall community grant", total_cents: 1000000, currency: "CAD", project_id: HC, description: "City of Toronto neighbourhood grant for the fall term.", created_by: priya },
+        { organization_id: org.id, name: "Winter coat donations", total_cents: 350000, currency: "CAD", project_id: CD, description: null, created_by: jordan },
+      ])
+      .select("id, name"),
+    "funds",
+  );
+  const fund = (name: string) => funds.find((f) => f.name === name)!.id;
+  must(
+    await db
+      .from("fund_allocations")
+      .insert(
+        (
+          [
+            ["Fall community grant", "Tutor stipends", 450000, HC],
+            ["Fall community grant", "Books and supplies", 180000, null],
+            ["Fall community grant", "Snacks", 120000, null],
+            ["Fall community grant", "Transit passes", 90000, null],
+            ["Winter coat donations", "Dry cleaning", 140000, null],
+            ["Winter coat donations", "Bins and signage", 60000, null],
+            ["Winter coat donations", "Distribution day", 100000, CD],
+          ] as const
+        ).map(([f, label, amount_cents, project_id], i) => ({
+          organization_id: org.id,
+          fund_id: fund(f),
+          label,
+          amount_cents,
+          project_id,
+          position: i + 1,
+        })),
+      )
+      .select("id"),
+    "allocations",
+  );
+
   const docs: { name: string; mime: string; body: Buffer; project: string | null; tags: string[]; pinned: boolean; by: string }[] = [
     { name: "Volunteer Handbook.md", mime: "text/markdown", body: Buffer.from(HANDBOOK), project: null, tags: ["handbook", "volunteers", "safeguarding"], pinned: true, by: jordan! },
     { name: "Homework Club attendance - fall.csv", mime: "text/csv", body: Buffer.from(ATTENDANCE), project: HC, tags: ["attendance"], pinned: false, by: priya! },
@@ -507,7 +546,7 @@ async function main() {
   must(await db.from("tasks").update({ assignee_invitation_id: invite.id }).eq("id", notebooks).select("id"), "invitee task");
 
   console.log(
-    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants.\n` +
+    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
       `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }

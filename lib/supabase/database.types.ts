@@ -177,6 +177,70 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"fund_allocations": {
+                  Row: {
+                    "amount_cents": number,"created_at": string,"fund_id": string,"id": string,"label": string,"organization_id": string,"position": number,"project_id": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_cents": number,"created_at"?: string,"fund_id": string,"id"?: string,"label": string,"organization_id": string,"position"?: number,"project_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount_cents"?: number,"created_at"?: string,"fund_id"?: string,"id"?: string,"label"?: string,"organization_id"?: string,"position"?: number,"project_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fund_allocations_fund_id_organization_id_fkey"
+      columns: ["fund_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "funds"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "fund_allocations_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "fund_allocations_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"funds": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"currency": string,"description": string | null,"id": string,"name": string,"organization_id": string,"project_id": string | null,"total_cents": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id"?: string | null,"total_cents": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string | null,"total_cents"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "funds_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "funds_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "funds_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"invitation_projects": {
                   Row: {
                     "created_at": string,"id": string,"invitation_id": string,"organization_id": string,"project_id": string,"role": Database["public"]['Enums']["project_role"]

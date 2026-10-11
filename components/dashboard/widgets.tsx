@@ -10,6 +10,8 @@ import { TaskCheckbox } from "@/components/tasks/task-checkbox";
 import { QuickAddTask } from "@/components/tasks/quick-add";
 import { ProgressBar } from "@/components/projects/progress";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
+import { SplitBar } from "@/components/funds/split-bar";
+import { formatMoney, formatShare } from "@/lib/money";
 import type { ProjectOption, TaskStatus } from "@/lib/queries";
 
 export type TaskLite = {
@@ -33,6 +35,16 @@ export type DashboardData = {
   activity: { id: string; actor: string; sentence: string; label: string | null; href: string | null; ago: string }[];
   pinned: { id: string; name: string; mime: string; size: number }[];
   projectOptions: ProjectOption[];
+  /** Funds and their split, for owners and managers; null for everyone else. */
+  funds: FundSummary[] | null;
+};
+
+export type FundSummary = {
+  id: string;
+  name: string;
+  currency: string;
+  totalCents: number;
+  parts: { key: string; label: string; cents: number }[];
 };
 
 /** A number that counts up from zero (CSS only); the real value is in the text. */
@@ -293,3 +305,40 @@ export function PinnedDocumentsWidget({ data }: { data: DashboardData }) {
 export function QuickAddWidget({ data }: { data: DashboardData }) {
   return <QuickAddTask organizationId={data.organizationId} projects={data.projectOptions} compact idSuffix="dashboard" />;
 }
+
+export function FundingWidget({ data }: { data: DashboardData }) {
+  const funds = data.funds ?? [];
+  if (funds.length === 0) {
+    return (
+      <Empty>
+        No funds yet.{" "}
+        <Link href={`${data.base}/funds`} className="underline underline-offset-4">
+          Add one
+        </Link>{" "}
+        to see where its money goes.
+      </Empty>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-4">
+      {funds.slice(0, 5).map((f) => {
+        const allocated = f.parts.reduce((sum, p) => sum + p.cents, 0);
+        return (
+          <li key={f.id} className="flex flex-col gap-1.5">
+            <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <Link href={`${data.base}/funds/${f.id}`} className="truncate font-semibold hover:underline">
+                {f.name}
+              </Link>
+              <span className="text-sm tabular-nums">
+                <span className="font-heading font-bold">{formatShare(allocated, f.totalCents)}</span> of{" "}
+                {formatMoney(f.totalCents, f.currency, true)} allocated
+              </span>
+            </p>
+            <SplitBar size="sm" legend={false} caption={f.name} currency={f.currency} totalCents={f.totalCents} parts={f.parts} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+

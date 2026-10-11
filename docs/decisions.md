@@ -206,3 +206,14 @@ The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behi
 - **Words.** New label keys: `participant` (Participant, Attendee in Business, Student in Tutoring, added to each preset without touching its other words), `section.attendance` and the four marks. `check:labels` now also rejects hard-coded participant, attendee, student and attendance words and the capitalised mark names.
 - **Not in this change:** participant files (the second storage bucket in D56) and the ICS feed.
 
+## Funds (owner's request)
+
+**D82. Funds are in scope, as planning rather than accounting.** CLAUDE.md forbade finance. The owner asked for a money tab and approved changing the rule, so CLAUDE.md now allows funds: an amount of money (a grant, a donation drive, a budget) split into labelled allocations, each optionally linked to the project it pays for, with charts. Accounting, payments, payroll, invoices, bank data and donor management stay out of scope.
+
+- **Tables.** `funds` (name, notes, total, currency, optional linked project) and `fund_allocations` (label, amount, optional linked project, order). Amounts are whole cents in `bigint`, so totals are exact. Currency is per fund (CAD by default, or USD, EUR, GBP); amounts show with a plain symbol ("$10,000.00") and the fund names its currency once beside the total.
+- **Never over-allocated.** A trigger refuses any insert or update that would make a fund's allocations add up to more than its total, including lowering the total below what's allocated. The app turns that refusal into a field message.
+- **Who sees it** (the owner chose this): owners and managers only, in RLS on both tables. Fund entries in the activity log are hidden from everyone else too. The sidebar shows Funds, the dashboard shows the Funding widget, and project pages show Funding only for owners and managers; for anyone else the Funds pages return Not found.
+- **Charts** are plain HTML and CSS, so no package. A fund is one bar split into its parts, with the unallocated rest as an outlined gap. Parts are told apart by shade and pattern (solid, stripes, dots), not colour alone, and every part is listed with its amount and share; screen readers get the whole split as text.
+- **Where funding shows.** The Funds list shows every fund with its total, allocated, left and a split bar. Each fund has its own page with the full chart and its parts, which can be added, edited and removed. A project page shows a Funding section for funds linked to it or with a part allocated to it. The dashboard has a Funding widget, movable and hideable like the others, showing each fund's split and percentage allocated. The owner asked not to make the dashboard switch per project yet.
+- **Activity.** Creating, editing and deleting a fund, and changing its parts, are logged as entries about the fund for signed-in people; seed and script writes aren't.
+

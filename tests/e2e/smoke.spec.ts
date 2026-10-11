@@ -707,3 +707,57 @@ test("attendance: roster, check-in, reports, archiving and permanent deletion", 
   await expect(staff.getByText("No programs keep a roster you can see")).toBeVisible();
   await context.close();
 });
+
+test("funds: owners and managers split a fund, see it on its project and the dashboard", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await page.getByRole("link", { name: "Funds", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Funds" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Fall community grant" })).toBeVisible();
+
+  // a new fund for a program, split in two
+  await page.getByRole("button", { name: "New fund" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill("Spring bake sale");
+  await dialog.getByLabel("Total").fill("2,000");
+  await dialog.getByLabel("Linked program (optional)").selectOption({ label: "Teen Mentorship Circle" });
+  await dialog.getByRole("button", { name: "Create fund" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Spring bake sale" })).toBeVisible();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByLabel("What it's for").fill("Ingredients");
+  await page.getByLabel("Amount").fill("500");
+  await page.getByRole("button", { name: "Allocate" }).click();
+  await expect(page.getByText("Allocated to Ingredients.")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Ingredients .*\$500\.00 25%/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Unallocated .*\$1,500\.00 75%/ })).toBeVisible();
+
+  // the database won't allocate more than the fund holds
+  await page.getByLabel("What it's for").fill("Too much");
+  await page.getByLabel("Amount").fill("1600");
+  await page.getByRole("button", { name: "Allocate" }).click();
+  await expect(page.getByText("That's more than the fund has left to allocate.")).toBeVisible();
+
+  // the program shows its funding, and so does the dashboard
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Teen Mentorship Circle" }).first().click();
+  await expect(page.getByRole("heading", { level: 2, name: "Funding" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Spring bake sale" })).toBeVisible();
+  await visit(page, "/northside-youth-collective/dashboard");
+  await expect(page.getByRole("heading", { name: "Funding" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Spring bake sale", exact: true })).toBeVisible();
+  // and the change is in recent activity, for owners and managers
+  await expect(page.getByRole("link", { name: "“Spring bake sale”" }).first()).toBeVisible();
+
+  // an admin sees none of it
+  const context = await browser.newContext();
+  const admin = await context.newPage();
+  await admin.goto("/login");
+  await admin.getByRole("button", { name: "Sign in as Marcus Chen" }).click();
+  await expect(admin).toHaveURL(/dashboard$/);
+  await expect(admin.getByRole("link", { name: "Funds", exact: true })).toHaveCount(0);
+  await expect(admin.getByRole("heading", { name: "Funding" })).toHaveCount(0);
+  await admin.goto("/northside-youth-collective/funds");
+  await expect(admin.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await context.close();
+});

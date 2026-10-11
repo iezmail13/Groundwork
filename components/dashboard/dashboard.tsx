@@ -22,6 +22,7 @@ import {
   EyeOff,
   GripVertical,
   LayoutGrid,
+  PiggyBank,
   Pin,
   Plus,
   RotateCcw,
@@ -35,6 +36,7 @@ import { lower } from "@/lib/terminology/t";
 import { Button } from "@/components/ui/button";
 import {
   DueSoonWidget,
+  FundingWidget,
   MyTasksWidget,
   OverdueWidget,
   PinnedDocumentsWidget,
@@ -71,6 +73,7 @@ function useWidgetDefs(): Record<WidgetId, WidgetDef> {
       render: (d) => <PinnedDocumentsWidget data={d} />,
     },
     quick_add: { title: "Quick add", icon: icon(Plus), render: (d) => <QuickAddWidget data={d} /> },
+    funding: { title: "Funding", icon: icon(PiggyBank), render: (d) => <FundingWidget data={d} /> },
   };
 }
 
@@ -119,8 +122,10 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const visible = layout.widgets.filter((w) => !w.hidden);
-  const hidden = layout.widgets.filter((w) => w.hidden);
+  // funding is for owners and managers; the saved layout keeps its place for everyone
+  const available = (w: WidgetLayout) => w.id !== "funding" || data.funds !== null;
+  const visible = layout.widgets.filter((w) => !w.hidden && available(w));
+  const hidden = layout.widgets.filter((w) => w.hidden && available(w));
   const titleOf = (id: string | number) => defs[id as WidgetId]?.title ?? "widget";
   const positionOf = (id: string | number) => visible.findIndex((w) => w.id === id) + 1;
 
