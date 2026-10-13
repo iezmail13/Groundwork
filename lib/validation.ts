@@ -19,6 +19,8 @@ export const projectInput = z
     color: z.enum(PROJECT_COLOR_VALUES, { error: "Pick one of the colours." }).optional(),
     startDate: isoDate.optional(),
     endDate: isoDate.optional(),
+    // a checkbox: present when ticked
+    tracksParticipants: z.literal("on").optional(),
   })
   .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     path: ["endDate"],

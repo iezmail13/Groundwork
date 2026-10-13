@@ -26,6 +26,12 @@ describe("check:labels", () => {
     expect(check("export const A = ({n}) => <b aria-label={`Open ${n} tasks`} />;")).toEqual(["tasks"]);
   });
 
+  it("flags participant and attendance words", () => {
+    expect(check(`export const A = () => <h1>Participants</h1>;`)).toEqual(["Participants"]);
+    expect(check(`export const A = () => <span>Absent</span>;`)).toEqual(["Absent"]);
+    expect(check(`const m = "Take attendance";`)).toEqual(["Take attendance"]);
+  });
+
   it("allows labels that come from t()", () => {
     expect(check(`export const A = ({t}) => <h1>{t("project", "other")}</h1>;`)).toEqual([]);
   });

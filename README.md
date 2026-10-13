@@ -45,6 +45,8 @@ People see only the projects they're on; owners see every project. On a project,
 
 What someone makes (a project, task, calendar item or document) can't be edited or deleted by anyone ranked below the role they held when they made it. The creator, people of the same rank and higher ranks can; a task's assignee can still move it and mark it done. The database enforces this, and the app shows such items read-only with a note saying why.
 
+A project can keep a participant roster (tick "Keeps a participant roster" in its settings). Its project admins and leads, and owners, then get **Attendance** in the sidebar: the people the program serves (with contact, guardian, emergency and care details), a phone-friendly check-in for each of its sessions (calendar items), and reports with attendance rates per person and per program, a comparison chart and CSV download. Project staff never see participant data. Archiving someone hides them but keeps their history; owners and managers can delete someone permanently for a privacy request, which erases their details and keeps their past marks anonymised so totals don't change.
+
 ## Scripts
 
 | Script                      | What it does                                                                           |

@@ -357,10 +357,13 @@ async function main() {
   type EventSeed = Database["public"]["Tables"]["events"]["Insert"];
   // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
   const fullEvent = (e: EventSeed): EventSeed => ({ all_day: false, description: null, location: null, ...e });
-  must(
+  const events = must(
     await db
       .from("events")
       .insert(([
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-7, "15:30"), ends_at: at(-7, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-5, "15:30"), ends_at: at(-5, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-2, "15:30"), ends_at: at(-2, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(0, "15:30"), ends_at: at(0, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(2, "15:30"), ends_at: at(2, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Volunteer orientation", starts_at: at(5, "18:00"), ends_at: at(5, "19:30"), location: "Community Centre lounge", description: "New volunteers: safeguarding, sign-in, and a walk around the building.", created_by: jordan },
@@ -370,8 +373,64 @@ async function main() {
         { organization_id: org.id, project_id: CD, title: "Coat drive planning check-in", starts_at: at(-3, "12:00"), ends_at: at(-3, "12:45"), location: "Video call", created_by: marcus },
         { organization_id: org.id, project_id: null, title: "Board meeting", starts_at: at(12, "19:00"), ends_at: at(12, "20:30"), location: "Community Centre boardroom", description: "Quarterly update and budget review.", created_by: jordan },
       ] as EventSeed[]).map(fullEvent))
-      .select("id"),
+      .select("id, project_id, starts_at"),
     "events",
+  );
+
+  // Homework Club keeps a participant roster: six students, checked in at the
+  // three past sessions. Participants are records, not accounts.
+  must(await db.from("projects").update({ tracks_participants: true }).eq("id", HC).select("id"), "roster on");
+  const students = must(
+    await db
+      .from("participants")
+      .insert(
+        [
+          { name: "Amara Okafor", guardian_name: "Grace Okafor", phone: "416-555-0142", care_notes: "Asthma: inhaler in her backpack." },
+          { name: "Leo Tremblay", guardian_name: "Julie Tremblay", phone: "416-555-0187", care_notes: null },
+          { name: "Samir Haddad", guardian_name: "Rania Haddad", phone: "416-555-0119", care_notes: "Needs a seat near the front (hearing)." },
+          { name: "Mei Lin", guardian_name: "Hua Lin", phone: "416-555-0163", care_notes: null },
+          { name: "Jonah Brooks", guardian_name: "Dana Brooks", phone: "416-555-0174", care_notes: "Peanut allergy." },
+          { name: "Priyanka Rao", guardian_name: "Anil Rao", phone: "416-555-0108", care_notes: null },
+        ].map((x) => ({ organization_id: org.id, created_by: priya, ...x })),
+      )
+      .select("id, name"),
+    "participants",
+  );
+  must(
+    await db
+      .from("participant_programs")
+      .insert(students.map((x) => ({ organization_id: org.id, participant_id: x.id, project_id: HC })))
+      .select("participant_id"),
+    "enrollments",
+  );
+  const nowIso = new Date().toISOString();
+  const pastSessions = events.filter((e) => e.project_id === HC && e.starts_at < nowIso && e.starts_at < at(0, "00:00"));
+  // one row of marks per student, a session per column
+  const pattern: ("present" | "late" | "absent" | "excused")[][] = [
+    ["present", "present", "present"],
+    ["present", "late", "present"],
+    ["absent", "present", "late"],
+    ["present", "present", "excused"],
+    ["late", "absent", "absent"],
+    ["present", "present", "present"],
+  ];
+  must(
+    await db
+      .from("attendance")
+      .insert(
+        students.flatMap((x, i) =>
+          pastSessions.map((e, j) => ({
+            organization_id: org.id,
+            event_id: e.id,
+            participant_id: x.id,
+            status: pattern[i]![j] ?? "present",
+            note: i === 4 && j === 0 ? "Bus was late" : null,
+            recorded_by: priya,
+          })),
+        ),
+      )
+      .select("id"),
+    "attendance",
   );
 
   const docs: { name: string; mime: string; body: Buffer; project: string | null; tags: string[]; pinned: boolean; by: string }[] = [
@@ -448,7 +507,7 @@ async function main() {
   must(await db.from("tasks").update({ assignee_invitation_id: invite.id }).eq("id", notebooks).select("id"), "invitee task");
 
   console.log(
-    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, 8 events, ${docs.length} documents.\n` +
+    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants.\n` +
       `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }

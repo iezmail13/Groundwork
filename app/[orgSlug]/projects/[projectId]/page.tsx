@@ -104,6 +104,11 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               ) : (
                 <Badge variant="outline">{t("status.active")}</Badge>
               )}
+              {project.tracks_participants && myRank >= 2 ? (
+                <Link href={`${base}/attendance?program=${project.id}`} className="font-semibold hover:underline">
+                  {t("participant", "other")} and {lower(t("section.attendance"))}
+                </Link>
+              ) : null}
               {leads.length ? (
                 <span>
                   {t("project_role.lead", leads.length === 1 ? "one" : "other")}: {leads.join(", ")}
@@ -130,6 +135,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                   color: project.color,
                   start_date: project.start_date,
                   end_date: project.end_date,
+                  tracks_participants: project.tracks_participants,
                 }}
               />
             ) : null}

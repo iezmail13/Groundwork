@@ -8,6 +8,7 @@ export const LABEL_KEYS = [
   "event",
   "document",
   "member",
+  "participant",
   "status.todo",
   "status.in_progress",
   "status.done",
@@ -23,6 +24,11 @@ export const LABEL_KEYS = [
   "section.dashboard",
   "section.calendar",
   "section.settings",
+  "section.attendance",
+  "attendance.present",
+  "attendance.late",
+  "attendance.absent",
+  "attendance.excused",
 ] as const;
 
 export type LabelKey = (typeof LABEL_KEYS)[number];
@@ -36,6 +42,7 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   event: { one: "Event", other: "Events" },
   document: { one: "Document", other: "Documents" },
   member: { one: "Member", other: "Members" },
+  participant: { one: "Participant", other: "Participants" },
   "status.todo": { one: "To do", other: "To do" },
   "status.in_progress": { one: "In progress", other: "In progress" },
   "status.done": { one: "Done", other: "Done" },
@@ -51,4 +58,9 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   "section.dashboard": { one: "Dashboard", other: "Dashboard" },
   "section.calendar": { one: "Calendar", other: "Calendar" },
   "section.settings": { one: "Settings", other: "Settings" },
+  "section.attendance": { one: "Attendance", other: "Attendance" },
+  "attendance.present": { one: "Present", other: "Present" },
+  "attendance.late": { one: "Late", other: "Late" },
+  "attendance.absent": { one: "Absent", other: "Absent" },
+  "attendance.excused": { one: "Excused", other: "Excused" },
 };

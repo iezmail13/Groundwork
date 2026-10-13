@@ -19,6 +19,7 @@ function projectValues(data: z.infer<typeof projectInput>) {
     color: data.color ?? null,
     start_date: data.startDate ?? null,
     end_date: data.endDate ?? null,
+    tracks_participants: data.tracksParticipants === "on",
   };
 }
 
