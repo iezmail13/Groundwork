@@ -77,14 +77,14 @@ isOneToOne: false
                   ]
                 },"documents": {
                   Row: {
-                    "created_at": string,"id": string,"mime_type": string,"name": string,"organization_id": string,"pinned": boolean,"project_id": string | null,"search": unknown,"size_bytes": number,"storage_path": string,"tags": (string)[],"uploaded_by": string | null
+                    "created_at": string,"created_by_role": Database["public"]['Enums']["member_role"] | null,"id": string,"mime_type": string,"name": string,"organization_id": string,"pinned": boolean,"project_id": string | null,"search": unknown,"size_bytes": number,"storage_path": string,"tags": (string)[],"uploaded_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"mime_type": string,"name": string,"organization_id": string,"pinned"?: boolean,"project_id"?: string | null,"search"?: never,"size_bytes": number,"storage_path": string,"tags"?: (string)[],"uploaded_by"?: string | null
+                    "created_at"?: string,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"id"?: string,"mime_type": string,"name": string,"organization_id": string,"pinned"?: boolean,"project_id"?: string | null,"search"?: never,"size_bytes": number,"storage_path": string,"tags"?: (string)[],"uploaded_by"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"mime_type"?: string,"name"?: string,"organization_id"?: string,"pinned"?: boolean,"project_id"?: string | null,"search"?: never,"size_bytes"?: number,"storage_path"?: string,"tags"?: (string)[],"uploaded_by"?: string | null
+                    "created_at"?: string,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"id"?: string,"mime_type"?: string,"name"?: string,"organization_id"?: string,"pinned"?: boolean,"project_id"?: string | null,"search"?: never,"size_bytes"?: number,"storage_path"?: string,"tags"?: (string)[],"uploaded_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -109,14 +109,14 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "all_day": boolean,"created_at": string,"created_by": string | null,"description": string | null,"ends_at": string,"id": string,"location": string | null,"organization_id": string,"project_id": string | null,"starts_at": string,"title": string,"updated_at": string
+                    "all_day": boolean,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"ends_at": string,"id": string,"location": string | null,"organization_id": string,"project_id": string | null,"starts_at": string,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at": string,"id"?: string,"location"?: string | null,"organization_id": string,"project_id"?: string | null,"starts_at": string,"title": string,"updated_at"?: string
+                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at": string,"id"?: string,"location"?: string | null,"organization_id": string,"project_id"?: string | null,"starts_at": string,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string,"id"?: string,"location"?: string | null,"organization_id"?: string,"project_id"?: string | null,"starts_at"?: string,"title"?: string,"updated_at"?: string
+                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at"?: string,"id"?: string,"location"?: string | null,"organization_id"?: string,"project_id"?: string | null,"starts_at"?: string,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -305,14 +305,14 @@ isOneToOne: false
                   ]
                 },"projects": {
                   Row: {
-                    "color": string | null,"created_at": string,"created_by": string | null,"description": string | null,"end_date": string | null,"id": string,"name": string,"organization_id": string,"owner_membership_id": string | null,"start_date": string | null,"status": Database["public"]['Enums']["project_status"],"updated_at": string
+                    "color": string | null,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"end_date": string | null,"id": string,"name": string,"organization_id": string,"owner_membership_id": string | null,"start_date": string | null,"status": Database["public"]['Enums']["project_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "color"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"organization_id": string,"owner_membership_id"?: string | null,"start_date"?: string | null,"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string
+                    "color"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"organization_id": string,"owner_membership_id"?: string | null,"start_date"?: string | null,"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string
                   }
                   Update: {
-                    "color"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"owner_membership_id"?: string | null,"start_date"?: string | null,"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string
+                    "color"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"owner_membership_id"?: string | null,"start_date"?: string | null,"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -337,14 +337,14 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "assignee_invitation_id": string | null,"assignee_membership_id": string | null,"completed_at": string | null,"created_at": string,"created_by": string | null,"description": string | null,"due_date": string | null,"id": string,"needs_assignee": boolean,"organization_id": string,"position": number,"project_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
+                    "assignee_invitation_id": string | null,"assignee_membership_id": string | null,"completed_at": string | null,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"id": string,"needs_assignee": boolean,"organization_id": string,"position": number,"project_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"project_id": string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
+                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"project_id": string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"project_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
+                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"project_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -460,6 +460,9 @@ isOneToOne: false
                            },
 "my_verified_email":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"outranked_by_creator":
+{ Args: { "creator": string,"creator_role": Database["public"]['Enums']["member_role"],"org_id": string }; Returns: boolean
                            },
 "pending_invitees":
 { Args: { "org_id": string }; Returns: {

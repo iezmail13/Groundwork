@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Lock, Trash2 } from "lucide-react";
 import { deleteEvent, saveEvent } from "@/app/[orgSlug]/calendar/actions";
 import { idle } from "@/lib/action-state";
 import { useT } from "@/lib/terminology/context";
@@ -26,6 +26,8 @@ export type EventFormValues = {
   startTime: string;
   endTime: string;
   canDelete?: boolean;
+  /** Why the viewer can't change it, when someone ranked above them made it. */
+  locked?: string | null;
 };
 
 export function EventForm({
@@ -50,6 +52,44 @@ export function EventForm({
   useEffect(() => {
     if (state.status === "success") onDone();
   }, [state, onDone]);
+
+  if (event.locked) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="flex items-start gap-2 border-l-4 border-ink pl-3 text-sm">
+          <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {event.locked}
+        </p>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+          <dt className="font-semibold">Title</dt>
+          <dd>{event.title}</dd>
+          <dt className="font-semibold">When</dt>
+          <dd>
+            {event.date}
+            {event.endDate !== event.date ? ` – ${event.endDate}` : ""}
+            {event.allDay ? "" : `, ${event.startTime}–${event.endTime}`}
+          </dd>
+          {event.location ? (
+            <>
+              <dt className="font-semibold">Location</dt>
+              <dd>{event.location}</dd>
+            </>
+          ) : null}
+          {event.description ? (
+            <>
+              <dt className="font-semibold">Notes</dt>
+              <dd className="whitespace-pre-wrap">{event.description}</dd>
+            </>
+          ) : null}
+        </dl>
+        <div className="flex justify-end border-t border-rule pt-4">
+          <Button variant="secondary" onClick={onDone}>
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (deleting && event.id) {
     return <DeleteEvent id={event.id} title={event.title} onCancel={() => setDeleting(false)} onDone={onDone} />;

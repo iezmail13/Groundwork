@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canGrant, canManageMember, canManageOrg, grantableRoles, rankOf, ROLES } from "@/lib/roles";
+import { canGrant, canManageMember, canManageOrg, canMoveTask, grantableRoles, outrankedByCreator, rankOf, ROLES, type Viewer } from "@/lib/roles";
 
 describe("role ladder", () => {
   it("ranks owner > manager > admin > staff", () => {
@@ -23,5 +23,24 @@ describe("role ladder", () => {
     expect(canManageMember("manager", "admin")).toBe(true);
     expect(canManageMember("owner", "owner")).toBe(true);
     expect(canGrant("admin", "staff")).toBe(false);
+  });
+});
+
+describe("creator protection", () => {
+  const admin: Viewer = { userId: "u-admin", role: "admin", membershipId: "m-admin" };
+
+  it("blocks only people ranked below the creator's role, never the creator", () => {
+    expect(outrankedByCreator(admin, "u-manager", "manager")).toBe(true);
+    expect(outrankedByCreator(admin, "u-other-admin", "admin")).toBe(false);
+    expect(outrankedByCreator(admin, "u-staff", "staff")).toBe(false);
+    expect(outrankedByCreator({ ...admin, role: "staff" }, "u-admin", "manager")).toBe(false);
+    expect(outrankedByCreator(admin, null, null)).toBe(false);
+    expect(outrankedByCreator(admin, null, "owner")).toBe(true);
+  });
+
+  it("still lets the assignee move a protected task", () => {
+    const task = { created_by: "u-owner", created_by_role: "owner" as const, assignee_membership_id: "m-admin" };
+    expect(canMoveTask(admin, task)).toBe(true);
+    expect(canMoveTask(admin, { ...task, assignee_membership_id: "m-someone" })).toBe(false);
   });
 });

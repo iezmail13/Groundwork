@@ -2,25 +2,31 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { setTaskStatus } from "@/app/[orgSlug]/tasks/actions";
+import { canMoveTask, type Role } from "@/lib/roles";
+import { useViewer } from "@/lib/viewer";
 
 /** Round checkbox that marks a task done (or reopens it). */
 export function TaskCheckbox({
   id,
   title,
   done,
+  creator,
   onCompleteStart,
 }: {
   id: string;
   title: string;
   done: boolean;
+  /** Who made it and who it's assigned to, to mirror the database's rule on who may tick it. */
+  creator?: { created_by: string | null; created_by_role: Role | null; assignee_membership_id: string | null };
   /** Lets a parent play the strike-through/slide-out animation first. */
   onCompleteStart?: () => void;
 }) {
   const [checked, setChecked] = useState(done);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const viewer = useViewer();
 
   const toggle = () => {
     const next = !checked;
@@ -34,6 +40,20 @@ export function TaskCheckbox({
       }
     });
   };
+
+  if (creator && !canMoveTask(viewer, creator)) {
+    return (
+      <span
+        role="checkbox"
+        aria-checked={checked}
+        aria-disabled
+        aria-label={`Done: ${title} (only its assignee or someone ranked at or above its creator can change it)`}
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-ink-muted text-ink-muted"
+      >
+        {checked ? <Check aria-hidden className="size-3" strokeWidth={3} /> : <Lock aria-hidden className="size-2.5" />}
+      </span>
+    );
+  }
 
   return (
     <button

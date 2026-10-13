@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Sidebar } from "@/components/shell/sidebar";
 import { ClientCookies } from "@/components/shell/client-cookies";
 import { TerminologyProvider } from "@/lib/terminology/context";
+import { ViewerProvider } from "@/lib/viewer";
 import { getOrgContext, initials, requireUser } from "@/lib/org";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
@@ -35,6 +36,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   return (
     <div className="min-h-dvh bg-canvas text-ink">
       <TerminologyProvider labels={ctx.labels}>
+      <ViewerProvider viewer={{ userId: ctx.userId, role: ctx.role, membershipId: ctx.membershipId }}>
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} />
         <a
           href="#main"
@@ -54,6 +56,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             <div className="mx-auto max-w-[1400px]">{children}</div>
           </main>
         </div>
+      </ViewerProvider>
       </TerminologyProvider>
     </div>
   );

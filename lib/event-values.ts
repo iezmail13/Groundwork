@@ -2,8 +2,11 @@ import { dateInZone, eventEndDate, timeInZone } from "@/lib/dates";
 import type { EventRow } from "@/lib/queries";
 import type { EventFormValues } from "@/components/calendar/event-form";
 
-/** Prepares an event for the edit form, in the viewer's time zone. */
-export function toEventFormValues(e: EventRow, tz: string, canDelete: boolean): EventFormValues {
+/**
+ * Prepares an event for the edit form, in the viewer's time zone. `locked` is
+ * why the viewer can't change it (someone ranked above them made it), if so.
+ */
+export function toEventFormValues(e: EventRow, tz: string, canDelete: boolean, locked: string | null = null): EventFormValues {
   const start = new Date(e.starts_at);
   const end = new Date(e.ends_at);
   return {
@@ -17,7 +20,8 @@ export function toEventFormValues(e: EventRow, tz: string, canDelete: boolean): 
     endDate: eventEndDate(e.ends_at, e.all_day, tz),
     startTime: e.all_day ? "09:00" : timeInZone(start, tz),
     endTime: e.all_day ? "10:00" : timeInZone(end, tz),
-    canDelete,
+    canDelete: canDelete && !locked,
+    locked,
   };
 }
 
