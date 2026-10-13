@@ -11,6 +11,8 @@ import { addDays, dueState, eventStartDate, formatRelativeDate, formatTime } fro
 import { normalizeLayout } from "@/lib/dashboard-layout";
 import { activityHref, describeActivity, timeAgo } from "@/lib/activity";
 import { lower } from "@/lib/terminology/t";
+import { getFunds } from "@/lib/funds";
+import { canManageOrg } from "@/lib/roles";
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/dashboard">): Promise<Metadata> {
   const { t } = await getOrgContext((await params).orgSlug);
@@ -24,7 +26,7 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
   const supabase = await createClient();
   const now = new Date();
 
-  const [{ data: openTasks, error }, { data: projects }, progress, events, activity, members, { data: pinned }, { data: layoutRow }, { data: profile }] =
+  const [{ data: openTasks, error }, { data: projects }, progress, events, activity, members, { data: pinned }, { data: layoutRow }, { data: profile }, funds] =
     await Promise.all([
       supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).neq("status", "done").order("due_date", { nullsFirst: false }).limit(1000),
       supabase.from("projects").select("id, name, color").eq("organization_id", org.id).eq("status", "active").order("name"),
@@ -35,6 +37,7 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
       supabase.from("documents").select("id, name, mime_type, size_bytes").eq("organization_id", org.id).eq("pinned", true).order("name").limit(8),
       supabase.from("dashboard_layouts").select("layout").eq("membership_id", ctx.membershipId).maybeSingle(),
       supabase.from("profiles").select("full_name").eq("id", ctx.userId).maybeSingle(),
+      canManageOrg(ctx.role) ? getFunds(org.id) : Promise.resolve(null),
     ]);
   if (error) throw error;
 
@@ -76,6 +79,15 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     })),
     pinned: (pinned ?? []).map((d) => ({ id: d.id, name: d.name, mime: d.mime_type, size: d.size_bytes })),
     projectOptions: (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
+    funds: funds
+      ? funds.map((f) => ({
+          id: f.id,
+          name: f.name,
+          currency: f.currency,
+          totalCents: f.total_cents,
+          parts: f.allocations.map((a) => ({ key: a.id, label: a.label, cents: a.amount_cents })),
+        }))
+      : null,
   };
 
   // In-app reminders: the viewer's own overdue and due-soon work.

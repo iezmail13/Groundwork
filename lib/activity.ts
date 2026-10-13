@@ -13,7 +13,8 @@ const ENTITY_KEY: Record<string, LabelKey> = {
 
 /** "completed task" / "moved task to In progress" — the verb phrase after the actor's name. */
 export function describeActivity(a: ActivityRow, t: Translate): string {
-  const noun = lower(t(ENTITY_KEY[a.entity_type] ?? "task"));
+  // funds aren't a relabelled primitive, so they keep their own word
+  const noun = a.entity_type === "fund" ? "fund" : lower(t(ENTITY_KEY[a.entity_type] ?? "task"));
   if (a.action === "moved" && a.metadata.to) {
     const to = a.metadata.to as "todo" | "in_progress" | "done";
     return `moved a ${noun} to ${t(`status.${to}`)}`;
@@ -33,6 +34,8 @@ export function activityHref(a: ActivityRow, base: string): string | null {
       return `${base}/documents`;
     case "event":
       return `${base}/calendar?view=agenda`;
+    case "fund":
+      return `${base}/funds/${a.entity_id}`;
     case "participant":
       return `${base}/attendance/participants/${a.entity_id}`;
     default:

@@ -6,7 +6,7 @@ import { TerminologyProvider } from "@/lib/terminology/context";
 import { ViewerProvider } from "@/lib/viewer";
 import { getOrgContext, initials, requireUser } from "@/lib/org";
 import { getAttendancePrograms } from "@/lib/participants";
-import { rankOf } from "@/lib/roles";
+import { canManageOrg, rankOf } from "@/lib/roles";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -54,6 +54,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             user={{ name, email: profile?.email ?? ctx.userEmail, initials: initials(name) }}
             recent={(recent ?? []).map((p) => ({ id: p.id, name: p.name }))}
             showAttendance={attendancePrograms.length > 0 || rankOf(ctx.role) >= rankOf("manager")}
+            showFunds={canManageOrg(ctx.role)}
             initialCollapsed={cookieStore.get("sidebar")?.value === "collapsed"}
           />
           <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-16 focus:outline-none sm:px-8 sm:pt-8">

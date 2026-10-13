@@ -15,7 +15,10 @@ import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { getMembers, getOrgContext } from "@/lib/org";
 import { getAssigneeNames, getMyProjectRank, getProjectRoster } from "@/lib/projects";
 import { ProjectPeople } from "@/components/projects/people";
-import { rankOf } from "@/lib/roles";
+import { canManageOrg, rankOf } from "@/lib/roles";
+import { allocatedCents, getProjectFunding } from "@/lib/funds";
+import { formatMoney, formatShare } from "@/lib/money";
+import { SplitBar } from "@/components/funds/split-bar";
 import { DOCUMENT_SELECT, EVENT_SELECT, getProjectOptions, TASK_SELECT, type DocumentRow, type EventRow, type TaskRow } from "@/lib/queries";
 import { sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
@@ -48,7 +51,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
   if (!project) notFound();
 
   const supabase = await createClient();
-  const [{ data: taskData }, { data: eventData }, { data: docData }, members, projects, roster, myRank, assigneeNames] = await Promise.all([
+  const [{ data: taskData }, { data: eventData }, { data: docData }, members, projects, roster, myRank, assigneeNames, funding] = await Promise.all([
     supabase.from("tasks").select(TASK_SELECT).eq("project_id", project.id).order("position"),
     supabase.from("events").select(EVENT_SELECT).eq("project_id", project.id).order("starts_at"),
     supabase.from("documents").select(DOCUMENT_SELECT).eq("project_id", project.id).order("pinned", { ascending: false }).order("created_at", { ascending: false }),
@@ -57,6 +60,8 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
     getProjectRoster(org.id, project.id),
     getMyProjectRank(project.id),
     getAssigneeNames(org.id),
+    // funding is for owners and managers only
+    canManageOrg(ctx.role) ? getProjectFunding(org.id, project.id) : Promise.resolve([]),
   ]);
   const tasks = (taskData ?? []) as TaskRow[];
   const events = (eventData ?? []) as EventRow[];
@@ -157,6 +162,48 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
           This {lower(t("project"))} is {lower(t("status.archived"))}, so everything in it is read-only.
           {canEdit ? " Restore it to make changes." : ""}
         </p>
+      ) : null}
+
+      {funding.length ? (
+        <section aria-labelledby="project-funding" className="flex flex-col gap-4">
+          <h2 id="project-funding" className="text-xl font-bold">
+            Funding
+          </h2>
+          <ul className="flex flex-col gap-5">
+            {funding.map((f) => {
+              const whole = f.project_id === project.id;
+              const forThis = whole ? f.total_cents : f.allocations.filter((a) => a.project_id === project.id).reduce((s, a) => s + a.amount_cents, 0);
+              return (
+                <li key={f.id} className="flex flex-col gap-2 border-b border-rule pb-4">
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                    <Link href={`${base}/funds/${f.id}`} className="font-heading font-semibold hover:underline">
+                      {f.name}
+                    </Link>
+                    <span className="text-sm">
+                      {whole
+                        ? `${formatMoney(f.total_cents, f.currency)} for this ${lower(t("project"))} · ${formatShare(allocatedCents(f), f.total_cents)} allocated`
+                        : `${formatMoney(forThis, f.currency)} of ${formatMoney(f.total_cents, f.currency)} for this ${lower(t("project"))}`}
+                    </span>
+                  </p>
+                  <SplitBar
+                    size="sm"
+                    legend={false}
+                    caption={f.name}
+                    currency={f.currency}
+                    totalCents={f.total_cents}
+                    parts={f.allocations.map((a) => ({ key: a.id, label: a.label, cents: a.amount_cents }))}
+                  />
+                  <p className="text-sm text-ink-muted">
+                    {f.allocations
+                      .filter((a) => whole || a.project_id === project.id)
+                      .map((a) => `${a.label} ${formatMoney(a.amount_cents, f.currency, true)}`)
+                      .join(" · ") || "Nothing allocated yet."}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
 
       <section aria-labelledby="project-tasks" className="flex flex-col gap-3">

@@ -8,7 +8,8 @@ Next.js 16 differs from older versions; read AGENTS.md and the bundled docs in `
 
 - Groundwork is a workplace management platform for program-based organizations. The product is one dashboard plus projects, tasks, documents and a calendar with reminders.
 - Also in scope: participant rosters with their files and attendance (only on projects whose type turns them on), invitations by email, and a read-only per-user ICS calendar feed.
-- Do not build onboarding, employee directories, certifications, finance, communications, automations or other integrations. Do not add sidebar items, routes or tables for them.
+- Also in scope (owner's decision, D82): funds, meaning an amount of money split into labelled allocations that can be linked to projects, with charts. Only owners and managers see them. This is planning, not accounting: no transactions, payments, invoices or bank data.
+- Do not build onboarding, employee directories, certifications, other finance (accounting, payments, payroll, donor management), communications, automations or other integrations. Do not add sidebar items, routes or tables for them.
 - Nothing shipped may be a placeholder, a TODO, or lorem ipsum.
 
 ## Stack
