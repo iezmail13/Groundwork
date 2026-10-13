@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useCallback, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useActionState, useState } from "react";
+import Link from "next/link";
+import { Trash2, UserPlus } from "lucide-react";
 import { deleteTask, updateTask } from "@/app/[orgSlug]/tasks/actions";
 import { idle } from "@/lib/action-state";
 import { useT } from "@/lib/terminology/context";
@@ -13,7 +14,6 @@ import { DialogButton } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import type { ProjectOption, TaskRow } from "@/lib/queries";
 import { keepValues } from "@/lib/forms";
-import { AddMemberDrawer, type InviteContext } from "./add-member-drawer";
 
 type AssigneeOption = { value: string; name: string };
 
@@ -28,8 +28,11 @@ export function TaskEditForm({
   projects: ProjectOption[];
   /** Who each project's work can go to: its members, owners and pending invitees. */
   assigneeOptions: Record<string, AssigneeOption[]>;
-  /** Present when the viewer can invite people. */
-  invite: InviteContext | null;
+  /**
+   * Present when the viewer can invite people: where the invite form is, and
+   * the projects they can grant (they're a project admin or lead there).
+   */
+  invite: { href: string; projectIds: string[] } | null;
   orgSlug: string;
 }) {
   const t = useT();
@@ -39,22 +42,9 @@ export function TaskEditForm({
   const [assignee, setAssignee] = useState(
     task.assignee_membership_id ? `m:${task.assignee_membership_id}` : task.assignee_invitation_id ? `i:${task.assignee_invitation_id}` : "",
   );
-  // invitees added from the drawer, per project, until the page reloads
-  const [added, setAdded] = useState<Record<string, AssigneeOption[]>>({});
-  // once the page refreshes, an invitee added here also arrives from the server
-  const options = [...(assigneeOptions[projectId] ?? []), ...(added[projectId] ?? [])].filter(
-    (o, i, all) => all.findIndex((x) => x.value === o.value) === i,
-  );
-  const onInvited = useCallback(
-    (option: AssigneeOption) => {
-      setAdded((prev) => ({ ...prev, [projectId]: [...(prev[projectId] ?? []), option] }));
-      setAssignee(option.value);
-    },
-    [projectId],
-  );
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
+  const options = assigneeOptions[projectId] ?? [];
   // inviting from here grants this project, which needs project admin or lead
-  const canInviteHere = invite !== null && (invite.projectRanks[projectId] ?? 0) >= 2;
+  const canInviteHere = invite !== null && invite.projectIds.includes(projectId);
   return (
     <div className="flex max-w-2xl flex-col gap-4">
     <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
@@ -104,9 +94,16 @@ export function TaskEditForm({
             </Select>
           </Field>
           {canInviteHere ? (
-            <div>
-              <AddMemberDrawer invite={invite} projectId={projectId} projectName={projectName} onInvited={onInvited} />
-            </div>
+            <p className="text-sm">
+              <Link
+                href={`${invite.href}&task=${task.id}#invite`}
+                className="inline-flex items-center gap-1.5 font-semibold hover:underline"
+              >
+                <UserPlus aria-hidden className="size-4" />
+                Invite someone to assign
+              </Link>
+              <span className="block text-ink-muted">Opens the invite form. Save any changes here first.</span>
+            </p>
           ) : null}
         </div>
         <Field label="Due date" htmlFor="task-due" error={e.dueDate}>

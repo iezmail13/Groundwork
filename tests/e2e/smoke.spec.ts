@@ -555,19 +555,20 @@ test("invite from a task: a pending assignee, then join through the invitations 
   await page.getByRole("link", { name: "Set up a quiet reading corner" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
 
-  // a half-written change survives the drawer
-  await page.getByLabel("Description").fill("Beanbags and the donated picture books.");
-  await page.getByRole("button", { name: "Add team member" }).click();
-  const drawer = page.getByRole("dialog", { name: "Add a team member" });
-  await drawer.getByLabel("Name").fill("Robin Tester");
-  await drawer.getByLabel("Email").fill(email);
-  await drawer.getByRole("button", { name: "Invite" }).click();
-  await expect(drawer.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
-  await drawer.getByRole("button", { name: "Back to the form" }).click();
+  // the assignee picker leads to the invite form, which grants the project and assigns the task
+  await page.getByRole("link", { name: "Invite someone to assign" }).click();
+  await expect(page).toHaveURL(/\/settings\?view=members&task=[0-9a-f-]{36}#invite$/);
+  const invite = page.locator("#invite");
+  await expect(invite.getByText("is assigned Set up a quiet reading corner")).toBeVisible();
+  await expect(invite.getByLabel("Homework Club")).toHaveValue("staff");
+  await invite.getByLabel("Name").fill("Robin Tester");
+  await invite.getByLabel("Email").fill(email);
+  await invite.getByRole("button", { name: "Invite" }).click();
+  await expect(invite.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
+  await expect(invite.getByText(/assigned to them/)).toBeVisible();
+  await invite.getByRole("link", { name: "Back to Set up a quiet reading corner" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(page.getByLabel("Assignee").locator("option:checked")).toHaveText("Robin Tester (pending)");
-  await expect(page.getByLabel("Description")).toHaveValue("Beanbags and the donated picture books.");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
 
   // the invitation shows its project in settings
   await visit(page, "/northside-youth-collective/settings?view=members");
