@@ -50,6 +50,7 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           orgSlug={orgSlug}
           transferred={sp.notice === "transferred"}
           removed={sp.notice === "removed" ? { handed: count(sp.handed), flagged: count(sp.flagged) } : null}
+          fromTask={typeof sp.task === "string" && UUID.test(sp.task) ? sp.task : null}
         />
       ) : null}
       {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
@@ -70,6 +71,8 @@ async function PresetPanel({ orgId, current, disabled }: { orgId: string; curren
   return <PresetForm organizationId={orgId} current={current} presets={choices} disabled={disabled} />;
 }
 
+const UUID = /^[0-9a-f-]{36}$/i;
+
 /** A small non-negative count from the query string. */
 function count(value: string | string[] | undefined): number {
   const n = Number(typeof value === "string" ? value : 0);
@@ -80,15 +83,18 @@ async function MembersPanel({
   orgSlug,
   transferred,
   removed,
+  fromTask,
 }: {
   orgSlug: string;
   transferred: boolean;
   removed: { handed: number; flagged: number } | null;
+  /** The task whose assignee picker sent them here: the invitee gets its project and the task. */
+  fromTask: string | null;
 }) {
   const ctx = await getOrgContext(orgSlug);
   const { t, org, canManage, role, today, tz } = ctx;
   const supabase = await createClient();
-  const [members, { data: invitations }, origin, projects, { data: ranks }] = await Promise.all([
+  const [members, { data: invitations }, origin, projects, { data: ranks }, { data: task }] = await Promise.all([
     getMembers(org.id),
     canManage
       ? supabase
@@ -101,6 +107,9 @@ async function MembersPanel({
     siteOrigin(),
     getProjectOptions(org.id),
     supabase.rpc("my_project_ranks", { org_id: org.id }),
+    fromTask && canManage
+      ? supabase.from("tasks").select("id, title, project_id").eq("organization_id", org.id).eq("id", fromTask).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const rankOfProject = new Map((ranks ?? []).map((r) => [r.project_id, r.rank]));
   // granting a project needs project admin or lead there
@@ -108,6 +117,11 @@ async function MembersPanel({
     .map((p) => ({ id: p.id, name: p.name, myRank: rankOfProject.get(p.id) ?? 0 }))
     .filter((p) => p.myRank >= 2);
   const now = new Date().toISOString();
+  // only a task on a project they can grant can be handed to the invitee
+  const assignTask =
+    task && grantable.some((p) => p.id === task.project_id)
+      ? { id: task.id, title: task.title, projectId: task.project_id, href: `${ctx.base}/tasks/${task.id}` }
+      : null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -153,7 +167,7 @@ async function MembersPanel({
       ) : null}
       {canManage ? (
         <>
-          <section aria-labelledby="invite-heading" className="flex flex-col gap-3">
+          <section id="invite" aria-labelledby="invite-heading" className="flex scroll-mt-6 flex-col gap-3">
             <h2 id="invite-heading" className="text-xl font-bold">
               Invite someone
             </h2>
@@ -161,7 +175,7 @@ async function MembersPanel({
               Create an invitation, then copy the link and send it to them. They sign in with that email address to join.
               Links expire after 14 days.
             </p>
-            <InviteForm organizationId={org.id} roles={grantableRoles(role)} projects={grantable} />
+            <InviteForm organizationId={org.id} roles={grantableRoles(role)} projects={grantable} assignTask={assignTask} />
           </section>
           <section aria-labelledby="pending-heading" className="flex flex-col gap-3">
             <h2 id="pending-heading" className="text-xl font-bold">

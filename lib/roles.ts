@@ -69,3 +69,21 @@ export function grantableProjectRoles(myProjectRank: number, orgRole: Role): Pro
 export function canManageProjectMember(myProjectRank: number, role: ProjectRole): boolean {
   return myProjectRank >= 3 || (myProjectRank === 2 && role === "staff");
 }
+
+// Creator protection, mirroring outranked_by_creator() and guard_creator_rank().
+// What someone made can't be changed by anyone ranked below the role they held
+// when they made it, except by its creator; a task's assignee may still move it.
+
+export type Viewer = { userId: string; role: Role; membershipId: string };
+
+export function outrankedByCreator(viewer: Viewer, creatorId: string | null, creatorRole: Role | null): boolean {
+  return creatorRole !== null && creatorId !== viewer.userId && rankOf(viewer.role) < rankOf(creatorRole);
+}
+
+/** Whether the viewer may move a task between columns and mark it done. */
+export function canMoveTask(
+  viewer: Viewer,
+  task: { created_by: string | null; created_by_role: Role | null; assignee_membership_id: string | null },
+): boolean {
+  return !outrankedByCreator(viewer, task.created_by, task.created_by_role) || task.assignee_membership_id === viewer.membershipId;
+}
