@@ -24,6 +24,7 @@ import { sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTime, eventStartDate, formatRelativeDate } from "@/lib/dates";
 import { toEventFormValues } from "@/lib/event-values";
+import { creatorLock } from "@/lib/creator-lock";
 import { lower } from "@/lib/terminology/t";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,9 +68,11 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
   const docs = (docData ?? []) as DocumentRow[];
   const done = tasks.filter((x) => x.status === "done").length;
   const archived = project.status === "archived";
-  // project admins and leads edit it; leads (and owners) delete it
-  const canEdit = myRank >= 2;
-  const canDelete = myRank >= 3;
+  // project admins and leads edit it; leads (and owners) delete it; unless
+  // someone ranked above them made it
+  const projectLock = creatorLock(t, ctx, project.created_by, project.created_by_role);
+  const canEdit = myRank >= 2 && !projectLock;
+  const canDelete = myRank >= 3 && !projectLock;
   // anyone's items: project admins and leads, owners, and org managers on the project
   const canManageItems = !archived && (myRank >= 2 || (myRank >= 1 && rankOf(ctx.role) >= 3));
   const onProject = new Set(roster.map((r) => r.membershipId));
@@ -147,6 +150,12 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
         }
       />
 
+      {projectLock && myRank >= 2 ? (
+        <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
+          <Lock aria-hidden className="size-4" />
+          {projectLock}
+        </p>
+      ) : null}
       {archived ? (
         <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
           <Lock aria-hidden className="size-4" />
@@ -248,7 +257,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                       <EventRowButton
                         organizationId={org.id}
                         projects={projectsForForms}
-                        values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId))}
+                        values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId), creatorLock(t, ctx, e.created_by, e.created_by_role))}
                         when={eventWhen(e)}
                         location={e.location}
                       />
@@ -267,7 +276,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                         <EventRowButton
                           organizationId={org.id}
                           projects={projectsForForms}
-                          values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId))}
+                          values={toEventFormValues(e, tz, canManageItems || (!archived && e.created_by === ctx.userId), creatorLock(t, ctx, e.created_by, e.created_by_role))}
                           when={eventWhen(e)}
                           location={e.location}
                         />

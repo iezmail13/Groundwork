@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Copy, UserPlus } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Copy, UserPlus } from "lucide-react";
 import { inviteMember, setPreset, updateOrganization } from "@/app/[orgSlug]/settings/actions";
 import { idle } from "@/lib/action-state";
 import { useT } from "@/lib/terminology/context";
@@ -118,26 +119,34 @@ export function OrganizationForm({
 
 export type GrantableProject = { id: string; name: string; myRank: number };
 
+export type AssignTask = { id: string; title: string; projectId: string; href: string };
+
 export function InviteForm({
   organizationId,
   roles,
   projects,
+  assignTask = null,
 }: {
   organizationId: string;
   roles: Role[];
   /** Projects the inviter can grant (they're a project admin or lead there). */
   projects: GrantableProject[];
+  /** Arrived from a task's assignee picker: the invitee joins its project and is assigned it. */
+  assignTask?: AssignTask | null;
 }) {
   const t = useT();
   const [state, action, pending] = useActionState(inviteMember, idle);
   const [copied, setCopied] = useState(false);
   const [role, setRole] = useState<Role>("staff");
   const [handled, setHandled] = useState<number | undefined>();
+  // the task is handed over once; later invites from this page are ordinary ones
+  const [pendingTask, setPendingTask] = useState(assignTask);
   const formRef = useRef<HTMLFormElement>(null);
   // start fresh after each invite, so the next one doesn't inherit the email, a higher role or project access
   if (state.status === "success" && state.at !== handled) {
     setHandled(state.at);
     setRole("staff");
+    setPendingTask(null);
   }
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();
@@ -147,8 +156,19 @@ export function InviteForm({
   const projectWord = lower(t("project", "other"));
   return (
     <div className="flex flex-col gap-3">
+      {pendingTask ? (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 border-ink pl-3 text-sm">
+          <span>
+            The person you invite joins this {lower(t("project"))} and is assigned <strong>{pendingTask.title}</strong>.
+          </span>
+          <Link href={pendingTask.href} className="font-semibold hover:underline">
+            Cancel
+          </Link>
+        </p>
+      ) : null}
       <form ref={formRef} action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
         <input type="hidden" name="organizationId" value={organizationId} />
+        {pendingTask ? <input type="hidden" name="assignTaskId" value={pendingTask.id} /> : null}
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Name" htmlFor="invite-name" error={e.name} className="min-w-48 flex-1">
             <Input id="invite-name" name="name" maxLength={120} autoComplete="off" invalid={Boolean(e.name)} />
@@ -178,6 +198,8 @@ export function InviteForm({
             <ul className="divide-y divide-rule border-y border-rule">
               {projects.map((p) => {
                 const options = grantableProjectRoles(p.myRank, role);
+                // the task's project is ticked, at the lowest role, and must stay granted
+                const forTask = pendingTask?.projectId === p.id;
                 return (
                   <li key={p.id} className="flex items-center justify-between gap-3 py-2">
                     <label htmlFor={`grant-${p.id}`} className="min-w-0 flex-1 font-semibold">
@@ -186,11 +208,11 @@ export function InviteForm({
                     <select
                       id={`grant-${p.id}`}
                       name={`grant.${p.id}`}
-                      defaultValue=""
-                      key={role}
+                      defaultValue={forTask ? (options.at(-1) ?? "") : ""}
+                      key={`${role}:${forTask}`}
                       className={`${inputClass.replace("w-full", "")} w-40 shrink-0 py-1.5`}
                     >
-                      <option value="">Not added</option>
+                      {forTask ? null : <option value="">Not added</option>}
                       {options.map((r) => (
                         <option key={r} value={r}>
                           {t(`project_role.${r}`)}
@@ -229,6 +251,14 @@ export function InviteForm({
             {copied ? "Copied" : "Copy link"}
           </Button>
         </div>
+      ) : null}
+      {link && state.data?.taskHref ? (
+        <p>
+          <Link href={state.data.taskHref} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
+            <ArrowLeft aria-hidden className="size-4" />
+            Back to {state.data.taskTitle}
+          </Link>
+        </p>
       ) : null}
     </div>
   );

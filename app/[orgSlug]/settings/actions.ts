@@ -93,6 +93,8 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
       email: z.email("Enter a valid email address.").max(254),
       name: z.string().max(120, "Use 120 characters or fewer.").optional(),
       role,
+      // sent from a task's assignee picker: the invitee is assigned that task
+      assignTaskId: id.optional(),
     })
     .safeParse({ ...raw, email: String(formData.get("email") ?? "").trim().toLowerCase() });
   if (!parsed.success) return invalid(parsed.error);
@@ -152,13 +154,38 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
       return dbFailure(grantError);
     }
   }
+  // The task's project was granted above, so the assignee trigger accepts the
+  // invitation; RLS still decides whether this person may edit the task.
+  let assigned: { id: string; title: string; organization_id: string } | null = null;
+  let assignError: ActionState | null = null;
+  if (d.assignTaskId) {
+    const { data, error: taskError } = await supabase
+      .from("tasks")
+      .update({ assignee_membership_id: null, assignee_invitation_id: invite.id })
+      .eq("organization_id", d.organizationId)
+      .eq("id", d.assignTaskId)
+      .select("id, title, organization_id")
+      .maybeSingle();
+    if (taskError) assignError = dbFailure(taskError);
+    else assigned = data;
+  }
   revalidateOrg();
   const link = `${await siteOrigin()}/invite/${invite.token}`;
-  return success(`Invitation ${pending ? "updated" : "created"} for ${d.email}. Copy the link and send it to them.`, {
-    link,
-    invitationId: invite.id,
-    name: d.name || d.email,
-  });
+  const verb = pending ? "updated" : "created";
+  const data: Record<string, string> = { link, invitationId: invite.id, name: d.name || d.email };
+  if (assigned) {
+    const { data: org } = await supabase.from("organizations").select("slug").eq("id", assigned.organization_id).single();
+    if (org) {
+      data.taskHref = `/${org.slug}/tasks/${assigned.id}`;
+      data.taskTitle = assigned.title;
+    }
+    return success(`Invitation ${verb} for ${d.email} and “${assigned.title}” assigned to them. Copy the link and send it to them.`, data);
+  }
+  if (d.assignTaskId) {
+    const reason = assignError?.message ?? "You can't change that work.";
+    return success(`Invitation ${verb} for ${d.email}, but it wasn't assigned: ${reason} Copy the link and send it to them.`, data);
+  }
+  return success(`Invitation ${verb} for ${d.email}. Copy the link and send it to them.`, data);
 }
 
 export async function revokeInvitation(formData: FormData): Promise<void> {

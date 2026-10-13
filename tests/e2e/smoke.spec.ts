@@ -555,19 +555,20 @@ test("invite from a task: a pending assignee, then join through the invitations 
   await page.getByRole("link", { name: "Set up a quiet reading corner" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
 
-  // a half-written change survives the drawer
-  await page.getByLabel("Description").fill("Beanbags and the donated picture books.");
-  await page.getByRole("button", { name: "Add team member" }).click();
-  const drawer = page.getByRole("dialog", { name: "Add a team member" });
-  await drawer.getByLabel("Name").fill("Robin Tester");
-  await drawer.getByLabel("Email").fill(email);
-  await drawer.getByRole("button", { name: "Invite" }).click();
-  await expect(drawer.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
-  await drawer.getByRole("button", { name: "Back to the form" }).click();
+  // the assignee picker leads to the invite form, which grants the project and assigns the task
+  await page.getByRole("link", { name: "Invite someone to assign" }).click();
+  await expect(page).toHaveURL(/\/settings\?view=members&task=[0-9a-f-]{36}#invite$/);
+  const invite = page.locator("#invite");
+  await expect(invite.getByText("is assigned Set up a quiet reading corner")).toBeVisible();
+  await expect(invite.getByLabel("Homework Club")).toHaveValue("staff");
+  await invite.getByLabel("Name").fill("Robin Tester");
+  await invite.getByLabel("Email").fill(email);
+  await invite.getByRole("button", { name: "Invite" }).click();
+  await expect(invite.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
+  await expect(invite.getByText(/assigned to them/)).toBeVisible();
+  await invite.getByRole("link", { name: "Back to Set up a quiet reading corner" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(page.getByLabel("Assignee").locator("option:checked")).toHaveText("Robin Tester (pending)");
-  await expect(page.getByLabel("Description")).toHaveValue("Beanbags and the donated picture books.");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
 
   // the invitation shows its project in settings
   await visit(page, "/northside-youth-collective/settings?view=members");
@@ -624,6 +625,31 @@ test("Google sign-in hands off to Supabase and comes back to the callback", asyn
   await expect(page.getByRole("alert").filter({ hasText: "Google sign-in didn't finish" })).toBeVisible();
 });
 
+test("what a higher rank made is read-only for lower ranks, except that its assignee can finish it", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+
+  // Marcus (admin) made this one and it's his: Sofia (staff) can read it, not change it
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await expect(page.getByRole("checkbox", { name: /^Done: Book the van for collection days/ })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Book the van for collection days" }).click();
+  await expect(page.getByText(/An admin made this, so only they or someone ranked admin or above can change it\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+  await expect(page.getByLabel("Title")).toHaveCount(0);
+
+  // Marcus made this one too, but it's assigned to Sofia, so she can mark it done
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await page.getByRole("link", { name: "Recruit sorting-day volunteers" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(page.getByText(/As its assignee, you can still mark it done\./)).toBeVisible();
+  const done = page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" });
+  await done.click();
+  await expect(done).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" })).toHaveAttribute("aria-checked", "true");
+});
+
 test("attendance: roster, check-in, reports, archiving and permanent deletion", async ({ page, browser }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
@@ -650,9 +676,10 @@ test("attendance: roster, check-in, reports, archiving and permanent deletion", 
   await page.getByRole("button", { name: "Save details" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 
-  // check everyone in at today's session
+  // check everyone in at the latest session (today's in Toronto, which may be
+  // "Yesterday" in the test browser's UTC clock late in the evening)
   await visit(page, "/northside-youth-collective/attendance?view=take");
-  await expect(page.getByRole("heading", { level: 2, name: /Today.*Homework Club/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /^(Today|Yesterday), .* · Homework Club$/ })).toBeVisible();
   await page.getByRole("group", { name: "Leo Tremblay" }).getByText("Late").click();
   await page.getByRole("button", { name: "Mark the rest present" }).click();
   await page.getByRole("button", { name: "Save attendance" }).click();

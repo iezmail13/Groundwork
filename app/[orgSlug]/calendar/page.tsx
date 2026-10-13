@@ -19,6 +19,7 @@ import {
   shiftMonth,
 } from "@/lib/dates";
 import { toEventFormValues } from "@/lib/event-values";
+import { creatorLock } from "@/lib/creator-lock";
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/calendar">): Promise<Metadata> {
   const { t } = await getOrgContext((await params).orgSlug);
@@ -61,7 +62,7 @@ export default async function CalendarPage({ params, searchParams }: PageProps<"
         endDate: eventEndDate(e.ends_at, e.all_day, tz),
         timeLabel: e.all_day ? "All day" : formatTime(e.starts_at, tz),
         location: e.location,
-        values: toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId),
+        values: toEventFormValues(e, tz, ctx.canManage || e.created_by === ctx.userId, creatorLock(t, ctx, e.created_by, e.created_by_role)),
       };
     }),
     ...(tasks ?? []).map((task) => ({
