@@ -191,6 +191,10 @@ The owner changed the standing rules in CLAUDE.md before the accounts, permissio
 
 The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behind them go faint, and the headline and subhead have a halo in the page colour. The copy, layout, buttons and links are unchanged.
 
+## Invite from a task (owner's request)
+
+**D79. Inviting from a task opens Settings → Members instead of a drawer.** The owner asked for the assign button to lead to the invite section. Under a task's assignee picker, owners and managers who are a project admin or lead there see **Invite someone to assign**, which opens the invite form with the task's project ticked (at the lowest project role, and it can't be unticked) and a note naming the task. Inviting there also assigns the task to the new invitee, who shows as "Name (pending)" until they join, as before; the result offers the invite link to copy and a link back to the task. The task's saved project is the one granted, so the form under the picker asks people to save first. The Add member drawer (D72) is removed. Invitations are still not emailed: the link is copied and sent by hand.
+
 ## Creator protection (owner's request)
 
 **D80. Lower ranks can't change what a higher rank made.** The owner asked that people can't edit tasks, calendar items and other work created by someone ranked above them. Projects, tasks, calendar items and documents now store `created_by_role`, the org role their creator held when they made them; the database stamps it from the membership on insert (whatever the client sends) and it can't be changed. A trigger, `guard_creator_rank`, refuses an edit or delete by anyone ranked below that role who isn't the creator. The creator, equal ranks and higher ranks are allowed, and because the role is kept on the row the protection survives the creator being demoted or leaving. It narrows D67: a project admin or an org manager can no longer edit or delete items in their project that someone ranked above them made.

@@ -8,7 +8,7 @@ import { Lock } from "lucide-react";
 import { TaskEditForm } from "@/components/tasks/task-edit-form";
 import { getOrgContext } from "@/lib/org";
 import { getAssigneeOptions } from "@/lib/projects";
-import { canManageOrg, grantableRoles } from "@/lib/roles";
+import { canManageOrg } from "@/lib/roles";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { formatTimestamp } from "@/lib/dates";
@@ -50,11 +50,11 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
     task.project && !projects.some((p) => p.id === task.project_id)
       ? [...projects, { id: task.project.id, name: task.project.name }]
       : projects;
+  // inviting from a task grants its project, which needs project admin or lead there
   const invite = canManageOrg(ctx.role)
     ? {
-        organizationId: org.id,
-        roles: grantableRoles(ctx.role),
-        projectRanks: Object.fromEntries((ranks ?? []).map((r) => [r.project_id, r.rank])),
+        href: `${base}/settings?view=members`,
+        projectIds: (ranks ?? []).filter((r) => r.rank >= 2).map((r) => r.project_id),
       }
     : null;
 
