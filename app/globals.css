@@ -373,7 +373,7 @@ dialog.gw-drawer[open] {
 /* Logo: helmet tips up on hover; briefcase swings every few seconds. */
 .logo-helmet {
   transform-box: view-box;
-  transform-origin: 25px 13px;
+  transform-origin: 28px 25px;
   transition: transform 260ms var(--ease-spring);
 }
 .logo-link:hover .logo-helmet,
@@ -398,7 +398,7 @@ dialog.gw-drawer[open] {
 }
 .logo-briefcase {
   transform-box: view-box;
-  transform-origin: 32px 41px;
+  transform-origin: 19px 39px;
   animation: briefcase-swing 5s ease-in-out infinite;
 }
 
@@ -467,4 +467,46 @@ dialog.gw-drawer[open] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Things drawn differently per mode (the sun/moon, the logo on the canvas):
+   only the one matching the mode in force shows. Don't give these elements a
+   display class of their own; wrap them instead. */
+.only-dark {
+  display: none;
+}
+:root[data-theme="dark"] .only-light {
+  display: none;
+}
+:root[data-theme="dark"] .only-dark {
+  display: revert;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .only-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .only-dark {
+    display: revert;
+  }
+}
+
+/* Empty states show an illustration unless the organization turned them off
+   (Settings > Branding), in which case the plain icon shows instead. In dark
+   mode the artwork sits on a light backing so the navy figure stays visible. */
+.gw-empty-icon {
+  display: none;
+}
+[data-illustrations="off"] .gw-illustration {
+  display: none;
+}
+[data-illustrations="off"] .gw-empty-icon {
+  display: block;
+}
+:root[data-theme="dark"] .gw-illustration {
+  background: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gw-illustration {
+    background: var(--ink);
+  }
 }

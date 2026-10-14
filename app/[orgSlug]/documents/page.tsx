@@ -120,6 +120,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         ) : (
           <EmptyState
             icon={<FileText />}
+            illustration="documents"
             title={`No ${lower(plural)} yet`}
             action={<UploadButton organizationId={org.id} projects={projects} />}
           >

@@ -65,6 +65,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
         ) : (
           <EmptyState
             icon={<FolderKanban />}
+            illustration="projects"
             title={`No ${lower(plural)} yet`}
             action={newButton}
           >

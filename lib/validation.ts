@@ -221,3 +221,35 @@ export const slugInput = z
     (s) => !["login", "auth", "invite", "create-organization", "api", "logo", "favicon", "settings"].includes(s),
     "That slug is reserved.",
   );
+
+// Branding (D84, D86) ---------------------------------------------------------------------
+
+/** Logos: PNG, JPG or WebP only (no SVG, which can carry scripts), up to 2 MB. Mirrors the "branding" bucket. */
+export const LOGO_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+export const LOGO_ACCEPT = ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp";
+export const LOGO_EXTENSION: Record<(typeof LOGO_MIME_TYPES)[number], string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export const logoVariant = z.enum(["light", "dark"], { error: "Choose which logo this is." });
+
+export const logoUploadInput = z.object({
+  organizationId: id,
+  variant: logoVariant,
+  size: z
+    .number()
+    .int()
+    .positive("That file is empty.")
+    .max(MAX_LOGO_BYTES, "Logos can be at most 2 MB."),
+  mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image. SVG files aren't accepted." }),
+});
+
+/** A colour as #RRGGBB, stored upper-case; "" means "use the default". */
+export const accentInput = z
+  .string()
+  .trim()
+  .transform((v) => (v === "" ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
+  .refine((v) => v === null || /^#[0-9A-F]{6}$/.test(v), "Use a colour like #0006BF.");

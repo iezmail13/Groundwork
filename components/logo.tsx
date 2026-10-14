@@ -155,3 +155,26 @@ export function Illustration({ kind, size = 96, className }: { kind: Illustratio
     </svg>
   );
 }
+
+/**
+ * The mark and wordmark for the canvas, drawn for whichever mode is in force:
+ * navy on light, outlined in white with a white wordmark on dark.
+ */
+export function Brand({ size = 36, wordmarkClassName = "text-xl" }: { size?: number; wordmarkClassName?: string }) {
+  return (
+    <>
+      <span className="only-light">
+        <span className="flex items-center gap-2">
+          <Logo size={size} />
+          <Wordmark className={wordmarkClassName} />
+        </span>
+      </span>
+      <span className="only-dark">
+        <span className="flex items-center gap-2">
+          <Logo size={size} dark />
+          <Wordmark dark className={wordmarkClassName} />
+        </span>
+      </span>
+    </>
+  );
+}
