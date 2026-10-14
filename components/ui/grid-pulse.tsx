@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { mix } from "@/lib/theme/color";
-import { BONE_50, NAVY_900 } from "@/lib/theme/theme";
+import { BONE_50, DEFAULT_ACCENT } from "@/lib/theme/theme";
 
 export type GridPulseProps = Omit<
   React.ComponentPropsWithoutRef<"div">,
@@ -26,10 +26,10 @@ export type GridPulseProps = Omit<
 };
 
 /**
- * Lit cells are tints of the navy laid over the bone ground, so the grid
- * stays inside the two colour scales (CLAUDE.md). Each cell takes one of
- * these shares of navy, so a sweep reads as a field of tints rather than one
- * flat colour. On a dark ground the roles swap: bone laid over navy.
+ * Lit cells are tints of the accent laid over the canvas (D83: neutral
+ * decoration uses the accent and its tints), read from the theme tokens so
+ * they follow light and dark mode. Each cell takes one of these shares of the
+ * accent, so a sweep reads as a field of tints rather than one flat colour.
  */
 const TINTS = [0.12, 0.18, 0.25, 0.32, 0.4];
 const TINTS_DARK = [0.18, 0.24, 0.3, 0.36, 0.42];
@@ -95,24 +95,30 @@ export function GridPulse({
     let height = 0;
     let clear: DOMRect[] = [];
     let tints = TINTS;
-    let dark = false;
+    let accent = DEFAULT_ACCENT;
+    let ground = BONE_50;
     const cells = new Map<string, Cell>();
 
-    // Light or dark ground, read from the text colour the grid inherits,
+    // The accent and the ground, read from the theme tokens the grid inherits,
     // so it follows any theme switch: a class, an attribute or the system.
     // Resolved through a pixel, since computed colours may be oklch.
     const probe = document.createElement("canvas").getContext("2d", {
       willReadFrequently: true,
     });
-    const readTheme = () => {
-      if (!probe) return;
+    const toHex = (css: string, fallback: string) => {
+      if (!probe || !css) return fallback;
       probe.clearRect(0, 0, 1, 1);
-      probe.fillStyle = getComputedStyle(el).color;
+      probe.fillStyle = css;
       probe.fillRect(0, 0, 1, 1);
       const [r = 0, g = 0, b = 0] = probe.getImageData(0, 0, 1, 1).data;
-      const light = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.5;
-      dark = light;
-      tints = light ? TINTS_DARK : TINTS;
+      return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+    };
+    const readTheme = () => {
+      const style = getComputedStyle(el);
+      accent = toHex(style.getPropertyValue("--accent").trim(), DEFAULT_ACCENT);
+      ground = toHex(style.getPropertyValue("--canvas").trim(), BONE_50);
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(ground.slice(i, i + 2), 16) / 255) as [number, number, number];
+      tints = 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5 ? TINTS_DARK : TINTS;
     };
 
     // Protect the lines of text, not the boxes that hold them: a paragraph
@@ -176,7 +182,7 @@ export function GridPulse({
     const ink = (row: number) => {
       const t = rows > 1 ? Math.min(1, row / (rows - 1)) : 0;
       const share = tints[Math.floor(Math.random() * tints.length)]! + t * DEPTH;
-      return dark ? mix(BONE_50, NAVY_900, share) : mix(NAVY_900, BONE_50, share);
+      return mix(accent, ground, share);
     };
 
     // One loop draws every cell; it runs only while something is lit.
