@@ -127,7 +127,7 @@ function AccentPicker({
           <input
             type="color"
             aria-label="Pick a colour"
-            value={isHex(custom || value) ? normalizeHex(custom || value).toLowerCase() : DEFAULT_ACCENT.toLowerCase()}
+            value={(isHex(custom || value) ? normalizeHex(custom || value) : (emptyLabel?.swatch ?? DEFAULT_ACCENT)).toLowerCase()}
             onChange={(e) => {
               const hex = e.target.value.toUpperCase();
               setCustom(hex);
@@ -219,11 +219,14 @@ export function LogoUploader({
   organizationId,
   variant,
   currentUrl,
+  fallbackUrl = null,
   canManage,
 }: {
   organizationId: string;
   variant: "light" | "dark";
   currentUrl: string | null;
+  /** For the dark version: the regular logo, which dark mode shows on a light backing until there is one. */
+  fallbackUrl?: string | null;
   canManage: boolean;
 }) {
   const id = useId();
@@ -293,16 +296,21 @@ export function LogoUploader({
 
   return (
     <div className="flex flex-col gap-3 border-t border-rule pt-4">
-      <h3 className="font-heading font-bold">{label}</h3>
+      <h3 className="font-heading font-bold">{variant === "dark" ? "Dark-mode version" : "Standard version"}</h3>
       <div className="flex flex-wrap items-center gap-4">
         <div className={`flex h-20 w-48 items-center justify-center overflow-hidden rounded-md border border-rule p-2 ${backing}`}>
           {showing ? (
             // eslint-disable-next-line @next/next/no-img-element -- a local preview or a signed storage link
             <img src={showing} alt={preview ? `Preview of the new ${label.toLowerCase()}` : `Current ${label.toLowerCase()}`} className="max-h-full max-w-full object-contain" />
+          ) : fallbackUrl ? (
+            <span className="flex h-full items-center rounded bg-white p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a signed storage link */}
+              <img src={fallbackUrl} alt="Your logo on a light backing, as dark mode shows it now" className="max-h-full max-w-full object-contain" />
+            </span>
           ) : (
             <span className="flex items-center gap-2 text-sm text-rail">
-              <Logo size={28} dark={variant === "dark"} />
-              <span className={variant === "dark" ? "text-white" : ""}>{variant === "dark" ? "Uses the logo above" : "Groundwork logo"}</span>
+              <Logo size={28} />
+              Groundwork logo
             </span>
           )}
         </div>

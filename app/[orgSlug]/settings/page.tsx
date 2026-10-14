@@ -97,7 +97,13 @@ async function BrandingPanel({ orgSlug }: { orgSlug: string }) {
         </p>
         <LogoUploader organizationId={org.id} variant="light" currentUrl={branding.logoUrl} canManage={canManage} />
         {branding.logoUrl ? (
-          <LogoUploader organizationId={org.id} variant="dark" currentUrl={branding.logoDarkUrl} canManage={canManage} />
+          <LogoUploader
+            organizationId={org.id}
+            variant="dark"
+            currentUrl={branding.logoDarkUrl}
+            fallbackUrl={branding.logoUrl}
+            canManage={canManage}
+          />
         ) : null}
       </section>
     </div>
