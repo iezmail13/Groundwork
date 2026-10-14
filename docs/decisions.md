@@ -233,6 +233,38 @@ The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behi
 - **Where funding shows.** The Funds list shows every fund with its total, allocated, left and a split bar. Each fund has its own page with the full chart and its parts, which can be added, edited and removed. A project page shows a Funding section for funds linked to it or with a part allocated to it. The dashboard has a Funding widget, movable and hideable like the others, showing each fund's split and percentage allocated. The owner asked not to make the dashboard switch per project yet.
 - **Activity.** Creating, editing and deleting a fund, and changing its parts, are logged as entries about the fund for signed-in people; seed and script writes aren't.
 
+## Standing rules for the next update (owner's decisions)
+
+The owner changed the standing rules in CLAUDE.md before the maintenance, website, theme, tasks, notifications, people, chat, dashboards, finance, reports and demo work. Each change is theirs; the build follows it.
+
+**D83. Colour: an accent and fixed status and priority colours.** "Two colour scales only" is replaced. The white/bone background stays, and navy #163260 stays for text and the sidebar. An accent (#0006BF by default) is for buttons, links, active states and focus. Status colours are fixed for everyone: green for good or done, amber for middle, red for bad or overdue. Priority colours are fixed too: red for critical and high, orange for medium-high, yellow for medium, blue for low. Neutral chart data uses the accent and its tints. Brighter colours are kept for charts, dots, badges and icons, so large surfaces stay calm. "Never colour alone" and "no drop shadows" stay.
+
+**D84. Theming: dark mode, org accent and logo, personal accent.** Dark mode returns as a per-user setting, reversing D64. Orgs can set a logo and an accent colour, and users can override the accent on their own screen. Status and priority colours are never themeable.
+
+**D85. Contrast in both modes.** Text must reach 4.5:1 and chart marks, dots and icons 3:1, in light and dark mode. Whatever accent is chosen is lightness-adjusted automatically until it passes. `lib/theme/theme.ts` and its unit tests enforce this.
+
+**D86. Branding.** Inside an org, its logo can replace the Groundwork logo. Groundwork branding stays on the public pages, sign-in pages, emails and the maintenance page, and a small "Powered by Groundwork" mark stays in the sidebar.
+
+**D87. Maintenance mode is in scope, outside the database.** A site-wide maintenance switch and scheduled-maintenance notices are in scope. The switch lives in Vercel Edge Config (with environment variables as a fallback), not Supabase, so the maintenance page works while the database is being migrated or is unreachable. It adds no global table.
+
+**D88. Notifications are in-app only.** In-app notifications are in scope. Email, SMS and push notifications are not.
+
+**D89. The task model grows.** Tasks can have several assignees, a kind (general, appointed or personal), a priority, a "hide from collaborators" flag and a share list, and can live outside a project as personal or org-level tasks. Visibility still has one source of truth, `can_view_task()`, which now applies these rules; this replaces D68's "can see its project".
+
+**D90. People and chat.** Member profiles, online status and an internal chat hub are in scope. Direct messages are the one place owners can't see what isn't theirs.
+
+**D91. Finance: budget and grant tracking.** Budgets per fund or grant, and spending entries with receipts and approval, are in scope. This extends D82's "no transactions" to spending entries only. Budgets, totals and charts stay visible to owners and managers only, as D82 decided. Real accounting stays out: no bank feeds, tax, payroll, invoices, double-entry or accounting-software sync.
+
+**D92. Dashboards are read-only and filtered in the database.** Dashboards are read-only summaries, filtered by permission in the database, whose marks link to editable views (or a read-only detail for people who can only view). Each project page gets its own dashboard section, reversing D82's note that the owner didn't want per-project dashboards yet.
+
+**D93. Templated reports.** PDF and CSV reports (attendance, task and project progress, funder spending) are in scope. They only contain what the person generating them can see.
+
+**D94. Packages: still prefer none.** Charts are hand-built SVG or HTML. Live updates and chat use Supabase Realtime, which `@supabase/supabase-js` already includes. Any package that is truly needed gets its reason written here first.
+
+**D95. The public website grows.** The marketing site gains Pricing, Security, About, Privacy, Terms, Use cases, Compare and Resources pages, a "Start free" sign-up path and a read-only public demo. Payments, email capture and marketing emails stay out.
+
+**D96. Terminology covers the new words.** Label keys are added for new primitive words that reach UI copy (priority levels, task kinds), and `check:labels` checks them.
+
 ## Maintenance mode (Part 1)
 
 **D97. How maintenance mode works.** It follows D87: the switch is outside the database.
