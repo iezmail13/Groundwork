@@ -5,20 +5,23 @@ import { useState } from "react";
 import { CalendarDays, Download, MapPin } from "lucide-react";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
-import { DueBadge, ProjectDot } from "@/components/tasks/badges";
-import { TaskCheckbox } from "@/components/tasks/task-checkbox";
+import { DueBadge, PriorityFlag, ProjectDot } from "@/components/tasks/badges";
+import { TaskCheckbox, type TaskPart } from "@/components/tasks/task-checkbox";
 import { QuickAddTask } from "@/components/tasks/quick-add";
 import { ProgressBar } from "@/components/projects/progress";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { SplitBar } from "@/components/funds/split-bar";
 import { formatMoney, formatShare } from "@/lib/money";
-import type { ProjectOption, TaskStatus } from "@/lib/queries";
+import type { ProjectOption, TaskPriority, TaskStatus } from "@/lib/queries";
 
 export type TaskLite = {
   id: string;
   title: string;
   status: TaskStatus;
   due_date: string | null;
+  priority: TaskPriority;
+  /** The viewer's own part, for tasks that need everyone to finish. */
+  part?: TaskPart;
   project: { name: string; color: string | null } | null;
   href: string;
 };
@@ -166,17 +169,26 @@ export function MyTasksWidget({ data }: { data: DashboardData }) {
             if (e.animationName === "slide-out") remove(task.id);
           }}
         >
-          <TaskCheckbox id={task.id} title={task.title} done={false} onCompleteStart={() => start(task.id)} />
+          <TaskCheckbox
+            id={task.id}
+            title={task.title}
+            done={false}
+            part={task.part}
+            onCompleteStart={() => start(task.id)}
+          />
           <div className="min-w-0 flex-1">
             <Link href={task.href} className="task-title inline font-semibold hover:underline">
               {task.title}
             </Link>
-            {task.project ? (
-              <p className="flex items-center gap-1.5 truncate text-sm text-ink-muted">
-                <ProjectDot color={task.project.color} />
-                {task.project.name}
-              </p>
-            ) : null}
+            <p className="flex flex-wrap items-center gap-x-3 truncate text-sm text-ink-muted">
+              <PriorityFlag priority={task.priority} label={t(`priority.${task.priority}`)} />
+              {task.project ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <ProjectDot color={task.project.color} />
+                  {task.project.name}
+                </span>
+              ) : null}
+            </p>
           </div>
           <DueBadge dueDate={task.due_date} status={task.status} today={data.today} />
         </li>

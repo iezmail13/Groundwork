@@ -1,7 +1,7 @@
-import { CalendarClock, Circle, CircleCheck, CircleDot, Clock, TriangleAlert, UserRoundX } from "lucide-react";
+import { CalendarClock, Circle, CircleCheck, CircleDot, Clock, Flag, TriangleAlert, UserRoundX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { dueState, formatRelativeDate } from "@/lib/dates";
-import type { TaskStatus } from "@/lib/queries";
+import type { TaskPriority, TaskStatus } from "@/lib/queries";
 
 const STATUS_ICON = { todo: Circle, in_progress: CircleDot, done: CircleCheck } as const;
 
@@ -68,5 +68,58 @@ export function ProjectDot({ color }: { color: string | null }) {
       className="inline-block size-2.5 shrink-0 rounded-full border border-ink/30"
       style={{ background: color ?? "var(--ink)" }}
     />
+  );
+}
+
+/**
+ * Priority as a flag plus its label, kept apart from status badges (D83):
+ * critical is a filled red flag, high an outlined red-orange one, medium a
+ * yellow flag with a dark outline, low an outlined blue one. The label is
+ * always there, so it never rests on colour.
+ */
+const FLAG: Record<TaskPriority, { className: string; fill: string }> = {
+  critical: { className: "text-prio-critical", fill: "currentColor" },
+  high: { className: "text-prio-high", fill: "none" },
+  medium: { className: "text-prio-medium-ink", fill: "var(--prio-medium)" },
+  low: { className: "text-prio-low", fill: "none" },
+};
+
+export function PriorityFlag({ priority, label, compact = false }: { priority: TaskPriority; label: string; compact?: boolean }) {
+  const flag = FLAG[priority];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-heading text-xs text-ink ${priority === "critical" ? "font-bold" : "font-semibold"}`}
+      data-priority={priority}
+    >
+      <Flag aria-hidden className={`size-3.5 shrink-0 ${flag.className}`} fill={flag.fill} strokeWidth={2.25} />
+      <span className={compact ? "sr-only" : undefined}>{label}</span>
+      <span className="sr-only"> priority</span>
+    </span>
+  );
+}
+
+/** Everyone on a task as small stacked initials, then "+N" after three. */
+export function AssigneeStack({ people }: { people: { initials: string; name: string }[] }) {
+  if (people.length === 0) return null;
+  const shown = people.slice(0, 3);
+  const extra = people.length - shown.length;
+  return (
+    <span className="inline-flex items-center" title={people.map((p) => p.name).join(", ")}>
+      <span className="sr-only">Assigned to {people.map((p) => p.name).join(", ")}</span>
+      {shown.map((p, i) => (
+        <span
+          key={`${p.name}-${i}`}
+          aria-hidden
+          className={`inline-flex size-6 items-center justify-center rounded-full border border-ink bg-canvas font-heading text-[0.6rem] font-bold ${i > 0 ? "-ml-1.5" : ""}`}
+        >
+          {p.initials}
+        </span>
+      ))}
+      {extra > 0 ? (
+        <span aria-hidden className="-ml-1.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ink bg-panel px-1 font-heading text-[0.6rem] font-bold">
+          +{extra}
+        </span>
+      ) : null}
+    </span>
   );
 }
