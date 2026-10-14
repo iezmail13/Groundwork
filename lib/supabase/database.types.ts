@@ -327,14 +327,14 @@ isOneToOne: false
                   ]
                 },"organizations": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"preset_key": string,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"preset_key"?: string,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"preset_key"?: string,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -419,14 +419,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"email": string,"full_name": string | null,"id": string
+                    "accent": string | null,"created_at": string,"email": string,"full_name": string | null,"id": string,"theme_mode": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"email": string,"full_name"?: string | null,"id": string
+                    "accent"?: string | null,"created_at"?: string,"email": string,"full_name"?: string | null,"id": string,"theme_mode"?: string
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string,"full_name"?: string | null,"id"?: string
+                    "accent"?: string | null,"created_at"?: string,"email"?: string,"full_name"?: string | null,"id"?: string,"theme_mode"?: string
                   }
                   Relationships: [
                     
@@ -586,10 +586,15 @@ isOneToOne: false
                            },
 "create_organization":
 { Args: { "name": string,"preset_key": string }; Returns: {
-              "created_at": string,
+              "accent": string | null,
+"allow_personal_accent": boolean,
+"created_at": string,
 "id": string,
+"logo_dark_path": string | null,
+"logo_path": string | null,
 "name": string,
 "preset_key": string,
+"show_illustrations": boolean,
 "slug": string,
 "terminology_overrides": NonNullable<Json>,
 "theme": NonNullable<Json>
