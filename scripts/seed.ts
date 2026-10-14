@@ -338,13 +338,32 @@ async function main() {
           title,
           due_date: due === null ? null : day(due),
           status: "todo" as const,
-          assignee_membership_id: assignee ? m(assignee) : null,
+          // given to someone else: appointed; taken by its creator, or nobody's yet: open to claim
+          kind: assignee && assignee !== by ? ("appointed" as const) : ("general" as const),
           position: i + 1,
           created_by: by,
         })),
       )
       .select("id, title"),
     "tasks",
+  );
+  // assignees (D100): the creator claimed their own, anyone else was appointed by the creator
+  must(
+    await db
+      .from("task_assignees")
+      .insert(
+        tasks
+          .filter(([, , , , assignee]) => assignee)
+          .map(([, title, , , assignee, by]) => ({
+            organization_id: org.id,
+            task_id: insertedTasks.find((x) => x.title === title)!.id,
+            membership_id: m(assignee!),
+            kind: assignee === by ? ("claimed" as const) : ("appointed" as const),
+            added_by: by,
+          })),
+      )
+      .select("id"),
+    "task assignees",
   );
   // move tasks into their real status afterwards, so the activity log reads like real work
   for (const [, title, , status] of tasks) {
@@ -543,7 +562,14 @@ async function main() {
     "invitation grant",
   );
   const notebooks = insertedTasks.find((x) => x.title === "Order new graph-paper notebooks")!.id;
-  must(await db.from("tasks").update({ assignee_invitation_id: invite.id }).eq("id", notebooks).select("id"), "invitee task");
+  must(
+    await db
+      .from("task_assignees")
+      .insert({ organization_id: org.id, task_id: notebooks, invitation_id: invite.id, kind: "appointed", added_by: priya })
+      .select("id"),
+    "invitee task",
+  );
+  must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
 
   console.log(
     `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +

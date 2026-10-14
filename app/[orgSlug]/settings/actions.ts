@@ -10,6 +10,7 @@ import { siteOrigin } from "@/lib/urls";
 import { getOrgContext } from "@/lib/org";
 import { PROJECT_ROLES, ROLES } from "@/lib/roles";
 import { lower } from "@/lib/terminology/t";
+import { setAssignee } from "@/lib/task-assignees";
 
 function revalidateOrg() {
   revalidatePath("/[orgSlug]", "layout");
@@ -154,20 +155,20 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
       return dbFailure(grantError);
     }
   }
-  // The task's project was granted above, so the assignee trigger accepts the
-  // invitation; RLS still decides whether this person may edit the task.
+  // The task's project was granted above, so the invitee can be appointed to
+  // it; appoint_to_task still checks this person may give it to them (D100).
   let assigned: { id: string; title: string; organization_id: string } | null = null;
   let assignError: ActionState | null = null;
   if (d.assignTaskId) {
-    const { data, error: taskError } = await supabase
+    const { data: task } = await supabase
       .from("tasks")
-      .update({ assignee_membership_id: null, assignee_invitation_id: invite.id })
+      .select("id, title, organization_id")
       .eq("organization_id", d.organizationId)
       .eq("id", d.assignTaskId)
-      .select("id, title, organization_id")
       .maybeSingle();
+    const taskError = task ? await setAssignee(supabase, task.id, `i:${invite.id}`) : { message: "That no longer exists." };
     if (taskError) assignError = dbFailure(taskError);
-    else assigned = data;
+    else assigned = task;
   }
   revalidateOrg();
   const link = `${await siteOrigin()}/invite/${invite.token}`;

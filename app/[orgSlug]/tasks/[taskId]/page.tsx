@@ -10,6 +10,7 @@ import { getOrgContext } from "@/lib/org";
 import { getAssigneeOptions } from "@/lib/projects";
 import { canManageOrg } from "@/lib/roles";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
+import { isAssignee } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
 import { formatTimestamp } from "@/lib/dates";
 import { lower } from "@/lib/terminology/t";
@@ -73,7 +74,7 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
           <span className="flex flex-wrap items-center gap-2">
             <TaskStatusBadge status={task.status} label={t(`status.${task.status}`)} />
             <DueBadge dueDate={task.due_date} status={task.status} today={today} />
-            {task.needs_assignee && !task.assignee_membership_id && !task.assignee_invitation_id && task.status !== "done" ? (
+            {task.needs_assignee && task.assignees.length === 0 && task.status !== "done" ? (
               <NeedsAssigneeBadge />
             ) : null}
             {task.project ? (
@@ -100,9 +101,9 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
           <p className="flex items-start gap-2 border-l-4 border-ink pl-3 text-sm">
             <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />
             {locked}
-            {task.assignee_membership_id === ctx.membershipId ? " As its assignee, you can still mark it done." : ""}
+            {isAssignee(task, ctx.membershipId) ? " As its assignee, you can still mark it done." : ""}
           </p>
-          {task.assignee_membership_id === ctx.membershipId ? (
+          {isAssignee(task, ctx.membershipId) ? (
             <p className="flex items-center gap-2 font-semibold">
               <TaskCheckbox id={task.id} title={task.title} done={task.status === "done"} />
               {task.status === "done" ? t("status.done") : `Mark ${lower(t("status.done"))}`}

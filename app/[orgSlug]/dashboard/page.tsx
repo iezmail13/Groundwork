@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { addDays, dueState, eventStartDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { normalizeLayout } from "@/lib/dashboard-layout";
 import { activityHref, describeActivity, timeAgo } from "@/lib/activity";
+import { isAssignee } from "@/lib/task-filters";
 import { lower } from "@/lib/terminology/t";
 import { getFunds } from "@/lib/funds";
 import { canManageOrg } from "@/lib/roles";
@@ -59,7 +60,7 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     today,
     overdue: tasks.filter((x) => x.due_date && x.due_date < today).map(lite),
     dueSoon: tasks.filter((x) => x.due_date && x.due_date >= today && x.due_date <= weekEnd).map(lite),
-    myTasks: tasks.filter((x) => x.assignee_membership_id === ctx.membershipId).map(lite),
+    myTasks: tasks.filter((x) => isAssignee(x, ctx.membershipId)).map(lite),
     projects: (projects ?? []).map((p) => ({ ...p, ...(progress.get(p.id) ?? { done: 0, total: 0 }) })),
     events: events.slice(0, 6).map((e) => ({
       id: e.id,
@@ -91,7 +92,7 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
   };
 
   // In-app reminders: the viewer's own overdue and due-soon work.
-  const mine = tasks.filter((x) => x.assignee_membership_id === ctx.membershipId);
+  const mine = tasks.filter((x) => isAssignee(x, ctx.membershipId));
   const myOverdue = mine.filter((x) => dueState(x.due_date, x.status, today) === "overdue").length;
   const mySoon = mine.filter((x) => dueState(x.due_date, x.status, today) === "due_soon").length;
   const firstName = profile?.full_name?.split(" ")[0];

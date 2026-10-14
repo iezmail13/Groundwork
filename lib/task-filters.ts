@@ -32,9 +32,19 @@ export function readSort(params: Record<string, string | string[] | undefined>):
   return { key, dir: params.dir === "desc" ? "desc" : "asc" };
 }
 
-/** A task's assignee: a membership id, a pending invitation id, or null. */
-export function assigneeOf(task: Pick<TaskRow, "assignee_membership_id" | "assignee_invitation_id">): string | null {
-  return task.assignee_membership_id ?? task.assignee_invitation_id ?? null;
+/** Everyone on a task, as membership ids and pending invitation ids. */
+export function assigneeIds(task: Pick<TaskRow, "assignees">): string[] {
+  return task.assignees.map((a) => a.membership_id ?? a.invitation_id ?? "").filter(Boolean);
+}
+
+/** A task's first assignee (a membership id or a pending invitation id), or null. */
+export function assigneeOf(task: Pick<TaskRow, "assignees">): string | null {
+  return assigneeIds(task)[0] ?? null;
+}
+
+/** Whether a member is on a task. */
+export function isAssignee(task: Pick<TaskRow, "assignees">, membershipId: string): boolean {
+  return task.assignees.some((a) => a.membership_id === membershipId);
 }
 
 /** Applies filters in memory (also used to test the rules). */
@@ -42,9 +52,9 @@ export function filterTasks(tasks: TaskRow[], f: TaskFilters, today: string, myM
   const weekEnd = addDays(today, 7);
   return tasks.filter((task) => {
     if (f.project && task.project_id !== f.project) return false;
-    if (f.assignee === "me" && task.assignee_membership_id !== myMembershipId) return false;
-    if (f.assignee === "none" && assigneeOf(task)) return false;
-    if (f.assignee && f.assignee !== "me" && f.assignee !== "none" && assigneeOf(task) !== f.assignee) return false;
+    if (f.assignee === "me" && !isAssignee(task, myMembershipId)) return false;
+    if (f.assignee === "none" && task.assignees.length > 0) return false;
+    if (f.assignee && f.assignee !== "me" && f.assignee !== "none" && !assigneeIds(task).includes(f.assignee)) return false;
     if (f.status && task.status !== f.status) return false;
     const due = task.due_date;
     switch (f.due) {

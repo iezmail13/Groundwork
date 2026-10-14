@@ -19,7 +19,7 @@ export function TaskCheckbox({
   title: string;
   done: boolean;
   /** Who made it and who it's assigned to, to mirror the database's rule on who may tick it. */
-  creator?: { created_by: string | null; created_by_role: Role | null; assignee_membership_id: string | null };
+  creator?: { created_by: string | null; created_by_role: Role | null; assignees: { membership_id: string | null }[] };
   /** Lets a parent play the strike-through/slide-out animation first. */
   onCompleteStart?: () => void;
 }) {

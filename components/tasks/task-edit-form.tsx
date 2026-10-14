@@ -38,9 +38,11 @@ export function TaskEditForm({
   const t = useT();
   const [state, action, pending] = useActionState(updateTask, idle);
   const e = state.fieldErrors ?? {};
-  const [projectId, setProjectId] = useState(task.project_id);
+  // personal and org-level tasks have no project ("")
+  const [projectId, setProjectId] = useState(task.project_id ?? "");
+  const first = task.assignees[0];
   const [assignee, setAssignee] = useState(
-    task.assignee_membership_id ? `m:${task.assignee_membership_id}` : task.assignee_invitation_id ? `i:${task.assignee_invitation_id}` : "",
+    first?.membership_id ? `m:${first.membership_id}` : first?.invitation_id ? `i:${first.invitation_id}` : "",
   );
   const options = assigneeOptions[projectId] ?? [];
   // inviting from here grants this project, which needs project admin or lead
@@ -68,6 +70,7 @@ export function TaskEditForm({
               if (!(assigneeOptions[next] ?? []).some((o) => o.value === assignee)) setAssignee("");
             }}
           >
+            {task.project_id ? null : <option value="">No {lower(t("project"))}</option>}
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}

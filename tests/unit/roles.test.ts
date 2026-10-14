@@ -39,8 +39,9 @@ describe("creator protection", () => {
   });
 
   it("still lets the assignee move a protected task", () => {
-    const task = { created_by: "u-owner", created_by_role: "owner" as const, assignee_membership_id: "m-admin" };
+    const task = { created_by: "u-owner", created_by_role: "owner" as const, assignees: [{ membership_id: "m-admin" }] };
     expect(canMoveTask(admin, task)).toBe(true);
-    expect(canMoveTask(admin, { ...task, assignee_membership_id: "m-someone" })).toBe(false);
+    expect(canMoveTask(admin, { ...task, assignees: [{ membership_id: "m-someone" }] })).toBe(false);
+    expect(canMoveTask(admin, { ...task, assignees: [{ membership_id: "m-someone" }, { membership_id: "m-admin" }] })).toBe(true);
   });
 });

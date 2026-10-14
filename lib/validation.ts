@@ -40,7 +40,8 @@ export const taskCreateInput = z.object({
 
 export const taskUpdateInput = z.object({
   id,
-  projectId: id,
+  // left out for personal and org-level tasks, which stay outside any project
+  projectId: id.optional(),
   title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
   description: optionalText(4000, "Use 4,000 characters or fewer."),
   status: taskStatus,
