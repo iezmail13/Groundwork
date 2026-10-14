@@ -209,9 +209,12 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people and the organization; words and colours aren't editable
+  // settings are the preset, the people, the organization, its branding and your own profile;
+  // words aren't editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(3);
+  await expect(sections.getByRole("link")).toHaveCount(5);
+  await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
   await expect(sections.getByRole("link", { name: "Theme" })).toHaveCount(0);
   await page.getByRole("radio", { name: /Tutoring/ }).check();
