@@ -232,6 +232,8 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await moveHandle.focus();
   await page.keyboard.press("Space");
   await expect(moveHandle).toHaveAttribute("aria-pressed", "true");
+  // move only once the drop positions are measured, which the first "over" announcement shows
+  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 1" })).toHaveCount(1);
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 2" })).toHaveCount(1);
   await page.keyboard.press("Space");
