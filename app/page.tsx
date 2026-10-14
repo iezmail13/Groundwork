@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Landing } from "@/components/marketing/landing";
 import { createClient } from "@/lib/supabase/server";
+import { getMaintenance } from "@/lib/maintenance-request";
+import { getTimeZone } from "@/lib/org";
 
 export const metadata: Metadata = {
   title: { absolute: "Groundwork: run your organization on solid ground" },
@@ -15,10 +17,15 @@ export const metadata: Metadata = {
  * invitations first, then go to their last-used organization, or to create one.
  */
 export default async function Home({ searchParams }: PageProps<"/">) {
+  // during maintenance the landing page is all there is, and it needs no database
+  const maintenance = await getMaintenance();
+  const timeZone = await getTimeZone();
+  if (maintenance.active) return <Landing maintenance={maintenance} timeZone={timeZone} />;
+
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
-  if (!user) return <Landing />;
+  if (!user) return <Landing maintenance={maintenance} timeZone={timeZone} />;
 
   // invitations waiting for their verified email come first
   if ((await searchParams).skip !== "invitations") {
@@ -36,3 +43,4 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const last = (await cookies()).get("last_org")?.value;
   redirect(`/${last && slugs.includes(last) ? last : slugs[0]}/dashboard`);
 }
+

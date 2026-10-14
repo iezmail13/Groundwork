@@ -6,6 +6,8 @@ import { TerminologyProvider } from "@/lib/terminology/context";
 import { ViewerProvider } from "@/lib/viewer";
 import { getOrgContext, initials, requireUser } from "@/lib/org";
 import { getAttendancePrograms } from "@/lib/participants";
+import { getMaintenance } from "@/lib/maintenance-request";
+import { ScheduledMaintenanceBanner } from "@/components/maintenance/notices";
 import { canManageOrg, rankOf } from "@/lib/roles";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
@@ -19,7 +21,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   const ctx = await getOrgContext(orgSlug);
   const { supabase } = await requireUser();
 
-  const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore, attendancePrograms] = await Promise.all([
+  const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore, attendancePrograms, maintenance] = await Promise.all([
     supabase
       .from("memberships")
       .select("organization:organizations(name, slug)")
@@ -29,6 +31,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
     supabase.rpc("recent_projects", { org_id: ctx.org.id, max_rows: 5 }),
     cookies(),
     getAttendancePrograms(ctx.org.id),
+    getMaintenance(),
   ]);
 
   const orgs = (memberships ?? [])
@@ -57,9 +60,12 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             showFunds={canManageOrg(ctx.role)}
             initialCollapsed={cookieStore.get("sidebar")?.value === "collapsed"}
           />
-          <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-16 focus:outline-none sm:px-8 sm:pt-8">
-            <div className="mx-auto max-w-[1400px]">{children}</div>
-          </main>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <ScheduledMaintenanceBanner setting={maintenance} timeZone={ctx.tz} />
+            <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-16 focus:outline-none sm:px-8 sm:pt-8">
+              <div className="mx-auto max-w-[1400px]">{children}</div>
+            </main>
+          </div>
         </div>
       </ViewerProvider>
       </TerminologyProvider>

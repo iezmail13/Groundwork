@@ -39,6 +39,12 @@ export default defineConfig({
         timeout: 180_000,
         // show the Google button so its hand-off to Supabase can be tested
         // (Google itself isn't configured locally; the test stops at the redirect)
-        env: { ...process.env, NEXT_PUBLIC_GOOGLE_SIGN_IN: "true" } as Record<string, string>,
+        // and let tests switch maintenance mode per browser (development only, see proxy.ts)
+        env: {
+          ...process.env,
+          NEXT_PUBLIC_GOOGLE_SIGN_IN: "true",
+          E2E_MAINTENANCE_OVERRIDE: "1",
+          MAINTENANCE_BYPASS_TOKEN: "e2e-bypass-token-0123456789",
+        } as Record<string, string>,
       },
 });
