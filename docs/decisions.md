@@ -246,3 +246,16 @@ The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behi
 - **Contact email.** The owner chose to keep groundworkceo@gmail.com for now.
 - **Testing.** In development only, and only when the end-to-end setup sets `E2E_MAINTENANCE_OVERRIDE=1`, a request header can set the maintenance state for one browser, so the tests can check both states against one dev server. Production never reads that header.
 
+
+## Website quick fixes (Part 2)
+
+**D98. What the public site says, and what it leaves out.** The owner's audit asked for a clearer headline and call to action, proof, pricing and a fuller footer. Only what's true and approved ships.
+
+- **Headline and actions.** The headline is now "Tasks, files and deadlines for your nonprofit, in one place." (primitive words through `t()`). The one primary action is **Start free**, which leads to `/signup`: the same Google or email-link sign-in, worded for a new account ("Create your free Groundwork account"), after which `/` sends a new person to create their organization. "Log in" stays a small masthead link. There's no "Book a demo" button, because the owner has no booking link yet.
+- **Homepage, in the audit's order:** hero with one product image, "Sound familiar?", three benefits each with one real screenshot (replacing the feature tabs), how it works in three steps, an FAQ, and a final call to action. The proof strip and pricing teaser are left out: the owner hasn't approved any pilot names or quotes, and chose not to publish pricing yet.
+- **FAQ facts, as verified with the owner.** Data and files are stored with Supabase in its **US East** region (the owner checked the dashboard); the app is served by Vercel. The Supabase project is on the **Free** plan, so the site makes no backup claims and says plainly that restorable backups aren't offered yet. Uploads are one file at a time up to 25 MB, read from the code. Cost: free to start, no credit card, larger organizations email.
+- **New public pages:** `/security` (who can see what, files, sign-in, the activity log, hosting, accurate to the code), `/privacy` and `/terms` (plain-language drafts written for PIPEDA). They're public routes in `proxy.ts` and keep the security headers. **The privacy policy and terms need a lawyer's review before they're relied on**, including the governing-law line in the terms. Dark mode for these pages comes with Part 3's theme tokens.
+- **Not built yet:** `/pricing` (no pricing chosen), `/about` (the owner will supply the story), and the masthead links to them.
+- **Contact email.** The owner chose to keep groundworkceo@gmail.com in the footer for now, so the brief's "no Gmail address in the footer" check doesn't apply until a domain address exists.
+- **Open audit suggestions, kept as they are:** the accent stays #0006BF (Part 3), the fonts stay Archivo and Source Sans 3, and icons stay lucide.
+- **Logo at favicon size.** At 16 px the figure logo is a thin, barely readable shape (it reads at 24 px and up). A simpler mark for small sizes is the owner's or a designer's call; it hasn't been redrawn.

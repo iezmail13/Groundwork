@@ -3,7 +3,13 @@ import { LogoBadge } from "@/components/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { MobileMenu } from "./mobile-menu";
 
-/** Top bar of the public landing page. */
+/** The public pages' links, in the order the masthead shows them. */
+export const SITE_LINKS = [
+  { href: "/#benefits", label: "Features" },
+  { href: "/security", label: "Security" },
+] as const;
+
+/** Top bar of the public pages. */
 export function Masthead() {
   return (
     <header className="relative border-b border-rule bg-canvas">
@@ -13,17 +19,19 @@ export function Masthead() {
           <span className="hidden font-heading text-lg font-bold sm:inline">Groundwork</span>
         </Link>
         <div className="hidden items-center gap-6 md:flex">
-          <a href="#features" className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
-            Features
-          </a>
+          {SITE_LINKS.map((l) => (
+            <Link key={l.href} href={l.href} className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
+              {l.label}
+            </Link>
+          ))}
           <Link href="/login" className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
             Log in
           </Link>
-          <ButtonLink href="/login">Get started</ButtonLink>
+          <ButtonLink href="/signup">Start free</ButtonLink>
         </div>
         <div className="flex items-center gap-2 md:hidden">
-          <ButtonLink href="/login" size="sm">
-            Get started
+          <ButtonLink href="/signup" size="sm">
+            Start free
           </ButtonLink>
           <MobileMenu />
         </div>
