@@ -21,7 +21,7 @@ export function DismissibleBanner({ id, children }: { id: string; children: Reac
   const [dismissed, setDismissed] = useState(false);
   if (stored || dismissed) return null;
   return (
-    <div role="status" className="flex items-center gap-2 border-b border-primary bg-panel px-4 py-1.5 text-sm font-semibold sm:px-8">
+    <div role="status" className="flex items-center gap-2 border-b border-accent bg-panel px-4 py-1.5 text-sm font-semibold sm:px-8">
       {children}
       <button
         type="button"

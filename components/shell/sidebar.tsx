@@ -196,7 +196,7 @@ function SidebarBody({
                       href={href}
                       aria-current={pathname === href ? "page" : undefined}
                       className={`block truncate rounded-md px-3 py-1.5 text-[0.95rem] ${
-                        pathname === href ? "bg-active text-active-ink font-semibold" : "text-rail-ink hover:bg-rail-hover"
+                        pathname === href ? "bg-rail-active text-rail-active-ink font-semibold" : "text-rail-ink hover:bg-rail-hover"
                       }`}
                     >
                       {p.name}
@@ -228,7 +228,7 @@ function SidebarBody({
           buttonClassName={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left hover:bg-rail-hover ${collapsed ? "justify-center px-0" : ""}`}
           button={
             <>
-              <span className="inline-flex size-6 shrink-0 items-center justify-center rounded bg-bone-100 font-heading text-xs font-bold text-navy-900">
+              <span className="inline-flex size-6 shrink-0 items-center justify-center rounded bg-rail-active font-heading text-xs font-bold text-rail-active-ink">
                 {org.name.slice(0, 1).toUpperCase()}
               </span>
               {collapsed ? null : (
@@ -326,9 +326,10 @@ function NavLink({
       title={collapsed ? label : undefined}
       className={`flex items-center gap-3 rounded-md px-3 py-2 font-heading text-[0.95rem] font-semibold transition-colors ${
         collapsed ? "justify-center px-0" : ""
-      } ${active ? "bg-active text-active-ink" : "text-rail-ink hover:bg-rail-hover"}`}
+      } ${active ? "bg-rail-active text-rail-active-ink" : "text-rail-ink hover:bg-rail-hover"}`}
     >
-      {children}
+      {/* the current item's icon takes the accent (D83) */}
+      <span className={`inline-flex ${active ? "text-accent" : "text-rail-ink-muted"}`}>{children}</span>
       {collapsed ? null : <span className="truncate">{label}</span>}
     </Link>
   );
@@ -377,7 +378,7 @@ function SlideOver({ onClose, children }: { onClose: () => void; children: React
 
   return (
     <div className="fixed inset-0 z-50 min-[900px]:hidden">
-      <div className="absolute inset-0 bg-navy-900/50" aria-hidden onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim/55" aria-hidden onClick={onClose} />
       <div
         ref={panelRef}
         id="mobile-nav"

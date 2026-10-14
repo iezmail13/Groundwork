@@ -19,7 +19,7 @@ export function RateBars({ rows, caption }: { rows: RateBar[]; caption: string }
             </span>
             <span className="relative h-4 rounded-sm border border-rule bg-panel" aria-hidden>
               {r.rate !== null ? (
-                <span className="absolute inset-y-0 left-0 rounded-sm bg-primary" style={{ width: `${Math.round(r.rate * 100)}%` }} />
+                <span className="absolute inset-y-0 left-0 rounded-sm bg-accent" style={{ width: `${Math.round(r.rate * 100)}%` }} />
               ) : null}
             </span>
             <span className="text-right font-heading font-bold tabular-nums">

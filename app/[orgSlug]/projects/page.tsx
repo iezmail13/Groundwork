@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Archive, FolderKanban } from "lucide-react";
+import { Archive, CircleDot, FolderKanban } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -119,7 +119,7 @@ export default async function ProjectsPage({ params, searchParams }: PageProps<"
                           {t("status.archived")}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">{t("status.active")}</Badge>
+                        <Badge variant="good" icon={<CircleDot aria-hidden className="size-3.5" />}>{t("status.active")}</Badge>
                       )}
                     </td>
                   </tr>

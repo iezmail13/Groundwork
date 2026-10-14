@@ -24,7 +24,7 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
           </p>
           <p>
             Files are stored privately and open through links that expire after a minute. Sign-in is with Google or a one-time email link, so
-            there are no passwords to steal. <Link href="/security" className="font-semibold text-ink underline underline-offset-4">More about security</Link>.
+            there are no passwords to steal. <Link href="/security" className="font-semibold text-accent underline underline-offset-4">More about security</Link>.
           </p>
         </>
       ),
@@ -61,7 +61,7 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
       a: (
         <p>
           Starting is free, with no credit card. We haven&apos;t published pricing for larger organizations yet: email{" "}
-          <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-ink underline underline-offset-4">
+          <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent underline underline-offset-4">
             {CONTACT_EMAIL}
           </a>{" "}
           and we&apos;ll talk it through.

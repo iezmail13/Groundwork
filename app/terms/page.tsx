@@ -37,7 +37,7 @@ export default function TermsPage() {
           <p>
             What you put into Groundwork stays yours. You let us store it, process it and show it to the people your organization allows, only
             so we can provide the service. How we handle personal information is explained in our{" "}
-            <Link href="/privacy" className="font-semibold underline underline-offset-4">
+            <Link href="/privacy" className="font-semibold text-accent underline underline-offset-4">
               Privacy
             </Link>{" "}
             page.
@@ -69,7 +69,7 @@ export default function TermsPage() {
         <ProseSection id="ending" title="Ending">
           <p>
             You can stop using Groundwork at any time, and ask us to delete your account or your organization&apos;s information by emailing{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline underline-offset-4">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent underline underline-offset-4">
               {CONTACT_EMAIL}
             </a>
             .
@@ -88,7 +88,7 @@ export default function TermsPage() {
           <p>
             If we change these terms, we&apos;ll update the date at the top and tell organization {owners} about significant changes before they
             take effect. These terms are governed by the laws that apply in Canada. Questions go to{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline underline-offset-4">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent underline underline-offset-4">
               {CONTACT_EMAIL}
             </a>
             .

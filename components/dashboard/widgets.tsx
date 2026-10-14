@@ -88,7 +88,7 @@ export function OverdueWidget({ data }: { data: DashboardData }) {
       {n ? (
         <>
           <TaskLines tasks={data.overdue} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-semibold text-accent underline underline-offset-4">
             See all overdue
           </Link>
         </>
@@ -111,7 +111,7 @@ export function DueSoonWidget({ data }: { data: DashboardData }) {
       {n ? (
         <>
           <TaskLines tasks={data.dueSoon} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-semibold text-accent underline underline-offset-4">
             See the week
           </Link>
         </>
@@ -211,7 +211,7 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         Nothing scheduled in the next two weeks.{" "}
-        <Link href={`${data.base}/calendar`} className="underline underline-offset-4">
+        <Link href={`${data.base}/calendar`} className="text-accent underline underline-offset-4">
           Open the calendar
         </Link>
         .
@@ -238,7 +238,7 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
         </li>
       ))}
       <li className="pt-2">
-        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-semibold underline underline-offset-4">
+        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-semibold text-accent underline underline-offset-4">
           <CalendarDays aria-hidden className="size-4" />
           All {lower(t("event", "other"))}
         </Link>
@@ -279,7 +279,7 @@ export function PinnedDocumentsWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         Pin the {lower(t("document", "other"))} people reach for most from the{" "}
-        <Link href={`${data.base}/documents`} className="underline underline-offset-4">
+        <Link href={`${data.base}/documents`} className="text-accent underline underline-offset-4">
           {lower(t("document", "other"))} page
         </Link>{" "}
         and they&apos;ll appear here.
@@ -312,7 +312,7 @@ export function FundingWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         No funds yet.{" "}
-        <Link href={`${data.base}/funds`} className="underline underline-offset-4">
+        <Link href={`${data.base}/funds`} className="text-accent underline underline-offset-4">
           Add one
         </Link>{" "}
         to see where its money goes.

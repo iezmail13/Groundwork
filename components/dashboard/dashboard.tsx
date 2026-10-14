@@ -303,7 +303,7 @@ function SortableWidget({
                     <span className="sr-only">{{ s: "Small", m: "Medium", l: "Large" }[size]}</span>
                     <span
                       aria-hidden
-                      className="block px-2 py-0.5 font-heading text-xs font-bold peer-checked:bg-primary peer-checked:text-on-primary peer-focus-visible:outline-2 peer-focus-visible:outline-ink"
+                      className="block px-2 py-0.5 font-heading text-xs font-bold peer-checked:bg-accent peer-checked:text-on-accent peer-focus-visible:outline-2 peer-focus-visible:outline-ink"
                     >
                       {size.toUpperCase()}
                     </span>

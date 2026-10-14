@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Archive, ArrowLeft, CalendarDays, Download, FileText, ListChecks, Lock, Users } from "lucide-react";
+import { Archive, ArrowLeft, CalendarDays, CircleDot, Download, FileText, ListChecks, Lock, Users } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ProjectDot } from "@/components/tasks/badges";
@@ -87,7 +87,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
 
   return (
     <div className="flex flex-col gap-8">
-      <Link href={`${base}/projects`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+      <Link href={`${base}/projects`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
         <ArrowLeft aria-hidden className="size-4" />
         All {lower(t("project", "other"))}
       </Link>
@@ -107,7 +107,7 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                   {t("status.archived")}
                 </Badge>
               ) : (
-                <Badge variant="outline">{t("status.active")}</Badge>
+                <Badge variant="good" icon={<CircleDot aria-hidden className="size-3.5" />}>{t("status.active")}</Badge>
               )}
               {project.tracks_participants && myRank >= 2 ? (
                 <Link href={`${base}/attendance?program=${project.id}`} className="font-semibold hover:underline">

@@ -12,7 +12,7 @@ export function ProgressBar({ done, total, label }: { done: number; total: numbe
         aria-label={label}
         className="h-2 flex-1 overflow-hidden rounded-full border border-rule bg-panel"
       >
-        <div className="progress-fill h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+        <div className="progress-fill h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-14 text-right text-sm tabular-nums text-ink-muted">
         {done}/{total}

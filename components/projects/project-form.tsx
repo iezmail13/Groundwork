@@ -98,7 +98,7 @@ export function ProjectForm({
           type="checkbox"
           name="tracksParticipants"
           defaultChecked={project?.tracks_participants ?? false}
-          className="mt-1 size-4 accent-[var(--ink)]"
+          className="mt-1 size-4 accent-[var(--accent)]"
           aria-describedby="project-tracks-hint"
         />
         <span>

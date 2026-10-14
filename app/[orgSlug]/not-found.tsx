@@ -7,7 +7,7 @@ export default function OrgNotFound() {
       <p className="mt-2 text-ink-muted">
         This page doesn&apos;t exist, or you don&apos;t have access to it.
       </p>
-      <Link href="/" className="mt-4 inline-block underline underline-offset-4">
+      <Link href="/" className="mt-4 inline-block text-accent underline underline-offset-4">
         Go to my organizations
       </Link>
     </div>

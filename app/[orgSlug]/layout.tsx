@@ -46,7 +46,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} />
         <a
           href="#main"
-          className="sr-only-focusable fixed top-2 left-2 z-[60] rounded-md bg-primary px-3 py-2 font-semibold text-on-primary"
+          className="sr-only-focusable fixed top-2 left-2 z-[60] rounded-md bg-accent px-3 py-2 font-semibold text-on-accent"
         >
           Skip to content
         </a>

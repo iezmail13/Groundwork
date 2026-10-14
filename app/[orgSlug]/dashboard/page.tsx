@@ -108,12 +108,12 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
             Reminders
           </h2>
           {myOverdue ? (
-            <Link href={`${base}/tasks?view=list&assignee=me&due=overdue`} className="font-semibold underline underline-offset-4">
+            <Link href={`${base}/tasks?view=list&assignee=me&due=overdue`} className="font-semibold text-accent underline underline-offset-4">
               {myOverdue} of your {taskWord(myOverdue)} {myOverdue === 1 ? "is" : "are"} overdue
             </Link>
           ) : null}
           {mySoon ? (
-            <Link href={`${base}/tasks?view=list&assignee=me&due=week`} className="underline underline-offset-4">
+            <Link href={`${base}/tasks?view=list&assignee=me&due=week`} className="text-accent underline underline-offset-4">
               {mySoon} due in the next two days
             </Link>
           ) : null}
