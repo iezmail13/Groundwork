@@ -123,9 +123,9 @@ select is((select count(*)::int from public.projects), 1, 'a manager sees only t
 
 -- Assignees must be on the project ----------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
-select throws_ok($$ update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2' $$, 'P0001', 'That person isn''t on this project', 'a task cannot be assigned to someone off its project');
-select lives_ok($$ update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000e' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2' $$, 'a task can be assigned to someone on its project');
-select lives_ok($$ update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where title = 'Sam task' $$, 'owners can be assigned anywhere');
+select throws_ok($$ select public.appoint_to_task('aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000b') $$, 'P0001', 'That person isn''t on this project', 'a task cannot be assigned to someone off its project');
+select lives_ok($$ select public.appoint_to_task('aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000e') $$, 'a task can be assigned to someone on its project');
+select lives_ok($$ select public.appoint_to_task((select id from public.tasks where title = 'Sam task'), 'aaaaaaaa-1111-0000-0000-00000000000a') $$, 'owners can be assigned anywhere');
 
 -- Leaving a project frees open work there ----------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
@@ -133,11 +133,12 @@ select is(tests.affected($q$ delete from public.project_members where membership
 select is((select count(*)::int from public.tasks where project_id = 'aaaaaaaa-3333-0000-0000-0000000000a2'), 0, 'and stop seeing it at once');
 reset role;
 select is(
-  (select row(assignee_membership_id, needs_assignee)::text from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000a2'),
-  row(null::uuid, true)::text,
+  (select row((select count(*)::int from public.task_assignees a where a.task_id = t.id), needs_assignee)::text from public.tasks t where id = 'aaaaaaaa-4444-0000-0000-0000000000a2'),
+  row(0, true)::text,
   'their open task there is unassigned and flagged'
 );
-update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000c' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2';
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000c', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
 select is((select needs_assignee from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000a2'), false, 'reassigning clears the flag');
 
 -- A demotion lowers project roles above the new ceiling -----------------------------------
