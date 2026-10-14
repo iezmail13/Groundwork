@@ -4,7 +4,7 @@ import { DueBadge, NeedsAssigneeBadge, PriorityFlag, ProjectDot, TaskStatusBadge
 import { assigneeIds } from "@/lib/task-filters";
 import { TaskDoneBox } from "./task-checkbox";
 import type { TaskRow } from "@/lib/queries";
-import type { Translate } from "@/lib/terminology/t";
+import { lower, type Translate } from "@/lib/terminology/t";
 
 export type SortKey = "title" | "project" | "assignee" | "status" | "priority" | "due";
 export type Sort = { key: SortKey; dir: "asc" | "desc" };
@@ -103,7 +103,9 @@ export function TaskTable({
                       <ProjectDot color={task.project.color} />
                       {task.project.name}
                     </Link>
-                  ) : null}
+                  ) : (
+                    <span className="text-ink-muted">{task.kind === "personal" ? t("task_kind.personal") : `No ${lower(t("project"))}`}</span>
+                  )}
                 </td>
               ) : null}
               <td className="py-2.5 pr-4 text-sm">

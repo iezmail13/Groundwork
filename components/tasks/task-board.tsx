@@ -124,18 +124,25 @@ function BoardColumn({
   const t = useT();
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [order, setOrder] = useState(() => (sortable ? sortByPosition(tasks) : tasks));
+  const [arranged, setOrder] = useState(() => (sortable ? sortByPosition(tasks) : tasks));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const dndId = useId();
 
-  // follow the server whenever the column's contents change
-  const signature = tasks.map((x) => `${x.id}:${x.position}:${x.status}:${x.assignees.length}:${x.priority}`).join("|");
+  // follow the server whenever the column's contents or order change; the
+  // cards themselves always show the latest data (parts ticked, people on it)
+  const signature = tasks.map((x) => `${x.id}:${x.position}`).join("|");
   const [lastSignature, setLastSignature] = useState(signature);
   if (signature !== lastSignature) {
     setLastSignature(signature);
     setOrder(sortable ? sortByPosition(tasks) : tasks);
   }
+  const latest = new Map(tasks.map((x) => [x.id, x]));
+  const order = arranged.map((x) => {
+    const fresh = latest.get(x.id);
+    // keep a just-dropped card's new position until the server confirms it
+    return fresh ? { ...fresh, position: x.position } : x;
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
