@@ -247,9 +247,10 @@ export const logoUploadInput = z.object({
   mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image. SVG files aren't accepted." }),
 });
 
-/** A colour as #RRGGBB, stored upper-case; "" means "use the default". */
+/** A colour as #RRGGBB, stored upper-case; empty (or left out) means "use the default". */
 export const accentInput = z
   .string()
   .trim()
-  .transform((v) => (v === "" ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
+  .optional()
+  .transform((v) => (!v ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
   .refine((v) => v === null || /^#[0-9A-F]{6}$/.test(v), "Use a colour like #0006BF.");
