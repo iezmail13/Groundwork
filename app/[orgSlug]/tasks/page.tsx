@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ListChecks, SearchX } from "lucide-react";
+import { ListChecks, Plus, SearchX } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskBoard } from "@/components/tasks/task-board";
@@ -9,7 +10,7 @@ import { QuickAddTask } from "@/components/tasks/quick-add";
 import { getMembers, getOrgContext, initials } from "@/lib/org";
 import { getAssigneeNames } from "@/lib/projects";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
-import { filterTasks, readFilters, readSort, sortTasks } from "@/lib/task-filters";
+import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
 import { lower } from "@/lib/terminology/t";
 
@@ -36,8 +37,9 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   const all = (data ?? []) as TaskRow[];
   const filters = readFilters(sp);
   const sort = readSort(sp);
-  // the board shows every status as a column, so the status filter is list-only
-  const visible = filterTasks(all, view === "board" ? { ...filters, status: undefined } : filters, today, ctx.membershipId);
+  // finished work is hidden unless the Completed filter asks for it (D101)
+  const visible = forStatusView(filterTasks(all, filters, today, ctx.membershipId), filters.status);
+  const byUrgency = sp.order === "priority";
   const plural = t("task", "other");
 
   const sortHref = (key: SortKey) => {
@@ -51,7 +53,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
 
   const tabHref = (v: string) => {
     const next = new URLSearchParams();
-    for (const k of ["project", "assignee", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
+    for (const k of ["project", "assignee", "status", "priority", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
     if (v === "list") next.set("view", "list");
     const qs = next.toString();
     return `${base}/tasks${qs ? `?${qs}` : ""}`;
@@ -61,6 +63,12 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
     <div className="flex flex-col gap-5">
       <PageHeader
         title={plural}
+        actions={
+          <ButtonLink href={`${base}/tasks/new`}>
+            <Plus aria-hidden className="size-4" />
+            New {lower(t("task"))}
+          </ButtonLink>
+        }
         tabsLabel={`${plural} views`}
         tabs={[
           { label: "Board", href: tabHref("board"), active: view === "board" },
@@ -76,13 +84,15 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
       ) : (
         <>
           <FilterBar
-            showStatus={view === "list"}
+            showOrder={view === "board"}
             projects={projects.map((p) => ({ value: p.id, label: p.name }))}
             members={members.map((m) => ({ value: m.id, label: m.name }))}
           />
           {view === "board" ? (
             <TaskBoard
-              tasks={visible}
+              tasks={byUrgency ? [...visible].sort(byPriority) : visible}
+              completed={filters.status === "done"}
+              sortedByPriority={byUrgency}
               base={base}
               today={today}
               organizationId={org.id}

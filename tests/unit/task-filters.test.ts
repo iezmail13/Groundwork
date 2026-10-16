@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterTasks, readFilters, readSort, sortTasks } from "@/lib/task-filters";
+import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
 import type { TaskAssignee, TaskRow } from "@/lib/queries";
 
 const P1 = "11111111-1111-4111-8111-111111111111";
@@ -82,9 +82,32 @@ describe("task filters", () => {
       project: undefined,
       assignee: undefined,
       status: undefined,
+      priority: undefined,
       due: undefined,
     });
+    expect(readFilters({ priority: "urgent" }).priority).toBeUndefined();
+    expect(readFilters({ priority: "high" }).priority).toBe("high");
     expect(readSort({ sort: "nope", dir: "sideways" })).toEqual({ key: "due", dir: "asc" });
+  });
+});
+
+describe("priority and completed work", () => {
+  const ranked = [
+    task("low", { priority: "low", due_date: "2026-10-08" }),
+    task("critical-later", { priority: "critical", due_date: "2026-10-20" }),
+    task("critical-sooner", { priority: "critical", due_date: "2026-10-09" }),
+    task("medium", {}),
+  ];
+  it("filters by priority", () => {
+    expect(ids(filterTasks(ranked, { priority: "critical" }, today, ME))).toEqual(["critical-later", "critical-sooner"]);
+  });
+  it("sorts most urgent first, then soonest due", () => {
+    expect(ids([...ranked].sort(byPriority))).toEqual(["critical-sooner", "critical-later", "medium", "low"]);
+    expect(ids(sortTasks(ranked, { key: "priority", dir: "asc" }, new Map()))[0]).toMatch(/^critical/);
+  });
+  it("shows open work by default and finished work only under Completed", () => {
+    expect(ids(forStatusView(tasks, undefined))).not.toContain("late-but-done");
+    expect(ids(forStatusView(tasks, "done"))).toEqual(["late-but-done"]);
   });
 });
 

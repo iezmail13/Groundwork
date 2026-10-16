@@ -20,7 +20,8 @@ import { allocatedCents, getProjectFunding } from "@/lib/funds";
 import { formatMoney, formatShare } from "@/lib/money";
 import { SplitBar } from "@/components/funds/split-bar";
 import { DOCUMENT_SELECT, EVENT_SELECT, getProjectOptions, TASK_SELECT, type DocumentRow, type EventRow, type TaskRow } from "@/lib/queries";
-import { sortTasks } from "@/lib/task-filters";
+import { filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
+import { FilterBar } from "@/components/tasks/filter-bar";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTime, eventStartDate, formatRelativeDate } from "@/lib/dates";
 import { toEventFormValues } from "@/lib/event-values";
@@ -43,8 +44,9 @@ export async function generateMetadata({ params }: PageProps<"/[orgSlug]/project
   return { title: project?.name ?? ctx.t("project") };
 }
 
-export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/projects/[projectId]">) {
+export default async function ProjectPage({ params, searchParams }: PageProps<"/[orgSlug]/projects/[projectId]">) {
   const { orgSlug, projectId } = await params;
+  const sp = await searchParams;
   const ctx = await getOrgContext(orgSlug);
   const { t, org, base, today, tz } = ctx;
   const project = await loadProject(org.id, projectId);
@@ -218,12 +220,33 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
         </div>
         {archived ? null : <QuickAddTask organizationId={org.id} projectId={project.id} idSuffix="project" />}
         {tasks.length ? (
+          <FilterBar
+            showProject={false}
+            projects={[]}
+            members={members.map((m) => ({ value: m.id, label: m.name }))}
+          />
+        ) : null}
+        {tasks.length ? (
           <TaskTable
-            tasks={sortTasks(tasks, { key: "status", dir: "asc" }, assigneeNames)}
+            tasks={sortTasks(
+              // finished work shows under the Completed filter (D101)
+              forStatusView(filterTasks(tasks, readFilters(sp), today, ctx.membershipId), readFilters(sp).status),
+              typeof sp.sort === "string" ? readSort(sp) : { key: "priority", dir: "asc" },
+              assigneeNames,
+            )}
             base={base}
             today={today}
             t={t}
             memberName={assigneeNames}
+            sort={typeof sp.sort === "string" ? readSort(sp) : { key: "priority", dir: "asc" }}
+            sortHref={(key) => {
+              const next = new URLSearchParams();
+              for (const [k, v] of Object.entries(sp)) if (typeof v === "string") next.set(k, v);
+              const current = typeof sp.sort === "string" ? readSort(sp) : { key: "priority", dir: "asc" };
+              next.set("sort", key);
+              next.set("dir", current.key === key && current.dir === "asc" ? "desc" : "asc");
+              return `${base}/projects/${project.id}?${next.toString()}#project-tasks`;
+            }}
             showProject={false}
             caption={`${t("task", "other")} in ${project.name}`}
           />

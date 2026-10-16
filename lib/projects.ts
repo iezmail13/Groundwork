@@ -117,6 +117,10 @@ export async function getAssigneeOptions(orgId: string): Promise<Record<string, 
     for (const o of owners) add(project.id, { value: `m:${o.id}`, name: o.name });
   }
   for (const i of invitees) for (const projectId of i.projectIds) add(projectId, { value: `i:${i.id}`, name: `${i.name} (pending)` });
+  // work outside any project ("") can go to anyone in the organization
+  options[""] = [];
+  for (const m of members) add("", { value: `m:${m.id}`, name: m.name });
+  for (const i of invitees) add("", { value: `i:${i.id}`, name: `${i.name} (pending)` });
   for (const list of Object.values(options)) list.sort((a, b) => a.name.localeCompare(b.name));
   return options;
 }

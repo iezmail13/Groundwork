@@ -510,3 +510,14 @@ dialog.gw-drawer[open] {
     background: var(--ink);
   }
 }
+
+/* The Undo toast rises in (and doesn't move under reduced motion). */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast-in {
+  animation: toast-in 180ms var(--ease-out);
+}

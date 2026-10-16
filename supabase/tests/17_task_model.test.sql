@@ -5,7 +5,7 @@
 -- or shares.
 begin;
 \ir fixtures.inc
-select plan(58);
+select plan(61);
 
 -- Org A: Alice (owner), Olga (owner), Max (manager), Ada (admin), Mia, Sam and Tia (staff).
 insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
@@ -173,6 +173,10 @@ select lives_ok($$ insert into public.tasks (id, organization_id, project_id, ti
   'but can make a personal task outside any project');
 select throws_ok($$ update public.tasks set kind = 'general' where id = 'aaaaaaaa-4444-0000-0000-0000000000b1' $$,
   '42501', null, 'which stays personal');
+select lives_ok($$ select public.claim_task('aaaaaaaa-4444-0000-0000-0000000000b1') $$, 'the creator puts themselves on their personal task');
+select is((select status::text from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000b1'), 'in_progress', 'which is then in progress');
+select tests.as_user('a0000000-0000-0000-0000-00000000000d');
+select throws_ok($$ select public.claim_task('aaaaaaaa-4444-0000-0000-000000000003') $$, 'P0001', null, 'nobody else can claim someone''s personal task, even if they can see it');
 select tests.as_user('a0000000-0000-0000-0000-00000000000c');
 select is(tests.affected($q$ update public.tasks set hidden = true where id = 'aaaaaaaa-4444-0000-0000-000000000007' $q$), 1, 'a manager can hide a task');
 

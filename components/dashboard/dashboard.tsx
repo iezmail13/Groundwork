@@ -300,7 +300,7 @@ function SortableWidget({
                       onChange={() => onSize(size)}
                       className="peer sr-only"
                     />
-                    <span className="sr-only">{{ s: "Small", m: "Medium", l: "Large" }[size]}</span>
+                    <span className="sr-only">{{ s: "Small size", m: "Medium size", l: "Large size" }[size]}</span>
                     <span
                       aria-hidden
                       className="block px-2 py-0.5 font-heading text-xs font-bold peer-checked:bg-accent peer-checked:text-on-accent peer-focus-visible:outline-2 peer-focus-visible:outline-ink"

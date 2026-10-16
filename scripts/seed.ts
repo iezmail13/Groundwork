@@ -372,6 +372,63 @@ async function main() {
     must(await db.from("tasks").update({ status }).eq("id", id).select("id"), `status ${title}`);
   }
 
+  // priorities (D100): a few urgent ones, a few that can wait; the rest stay medium
+  const priorities: [string, "critical" | "high" | "low"][] = [
+    ["Review volunteer police checks", "critical"],
+    ["Confirm room booking for November", "high"],
+    ["Book the van for collection days", "high"],
+    ["Match new mentors with students", "high"],
+    ["Order new graph-paper notebooks", "low"],
+    ["Plan the distribution day layout", "low"],
+    ["Share the mentor guide", "low"],
+  ];
+  for (const [title, priority] of priorities) {
+    const id = insertedTasks.find((x) => x.title === title)!.id;
+    must(await db.from("tasks").update({ priority }).eq("id", id).select("id"), `priority ${title}`);
+  }
+  // open work with spots to claim
+  const openSpots = insertedTasks.find((x) => x.title === "Recruit sorting-day volunteers")!.id;
+  must(await db.from("tasks").update({ kind: "general", claim_limit: 3 }).eq("id", openSpots).select("id"), "claim limit");
+
+  // the newer kinds of work (D100): personal, org-level, hidden, and work everyone finishes
+  type TaskSeed = Database["public"]["Tables"]["tasks"]["Insert"];
+  // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
+  const extra = (t: Omit<TaskSeed, "organization_id">): TaskSeed => ({
+    organization_id: org.id,
+    status: "todo",
+    position: 100,
+    hidden: false,
+    claim_limit: null,
+    completion: "any",
+    ...t,
+  });
+  const more = must(
+    await db
+      .from("tasks")
+      .insert([
+        extra({ project_id: null, kind: "personal", title: "Draft my notes for the mentor check-ins", due_date: day(2), priority: "medium", created_by: sofia! }),
+        extra({ project_id: null, kind: "general", title: "Renew the liability insurance", due_date: day(10), priority: "critical", claim_limit: 1, created_by: jordan! }),
+        extra({ project_id: null, kind: "appointed", completion: "all", title: "Sign the updated volunteer code of conduct", due_date: day(6), priority: "high", created_by: jordan! }),
+        extra({ project_id: HC, kind: "appointed", hidden: true, title: "Follow up on a family's fee waiver", due_date: day(3), priority: "high", created_by: priya! }),
+      ])
+      .select("id, title"),
+    "more tasks",
+  );
+  const moreId = (title: string) => more.find((x) => x.title.startsWith(title))!.id;
+  must(
+    await db
+      .from("task_assignees")
+      .insert([
+        { organization_id: org.id, task_id: moreId("Draft my notes"), membership_id: m(sofia!), kind: "claimed", added_by: sofia! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(priya!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(marcus!), kind: "appointed", added_by: jordan!, done_at: new Date().toISOString() },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(sofia!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Follow up on a family"), membership_id: m(marcus!), kind: "appointed", added_by: priya! },
+      ])
+      .select("id"),
+    "more assignees",
+  );
+
   const at = (offset: number, time: string) => zonedTimeToUtc(day(offset), time, TZ).toISOString();
   type EventSeed = Database["public"]["Tables"]["events"]["Insert"];
   // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
@@ -572,7 +629,7 @@ async function main() {
   must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
 
   console.log(
-    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
+    `Done: 4 people, ${projects.length} projects, ${tasks.length + more.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
       `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }
