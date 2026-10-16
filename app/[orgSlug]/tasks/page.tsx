@@ -7,7 +7,8 @@ import { TaskBoard } from "@/components/tasks/task-board";
 import { TaskTable, type SortKey } from "@/components/tasks/task-table";
 import { FilterBar } from "@/components/tasks/filter-bar";
 import { QuickAddTask } from "@/components/tasks/quick-add";
-import { getMembers, getOrgContext, initials } from "@/lib/org";
+import { getMembers, getOrgContext } from "@/lib/org";
+import { getAvatars } from "@/lib/members";
 import { getAssigneeNames } from "@/lib/projects";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
@@ -27,11 +28,12 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   const { t, org, base, today } = ctx;
   const supabase = await createClient();
 
-  const [{ data, error }, members, projects, memberName] = await Promise.all([
+  const [{ data, error }, members, projects, memberName, avatars] = await Promise.all([
     supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).order("position").limit(2000),
     getMembers(org.id),
     getProjectOptions(org.id),
     getAssigneeNames(org.id),
+    getAvatars(org.id, base),
   ]);
   if (error) throw error;
   const all = (data ?? []) as TaskRow[];
@@ -97,7 +99,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
               today={today}
               organizationId={org.id}
               projects={projects}
-              memberInitials={Object.fromEntries([...memberName].map(([assigneeId, name]) => [assigneeId, { initials: initials(name), name }]))}
+              memberInitials={avatars}
             />
           ) : (
             <div className="flex flex-col gap-4">

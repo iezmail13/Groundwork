@@ -17,6 +17,8 @@ export type Member = {
   role: Role;
   name: string;
   email: string;
+  /** Their photo in this organization (D104), if they've set one. */
+  photoPath: string | null;
 };
 
 /** The signed-in user for this request, or a redirect to /login. */
@@ -87,7 +89,7 @@ export const getMembers = cache(async (orgId: string): Promise<Member[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("memberships")
-    .select("id, user_id, role, created_at, profile:profiles(full_name, email)")
+    .select("id, user_id, role, created_at, photo_path, profile:profiles(full_name, email)")
     .eq("organization_id", orgId)
     .order("created_at");
   return (data ?? []).map((m) => ({
@@ -96,6 +98,7 @@ export const getMembers = cache(async (orgId: string): Promise<Member[]> => {
     role: m.role,
     name: m.profile?.full_name || m.profile?.email || "Unknown",
     email: m.profile?.email ?? "",
+    photoPath: m.photo_path,
   }));
 });
 

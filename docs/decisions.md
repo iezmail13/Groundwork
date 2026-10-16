@@ -400,3 +400,29 @@ The activity log:
 - **Visibility is unchanged:** the same RLS as before. Owners see everything; others see their programs' activity filtered by `can_view_task()`; fund entries are for owners and managers (D82); participant entries follow D81.
 
 Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a creator who lost access, personal work, due and overdue sent once, mutes (including not muting for someone else), low attendance (alert, once per spell, recovery, batches), recipients reading and marking only their own, organizations kept apart, and the append-only log. e2e `tests/e2e/notifications.spec.ts` covers the completion notification reaching the creator and lead but not the finisher, Mark all read, a mute stopping and resuming a kind, the activity filters, and owner-only export.
+
+## People, part 7: member profiles and online status
+
+**D104. Member profiles, photos, muting a person, and online status.**
+
+- **The name is the display name.** The brief asks for `profiles.display_name`. The existing `full_name` already is that: it's set from Google (`full_name` in the sign-in metadata) at sign-up, from the invite form at acceptance, and shown everywhere. Following "change what's there, don't build a parallel version", it stays as the one name column, labelled Name. `title` (up to 120 characters) and `bio` (up to 1,000) are new. People edit their own name, title and bio in Settings → Profile. Email comes from sign-in and is shown read-only (no column grant allows changing it). Roles still change only in Settings → Members.
+- **Photos belong to a membership**, not the global profile, because the brief stores them under the organization (`{organization_id}/profiles/{user_id}/…`) and only that organization's members should see them. A person in two organizations can have a different photo in each.
+  - Storage: the private `profile-photos` bucket (PNG, JPG or WebP, 5 MB; never SVG), read by the organization's members. Each person writes and deletes only in their own folder.
+  - Setting a photo: `memberships.photo_path` is set only through `set_my_photo()`, which checks the file was uploaded by the caller and hands back the photo it replaced. The app then deletes that file. A check constraint keeps the path inside the caller's own folder.
+  - Display: links are signed per request. Initials show when there's no photo.
+- **The profile page**, `/{org}/members/{userId}`, shows photo, name, title, email, org role, online status and bio. It also lists the programs they're on and their open work, both read through the viewer's own access (project membership RLS and `can_view_task()`), so two viewers of different rank can see different lists on the same profile. Profiles are linked from Settings → Members, the avatars on task cards, and the names on a task's page. Chat (Part 9) and the workload chart (Part 8) will link there too.
+- **Muting a person.** Someone else's profile has a "Mute notifications from [name]" switch that only the viewer sees. It adds a `notification_mutes` row naming the person, and only people in the same organization can be muted (RLS). `notification_muted()`, the one mute check from D103, now also returns true when the actor is muted or when the recipient has Do not disturb on. Part 9 adds channels.
+- **Online status** uses Supabase Realtime Presence on a private channel per organization, `org:{id}:presence`.
+  - Who can join: only that organization's members can listen or announce on it, through `can_use_realtime_topic()` in policies on `realtime.messages`. Realtime now runs locally and in CI, because Parts 8 and 9 need it too.
+  - States: Online while Groundwork is open, and Away after five minutes without input or while the tab is hidden. When someone has several tabs, the most active one counts. Offline when nothing is announced.
+  - Personal setting: Settings → Profile offers Automatic, Do not disturb (shown to others, and it mutes notifications) or Appear offline (announces nothing). It's stored as `profiles.presence_mode`, so the database can honour Do not disturb.
+  - Staying connected: each browser tab keeps one presence channel, and announces its status again after every reconnect. Its heartbeat runs in a small inline worker (`realtime: { worker: true }`), so background tabs aren't throttled into looking offline. The CSP gains `worker-src 'self' blob:` for that worker, and no other host.
+  - Where it shows: a dot plus a word, never colour alone (green Online, amber Away, red Do not disturb, outlined Offline), in Settings → Members, the task form's people picker, and profiles. Part 9 adds chat.
+- **Tests.** pgTAP `21_member_profiles` covers:
+  - editing only your own profile, email not editable, photos set only through `set_my_photo`;
+  - storage per folder and per organization;
+  - two viewers seeing different work and programs on one profile;
+  - person mutes (only within the organization, not yourself) and Do not disturb;
+  - presence topics limited to members.
+  
+  e2e `tests/e2e/people.spec.ts` covers editing your profile and uploading, refusing and removing a photo, the same profile showing a lead and a staff member different work, muting one person while another still notifies, and live status changes (online, Do not disturb, Appear offline, closing the app).

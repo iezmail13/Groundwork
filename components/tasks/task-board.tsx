@@ -21,7 +21,7 @@ import { moveTask } from "@/app/[orgSlug]/tasks/actions";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import type { ProjectOption, TaskRow, TaskStatus } from "@/lib/queries";
-import { AssigneeStack, DueBadge, NeedsAssigneeBadge, PriorityFlag, ProjectDot, TaskStatusIcon } from "./badges";
+import { AssigneeStack, type StackPerson, DueBadge, NeedsAssigneeBadge, PriorityFlag, ProjectDot, TaskStatusIcon } from "./badges";
 import { assigneeIds } from "@/lib/task-filters";
 import { QuickAddTask } from "./quick-add";
 import { TaskDoneBox } from "./task-checkbox";
@@ -49,7 +49,7 @@ export function TaskBoard({
   today: string;
   organizationId: string;
   projects: ProjectOption[];
-  memberInitials: Record<string, { initials: string; name: string }>;
+  memberInitials: Record<string, StackPerson>;
   /** The Completed filter: one column of finished work. */
   completed: boolean;
   /** Ordered by priority rather than by hand, so dragging is off. */
@@ -116,7 +116,7 @@ function BoardColumn({
   tasks: TaskRow[];
   base: string;
   today: string;
-  memberInitials: Record<string, { initials: string; name: string }>;
+  memberInitials: Record<string, StackPerson>;
   sortable: boolean;
   title: string;
   children?: ReactNode;
@@ -251,7 +251,7 @@ function Card({
   task: TaskRow;
   base: string;
   today: string;
-  memberInitials: Record<string, { initials: string; name: string }>;
+  memberInitials: Record<string, StackPerson>;
   sortable: boolean;
 }) {
   const t = useT();
@@ -264,7 +264,7 @@ function Card({
     transition,
   };
   const [completing, setCompleting] = useState(false);
-  const people = assigneeIds(task).map((id) => memberInitials[id]).filter((p): p is { initials: string; name: string } => Boolean(p));
+  const people = assigneeIds(task).map((id) => memberInitials[id]).filter((p): p is StackPerson => Boolean(p));
 
   return (
     <li
