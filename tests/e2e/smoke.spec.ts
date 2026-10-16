@@ -529,6 +529,9 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
   await expect(page).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
+  // the seeded overdue work belongs to people she oversees, so it shows under "Everything I oversee"
+  await page.getByRole("navigation", { name: "Whose work" }).getByRole("link", { name: "Everything I oversee" }).click();
+  await expect(page).toHaveURL(/scope=all/);
   const deadlines = page.locator('li[data-widget="deadlines"]');
   await expect(deadlines.getByText("overdue", { exact: true })).toBeVisible();
   await expect(deadlines.locator(".text-3xl").first()).toHaveText(/^[1-9]\d*$/);
