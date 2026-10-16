@@ -86,7 +86,7 @@ export default function SecurityPage() {
         <ProseSection id="report" title="Found a problem?">
           <p>
             If you think you&apos;ve found a security issue, please email{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline underline-offset-4">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent underline underline-offset-4">
               {CONTACT_EMAIL}
             </a>{" "}
             before sharing it anywhere else.

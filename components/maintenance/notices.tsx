@@ -25,7 +25,7 @@ export function ScheduledMaintenanceBanner({ setting, timeZone }: { setting: Mai
 export function LandingMaintenanceNotice({ setting, timeZone }: { setting: MaintenanceSetting; timeZone: string }) {
   if (setting.active) {
     return (
-      <div role="status" className="flex items-center justify-center gap-2 bg-primary px-4 py-2 text-center text-sm font-semibold text-on-primary">
+      <div role="status" className="flex items-center justify-center gap-2 bg-accent px-4 py-2 text-center text-sm font-semibold text-on-accent">
         <Wrench aria-hidden className="size-4 shrink-0" />
         <span>
           Groundwork is down for maintenance{setting.message ? `: ${setting.message}` : "."} Signing in will work again when it&apos;s done.

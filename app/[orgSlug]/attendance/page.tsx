@@ -222,7 +222,7 @@ async function TakeView({ ctx, programs, sp }: { ctx: OrgContext; programs: Prog
       </form>
 
       {!session ? (
-        <EmptyState icon={<CalendarX aria-hidden />} title={`No ${lower(t("event", "other"))} to check in`}>
+        <EmptyState icon={<CalendarX aria-hidden />} illustration="schedule" title={`No ${lower(t("event", "other"))} to check in`}>
           {program.name} has no {lower(t("event", "other"))} in the last two months or the next one. Add one to the{" "}
           <Link href={`${base}/calendar`} className="font-semibold underline">
             {lower(t("section.calendar"))}
@@ -230,7 +230,7 @@ async function TakeView({ ctx, programs, sp }: { ctx: OrgContext; programs: Prog
           for this {lower(t("project"))}.
         </EmptyState>
       ) : roster.length === 0 ? (
-        <EmptyState icon={<UsersRound aria-hidden />} title={`No ${lower(t("participant", "other"))} on ${program.name} yet`}>
+        <EmptyState icon={<UsersRound aria-hidden />} illustration="team" title={`No ${lower(t("participant", "other"))} on ${program.name} yet`}>
           Add them from the {t("participant", "other")} tab.
         </EmptyState>
       ) : (

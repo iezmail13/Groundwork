@@ -3,6 +3,9 @@ import { CircleCheck, Lock } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { InviteForm, OrganizationForm, PresetForm, type PresetChoice } from "@/components/settings/forms";
 import { MembersTable, PendingInvites, TransferOwnership } from "@/components/settings/members";
+import { AppearanceForm, BrandingForm, LogoUploader } from "@/components/settings/branding";
+import { getBranding } from "@/lib/branding";
+import { DEFAULT_ACCENT } from "@/lib/theme/theme";
 import { getMembers, getOrgContext } from "@/lib/org";
 import { createClient } from "@/lib/supabase/server";
 import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
@@ -11,7 +14,7 @@ import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
 import { getProjectOptions } from "@/lib/queries";
 
-const VIEWS = ["preset", "members", "organization"] as const;
+const VIEWS = ["preset", "members", "organization", "branding", "profile"] as const;
 type View = (typeof VIEWS)[number];
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/settings">): Promise<Metadata> {
@@ -36,9 +39,11 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           tab("preset", "Preset"),
           tab("members", t("member", "other")),
           tab("organization", "Organization"),
+          tab("branding", "Branding"),
+          tab("profile", "Profile"),
         ]}
       />
-      {!canManage ? (
+      {!canManage && view !== "profile" ? (
         <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
           <Lock aria-hidden className="size-4" />
           Only {lower(t("role.owner", "other"))} and {lower(t("role.manager", "other"))} can change settings. You can see them here.
@@ -54,7 +59,73 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
         />
       ) : null}
       {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
+      {view === "branding" ? <BrandingPanel orgSlug={orgSlug} /> : null}
+      {view === "profile" ? <ProfilePanel orgSlug={orgSlug} /> : null}
     </div>
+  );
+}
+
+async function BrandingPanel({ orgSlug }: { orgSlug: string }) {
+  const { org, userId, canManage, role } = await getOrgContext(orgSlug);
+  const branding = await getBranding(org, userId);
+  return (
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="branding-colour" className="flex flex-col gap-3">
+        <h2 id="branding-colour" className="text-xl font-bold">
+          Colour and artwork
+        </h2>
+        <p className="max-w-2xl text-ink-muted">
+          The accent colours buttons, links and the current page for everyone in {org.name}. Status colours (done, due soon,
+          overdue) stay the same everywhere, so they always mean the same thing.
+        </p>
+        <BrandingForm
+          organizationId={org.id}
+          accent={org.accent}
+          showIllustrations={org.show_illustrations}
+          allowPersonalAccent={org.allow_personal_accent}
+          canManage={canManage}
+          isOwner={role === "owner"}
+        />
+      </section>
+      <section aria-labelledby="branding-logo" className="flex max-w-3xl flex-col gap-3">
+        <h2 id="branding-logo" className="text-xl font-bold">
+          Logo
+        </h2>
+        <p className="text-ink-muted">
+          Your logo replaces Groundwork&apos;s in the sidebar, with a small &ldquo;Powered by Groundwork&rdquo; mark beneath. Sign-in
+          pages and emails keep Groundwork&apos;s logo.
+        </p>
+        <LogoUploader organizationId={org.id} variant="light" currentUrl={branding.logoUrl} canManage={canManage} />
+        {branding.logoUrl ? (
+          <LogoUploader
+            organizationId={org.id}
+            variant="dark"
+            currentUrl={branding.logoDarkUrl}
+            fallbackUrl={branding.logoUrl}
+            canManage={canManage}
+          />
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+async function ProfilePanel({ orgSlug }: { orgSlug: string }) {
+  const { org, userId } = await getOrgContext(orgSlug);
+  const branding = await getBranding(org, userId);
+  return (
+    <section aria-labelledby="profile-appearance" className="flex flex-col gap-3">
+      <h2 id="profile-appearance" className="text-xl font-bold">
+        How Groundwork looks for you
+      </h2>
+      <p className="max-w-2xl text-ink-muted">These choices change only your own screen.</p>
+      <AppearanceForm
+        themeMode={branding.themeMode}
+        personalAccent={branding.personalAccent}
+        orgAccent={org.accent ?? DEFAULT_ACCENT}
+        allowPersonalAccent={org.allow_personal_accent}
+      />
+    </section>
   );
 }
 

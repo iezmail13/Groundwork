@@ -38,7 +38,7 @@ export function CreateOrgForm({ presets, defaultName }: { presets: PresetOption[
                 name="preset"
                 value={p.key}
                 defaultChecked={i === 0}
-                className="mt-1 size-4 accent-[var(--ink)]"
+                className="mt-1 size-4 accent-[var(--accent)]"
               />
               <span>
                 <span className="block font-heading font-semibold">{p.name}</span>

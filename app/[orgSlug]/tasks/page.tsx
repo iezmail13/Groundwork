@@ -69,7 +69,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
       />
 
       {all.length === 0 && projects.length === 0 ? (
-        <EmptyState icon={<ListChecks />} title={`No ${lower(plural)} yet`}>
+        <EmptyState icon={<ListChecks />} illustration="tasks" title={`No ${lower(plural)} yet`}>
           Every {lower(t("task"))} belongs to a {lower(t("project"))}. Create a {lower(t("project"))} first, then add{" "}
           {lower(plural)} here or on its page.
         </EmptyState>

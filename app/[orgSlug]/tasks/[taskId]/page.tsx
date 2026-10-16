@@ -63,7 +63,7 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`${base}/tasks`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+      <Link href={`${base}/tasks`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
         <ArrowLeft aria-hidden className="size-4" />
         All {lower(t("task", "other"))}
       </Link>

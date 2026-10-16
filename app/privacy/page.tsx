@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 const mail = (
-  <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline underline-offset-4">
+  <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent underline underline-offset-4">
     {CONTACT_EMAIL}
   </a>
 );

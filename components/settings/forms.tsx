@@ -43,7 +43,7 @@ export function PresetForm({
                 name="preset"
                 value={p.key}
                 defaultChecked={p.key === current}
-                className="mt-1 size-4 accent-[var(--ink)]"
+                className="mt-1 size-4 accent-[var(--accent)]"
               />
               <span>
                 <span className="block font-heading font-semibold">

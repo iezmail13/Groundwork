@@ -109,7 +109,7 @@ export function EventForm({
           name="allDay"
           checked={allDay}
           onChange={(ev) => setAllDay(ev.target.checked)}
-          className="size-4 accent-[var(--ink)]"
+          className="size-4 accent-[var(--accent)]"
         />
         All day
       </label>

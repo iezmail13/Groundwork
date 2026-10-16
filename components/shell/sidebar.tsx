@@ -21,15 +21,20 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { LogoBadge } from "@/components/logo";
+import { Logo, Wordmark } from "@/components/logo";
 import { Menu, menuItemClass } from "@/components/ui/menu";
 import { useT } from "@/lib/terminology/context";
 
 export type ShellOrg = { name: string; slug: string };
+/** An organization's uploaded logo (D86): signed links to it and its optional dark-mode version. */
+export type OrgLogo = { url: string; darkUrl: string | null };
 export type RecentProject = { id: string; name: string };
 
 type Props = {
   org: ShellOrg;
+  logo: OrgLogo | null;
+  /** The viewer's controls (theme toggle), shown in the small-screen top bar. */
+  mobileActions: ReactNode;
   orgs: ShellOrg[];
   user: { name: string; email: string; initials: string };
   recent: RecentProject[];
@@ -81,7 +86,8 @@ export function Sidebar(props: Props) {
         >
           <MenuIcon aria-hidden className="size-5" />
         </button>
-        <HomeLink org={props.org} collapsed={false} />
+        <HomeLink org={props.org} logo={props.logo} collapsed={false} />
+        <div className="ml-auto flex items-center">{props.mobileActions}</div>
       </div>
 
       {mobileOpen ? (
@@ -103,21 +109,47 @@ export function Sidebar(props: Props) {
   );
 }
 
-function HomeLink({ org, collapsed }: { org: ShellOrg; collapsed: boolean }) {
+function HomeLink({ org, logo, collapsed }: { org: ShellOrg; logo: OrgLogo | null; collapsed: boolean }) {
+  const href = `/${org.slug}/dashboard`;
+  if (logo) {
+    // the rail is navy in both modes: the dark version if there is one, else the logo on a light backing
+    return (
+      <Link href={href} className="flex min-w-0 items-center rounded-md" aria-label={`${org.name} home`}>
+        <span
+          className={`inline-flex items-center justify-center overflow-hidden rounded-md ${logo.darkUrl ? "" : "bg-white p-1"} ${
+            collapsed ? "size-10" : "h-10 max-w-[180px]"
+          }`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- a signed storage link, not a static asset */}
+          <img src={logo.darkUrl ?? logo.url} alt="" className="h-full w-auto max-w-full object-contain" />
+        </span>
+      </Link>
+    );
+  }
   return (
-    <Link
-      href={`/${org.slug}/dashboard`}
-      className="logo-link flex min-w-0 items-center gap-2.5 rounded-md"
-      aria-label="Groundwork home"
-    >
-      <LogoBadge size={36} />
-      {collapsed ? null : <span className="truncate font-heading text-lg font-extrabold tracking-tight">Groundwork</span>}
+    <Link href={href} className="logo-link flex min-w-0 items-center gap-2" aria-label="Groundwork home">
+      <Logo size={40} dark />
+      {collapsed ? null : <Wordmark dark className="truncate text-xl" />}
     </Link>
+  );
+}
+
+/** Stays at the foot of the sidebar when an organization's logo replaces Groundwork's (D86). */
+function PoweredBy({ collapsed }: { collapsed: boolean }) {
+  return (
+    <p
+      className={`flex items-center gap-1.5 px-3 pt-2 text-xs text-rail-ink-muted ${collapsed ? "justify-center px-0" : ""}`}
+      title={collapsed ? "Powered by Groundwork" : undefined}
+    >
+      <Logo size={18} dark />
+      {collapsed ? <span className="sr-only">Powered by Groundwork</span> : <span>Powered by Groundwork</span>}
+    </p>
   );
 }
 
 function SidebarBody({
   org,
+  logo,
   orgs,
   user,
   recent,
@@ -144,7 +176,7 @@ function SidebarBody({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className={`flex items-center gap-2 px-3 pt-3 pb-4 ${collapsed ? "flex-col" : "justify-between"}`}>
-        <HomeLink org={org} collapsed={collapsed} />
+        <HomeLink org={org} logo={logo} collapsed={collapsed} />
         {onToggle ? (
           <button
             type="button"
@@ -196,7 +228,7 @@ function SidebarBody({
                       href={href}
                       aria-current={pathname === href ? "page" : undefined}
                       className={`block truncate rounded-md px-3 py-1.5 text-[0.95rem] ${
-                        pathname === href ? "bg-active text-active-ink font-semibold" : "text-rail-ink hover:bg-rail-hover"
+                        pathname === href ? "bg-rail-active text-rail-active-ink font-semibold" : "text-rail-ink hover:bg-rail-hover"
                       }`}
                     >
                       {p.name}
@@ -228,7 +260,7 @@ function SidebarBody({
           buttonClassName={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left hover:bg-rail-hover ${collapsed ? "justify-center px-0" : ""}`}
           button={
             <>
-              <span className="inline-flex size-6 shrink-0 items-center justify-center rounded bg-bone-100 font-heading text-xs font-bold text-navy-900">
+              <span className="inline-flex size-6 shrink-0 items-center justify-center rounded bg-rail-active font-heading text-xs font-bold text-rail-active-ink">
                 {org.name.slice(0, 1).toUpperCase()}
               </span>
               {collapsed ? null : (
@@ -300,6 +332,7 @@ function SidebarBody({
             </>
           )}
         </Menu>
+        {logo ? <PoweredBy collapsed={collapsed} /> : null}
       </div>
     </div>
   );
@@ -326,9 +359,10 @@ function NavLink({
       title={collapsed ? label : undefined}
       className={`flex items-center gap-3 rounded-md px-3 py-2 font-heading text-[0.95rem] font-semibold transition-colors ${
         collapsed ? "justify-center px-0" : ""
-      } ${active ? "bg-active text-active-ink" : "text-rail-ink hover:bg-rail-hover"}`}
+      } ${active ? "bg-rail-active text-rail-active-ink" : "text-rail-ink hover:bg-rail-hover"}`}
     >
-      {children}
+      {/* the current item's icon takes the accent (D83) */}
+      <span className={`inline-flex ${active ? "text-accent" : "text-rail-ink-muted"}`}>{children}</span>
       {collapsed ? null : <span className="truncate">{label}</span>}
     </Link>
   );
@@ -377,7 +411,7 @@ function SlideOver({ onClose, children }: { onClose: () => void; children: React
 
   return (
     <div className="fixed inset-0 z-50 min-[900px]:hidden">
-      <div className="absolute inset-0 bg-navy-900/50" aria-hidden onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim/55" aria-hidden onClick={onClose} />
       <div
         ref={panelRef}
         id="mobile-nav"

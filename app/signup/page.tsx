@@ -31,7 +31,7 @@ export default async function SignupPage() {
       <p className="mt-8 border-t border-rule pt-5 text-sm text-ink-muted">
         Next, you&apos;ll name your organization and invite your team.{" "}
         Already using Groundwork?{" "}
-        <Link href="/login" className="font-semibold text-ink underline underline-offset-4">
+        <Link href="/login" className="font-semibold text-accent underline underline-offset-4">
           Sign in
         </Link>
         .
