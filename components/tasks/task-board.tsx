@@ -2,51 +2,97 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useTransition, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
-  useDroppable,
+  closestCenter,
   useSensor,
   useSensors,
   type Announcements,
   type DragEndEvent,
-  type DragOverEvent,
   type DragStartEvent,
-  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, GripVertical, Lock } from "lucide-react";
-import { canMoveTask } from "@/lib/roles";
-import { useViewer } from "@/lib/viewer";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { EyeOff, GripVertical, User } from "lucide-react";
 import { moveTask } from "@/app/[orgSlug]/tasks/actions";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
-import type { TaskRow, TaskStatus } from "@/lib/queries";
-import { DueBadge, NeedsAssigneeBadge, ProjectDot, TaskStatusIcon } from "./badges";
-import { assigneeOf } from "@/lib/task-filters";
+import type { ProjectOption, TaskRow, TaskStatus } from "@/lib/queries";
+import { AssigneeStack, DueBadge, NeedsAssigneeBadge, PriorityFlag, ProjectDot, TaskStatusIcon } from "./badges";
+import { assigneeIds } from "@/lib/task-filters";
 import { QuickAddTask } from "./quick-add";
-import type { ProjectOption } from "@/lib/queries";
+import { TaskDoneBox } from "./task-checkbox";
+import { ClaimButton } from "./claim-button";
 
-const COLUMNS: TaskStatus[] = ["todo", "in_progress", "done"];
-type Columns = Record<TaskStatus, TaskRow[]>;
-
-function group(tasks: TaskRow[]): Columns {
-  const cols: Columns = { todo: [], in_progress: [], done: [] };
-  for (const task of [...tasks].sort((a, b) => a.position - b.position)) cols[task.status].push(task);
-  return cols;
+/**
+ * The board (D101). Status follows the people on a task, so there are two
+ * columns, To do (nobody on it) and In progress (someone on it), and done is
+ * a tick on the card. Cards reorder within their column by dragging or with
+ * the keyboard; they don't move between columns. Under the Completed filter
+ * the board shows finished work instead.
+ */
+export function TaskBoard({
+  tasks,
+  base,
+  today,
+  organizationId,
+  projects,
+  memberInitials,
+  completed,
+  sortedByPriority,
+}: {
+  tasks: TaskRow[];
+  base: string;
+  today: string;
+  organizationId: string;
+  projects: ProjectOption[];
+  memberInitials: Record<string, { initials: string; name: string }>;
+  /** The Completed filter: one column of finished work. */
+  completed: boolean;
+  /** Ordered by priority rather than by hand, so dragging is off. */
+  sortedByPriority: boolean;
+}) {
+  const t = useT();
+  const columns: TaskStatus[] = completed ? ["done"] : ["todo", "in_progress"];
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-ink-muted">
+        {completed
+          ? `Finished work. Untick one to reopen it.`
+          : sortedByPriority
+            ? `Sorted by priority. Switch back to board order to rearrange cards.`
+            : `${t("status.todo")} has open work nobody has claimed yet. Drag a card, or focus its handle and press Space then the arrow keys, to reorder it. Tick a card when it's done.`}
+      </p>
+      <div className={`grid gap-4 ${completed ? "" : "md:grid-cols-2"}`}>
+        {columns.map((status) => (
+          <BoardColumn
+            key={status}
+            status={status}
+            tasks={tasks.filter((x) => x.status === status)}
+            base={base}
+            today={today}
+            memberInitials={memberInitials}
+            sortable={!completed && !sortedByPriority}
+            title={t(`status.${status}`)}
+          >
+            {status === "todo" ? (
+              <QuickAddTask organizationId={organizationId} projects={projects} compact idSuffix="board" status="todo" />
+            ) : null}
+          </BoardColumn>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-/** A position between the neighbours at `index` in `list` (which excludes the moved card). */
+function sortByPosition(list: TaskRow[]): TaskRow[] {
+  return [...list].sort((a, b) => a.position - b.position);
+}
+
+/** A position between the neighbours of `index` in `list` (which excludes the moved card). */
 function positionAt(list: TaskRow[], index: number): number {
   const before = list[index - 1]?.position;
   const after = list[index]?.position;
@@ -56,270 +102,169 @@ function positionAt(list: TaskRow[], index: number): number {
   return Date.now() / 1000;
 }
 
-/**
- * Keyboard dragging: Left/Right jump to the neighbouring column, Up/Down
- * reorder within a column (dnd-kit's sortable default).
- */
-const boardKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
-  const { droppableRects, collisionRect } = args.context;
-  if ((event.code === "ArrowRight" || event.code === "ArrowLeft") && collisionRect) {
-    event.preventDefault();
-    const rects = COLUMNS.map((c) => droppableRects.get(c));
-    const centerX = collisionRect.left + collisionRect.width / 2;
-    const current = rects.findIndex((r) => r && centerX >= r.left && centerX <= r.left + r.width);
-    const target = rects[current + (event.code === "ArrowRight" ? 1 : -1)];
-    if (current === -1 || !target) return args.currentCoordinates;
-    return { x: target.left + (target.width - collisionRect.width) / 2, y: target.top + 48 };
-  }
-  return sortableKeyboardCoordinates(event, args);
-};
-
-function findColumn(cols: Columns, id: string): TaskStatus | undefined {
-  if ((COLUMNS as string[]).includes(id)) return id as TaskStatus;
-  return COLUMNS.find((c) => cols[c].some((t) => t.id === id));
-}
-
-export function TaskBoard({
+function BoardColumn({
+  status,
   tasks,
   base,
   today,
-  organizationId,
-  projects,
   memberInitials,
+  sortable,
+  title,
+  children,
 }: {
+  status: TaskStatus;
   tasks: TaskRow[];
   base: string;
   today: string;
-  organizationId: string;
-  projects: ProjectOption[];
   memberInitials: Record<string, { initials: string; name: string }>;
+  sortable: boolean;
+  title: string;
+  children?: ReactNode;
 }) {
   const t = useT();
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [columns, setColumns] = useState<Columns>(() => group(tasks));
+  const [arranged, setOrder] = useState(() => (sortable ? sortByPosition(tasks) : tasks));
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [dragOrigin, setDragOrigin] = useState<TaskStatus | null>(null);
   const [message, setMessage] = useState("");
-  const statusId = useId();
-  // stable id keeps dnd-kit's aria-describedby the same on server and client
   const dndId = useId();
 
-  // Re-sync with the server whenever the task list changes underneath us.
-  const signature = tasks.map((x) => `${x.id}:${x.status}:${x.position}:${x.title}:${x.due_date}`).join("|");
+  // follow the server whenever the column's contents or order change; the
+  // cards themselves always show the latest data (parts ticked, people on it)
+  const signature = tasks.map((x) => `${x.id}:${x.position}`).join("|");
   const [lastSignature, setLastSignature] = useState(signature);
   if (signature !== lastSignature) {
     setLastSignature(signature);
-    setColumns(group(tasks));
+    setOrder(sortable ? sortByPosition(tasks) : tasks);
   }
-
-  const label = (status: TaskStatus) => t(`status.${status}`);
-  const titleOf = (id: string | number) =>
-    COLUMNS.flatMap((c) => columns[c]).find((x) => x.id === String(id))?.title ?? lower(t("task"));
+  const latest = new Map(tasks.map((x) => [x.id, x]));
+  const order = arranged.map((x) => {
+    const fresh = latest.get(x.id);
+    // keep a just-dropped card's new position until the server confirms it
+    return fresh ? { ...fresh, position: x.position } : x;
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: boardKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  const titleOf = (id: string | number) => order.find((x) => x.id === String(id))?.title ?? lower(t("task"));
+  const positionOf = (id: string | number) => order.findIndex((x) => x.id === String(id)) + 1;
 
-  const persist = (id: string, status: TaskStatus, position: number, announce: string) => {
-    setMessage(announce);
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
+    const from = order.findIndex((x) => x.id === active.id);
+    const to = order.findIndex((x) => x.id === over.id);
+    if (from < 0 || to < 0) return;
+    const moved = arrayMove(order, from, to);
+    const others = moved.filter((x) => x.id !== active.id);
+    const position = positionAt(others, to);
+    setOrder(moved.map((x) => (x.id === active.id ? { ...x, position } : x)));
+    setMessage(`Moved “${titleOf(active.id)}” to position ${to + 1} of ${order.length}.`);
     startTransition(async () => {
-      const result = await moveTask({ id, status, position });
+      const result = await moveTask({ id: String(active.id), position });
       if (!result.ok) {
         setMessage(result.message);
-        setColumns(group(tasks));
+        setOrder(sortByPosition(tasks));
       }
       router.refresh();
     });
   };
 
-  /** Keyboard/button path: move a card to the end of another column. */
-  const moveToColumn = (task: TaskRow, to: TaskStatus) => {
-    const from = task.status;
-    const target = columns[to];
-    const position = positionAt(target, target.length);
-    const moved = { ...task, status: to, position };
-    setColumns((prev) => ({ ...prev, [from]: prev[from].filter((x) => x.id !== task.id), [to]: [...prev[to], moved] }));
-    persist(task.id, to, position, `Moved “${task.title}” to ${label(to)}.`);
-    // keep focus on the card's controls in its new column
-    requestAnimationFrame(() => document.getElementById(`card-${task.id}`)?.focus());
-  };
-
-  const onDragStart = ({ active }: DragStartEvent) => {
-    setActiveId(String(active.id));
-    setDragOrigin(findColumn(columns, String(active.id)) ?? null);
-  };
-
-  const onDragOver = ({ active, over }: DragOverEvent) => {
-    if (!over) return;
-    const from = findColumn(columns, String(active.id));
-    const to = findColumn(columns, String(over.id));
-    if (!from || !to || from === to) return;
-    setColumns((prev) => {
-      const moving = prev[from].find((x) => x.id === active.id);
-      if (!moving) return prev;
-      const overIndex = prev[to].findIndex((x) => x.id === over.id);
-      const index = overIndex >= 0 ? overIndex : prev[to].length;
-      const nextTo = [...prev[to]];
-      nextTo.splice(index, 0, { ...moving, status: to });
-      return { ...prev, [from]: prev[from].filter((x) => x.id !== active.id), [to]: nextTo };
-    });
-  };
-
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    const id = String(active.id);
-    setActiveId(null);
-    const column = findColumn(columns, id);
-    if (!over || !column) {
-      setColumns(group(tasks));
-      return;
-    }
-    let list = columns[column];
-    const oldIndex = list.findIndex((x) => x.id === id);
-    const overIndex = list.findIndex((x) => x.id === over.id);
-    if (overIndex >= 0 && overIndex !== oldIndex) list = arrayMove(list, oldIndex, overIndex);
-    const index = list.findIndex((x) => x.id === id);
-    const others = list.filter((x) => x.id !== id);
-    const position = positionAt(others, index);
-    const original = tasks.find((x) => x.id === id);
-    list = list.map((x) => (x.id === id ? { ...x, status: column, position } : x));
-    setColumns((prev) => ({ ...prev, [column]: list }));
-    if (original && (original.status !== column || original.position !== position)) {
-      persist(id, column, position, `Moved “${original.title}” to ${label(column)}.`);
-    }
-    setDragOrigin(null);
-  };
-
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up “${titleOf(active.id)}”. Use the arrow keys to move it, Space to drop, Escape to cancel.`,
-    onDragOver: ({ active, over }) =>
-      over ? `“${titleOf(active.id)}” is over ${label(findColumn(columns, String(over.id)) ?? "todo")}.` : `“${titleOf(active.id)}” is no longer over a column.`,
-    onDragEnd: ({ active, over }) =>
-      over ? `Dropped “${titleOf(active.id)}” in ${label(findColumn(columns, String(over.id)) ?? "todo")}.` : `Dropped “${titleOf(active.id)}”.`,
-    onDragCancel: ({ active }) => `Cancelled. “${titleOf(active.id)}” is back in ${label(dragOrigin ?? "todo")}.`,
+    onDragStart: ({ active }) => `Picked up “${titleOf(active.id)}”, position ${positionOf(active.id)} of ${order.length}. Use the arrow keys to move it, Space to drop, Escape to cancel.`,
+    onDragOver: ({ active, over }) => (over ? `“${titleOf(active.id)}” is over position ${positionOf(over.id)}.` : `“${titleOf(active.id)}” is not over a position.`),
+    onDragEnd: ({ active, over }) => (over ? `Dropped “${titleOf(active.id)}” at position ${positionOf(over.id)}.` : `Dropped “${titleOf(active.id)}”.`),
+    onDragCancel: ({ active }) => `Cancelled. “${titleOf(active.id)}” is back where it was.`,
   };
 
-  const activeTask = activeId ? COLUMNS.flatMap((c) => columns[c]).find((x) => x.id === activeId) : undefined;
+  const active = activeId ? order.find((x) => x.id === activeId) : undefined;
+  const list = (
+    <ul className="flex min-h-16 flex-col gap-2" aria-label={`${title}: ${order.length}`}>
+      {order.map((task) => (
+        <Card key={task.id} task={task} base={base} today={today} memberInitials={memberInitials} sortable={sortable} />
+      ))}
+    </ul>
+  );
 
   return (
-    <div className="flex flex-col gap-3">
-      <p id={statusId} role="status" aria-live="polite" className="sr-only">
+    <section aria-labelledby={`col-${status}`} className="flex flex-col gap-3 rounded-lg border border-rule bg-panel/60 p-3" data-column={status}>
+      <h2 id={`col-${status}`} className="flex items-center gap-2 font-heading text-sm font-bold">
+        <TaskStatusIcon status={status} className={`size-4 ${status === "in_progress" ? "text-accent" : status === "done" ? "text-good" : ""}`} />
+        {title}
+        <span className="ml-auto rounded-full border border-rule px-2 text-xs font-semibold tabular-nums">{order.length}</span>
+      </h2>
+      <p role="status" aria-live="polite" className="sr-only">
         {message}
       </p>
-      <p className="text-sm text-ink-muted">
-        Drag cards between columns, or focus a card&apos;s handle and press Space, then the arrow keys. The arrow buttons on
-        each card move it one column.
-      </p>
-      <DndContext
-        id={dndId}
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => {
-          setActiveId(null);
-          setColumns(group(tasks));
-        }}
-        accessibility={{
-          announcements,
-          screenReaderInstructions: {
-            draggable: "To pick up a card, press Space or Enter. Use the arrow keys to move it, then Space or Enter to drop it, or Escape to cancel.",
-          },
-        }}
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          {COLUMNS.map((status, ci) => (
-            <Column key={status} status={status} title={label(status)} count={columns[status].length}>
-              {status === "todo" ? (
-                <QuickAddTask organizationId={organizationId} projects={projects} compact idSuffix="board" status="todo" />
-              ) : null}
-              <SortableContext items={columns[status].map((x) => x.id)} strategy={verticalListSortingStrategy}>
-                <ul className="flex min-h-16 flex-col gap-2" aria-label={`${label(status)}: ${columns[status].length}`}>
-                  {columns[status].map((task) => (
-                    <SortableCard
-                      key={task.id}
-                      task={task}
-                      base={base}
-                      today={today}
-                      assignee={assigneeOf(task) ? memberInitials[assigneeOf(task)!] : undefined}
-                      prev={COLUMNS[ci - 1]}
-                      next={COLUMNS[ci + 1]}
-                      labelFor={label}
-                      onMove={moveToColumn}
-                    />
-                  ))}
-                </ul>
-              </SortableContext>
-              {columns[status].length === 0 ? (
-                <p className="rounded-md border border-dashed border-rule px-3 py-4 text-center text-sm text-ink-muted">
-                  Drop {lower(t("task", "other"))} here
-                </p>
-              ) : null}
-            </Column>
-          ))}
-        </div>
-        <DragOverlay>
-          {activeTask ? (
-            <div className="rounded-lg border border-ink bg-canvas p-3">
-              <p className="font-semibold">{activeTask.title}</p>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-    </div>
-  );
-}
-
-function Column({ status, title, count, children }: { status: TaskStatus; title: string; count: number; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  return (
-    <section
-      ref={setNodeRef}
-      aria-labelledby={`col-${status}`}
-      className={`flex flex-col gap-3 rounded-lg border p-3 transition-colors ${isOver ? "border-ink bg-tint" : "border-rule bg-panel/60"}`}
-      data-column={status}
-    >
-      <h2 id={`col-${status}`} className="flex items-center gap-2 font-heading text-sm font-bold">
-        <TaskStatusIcon status={status} />
-        {title}
-        <span className="ml-auto rounded-full border border-rule px-2 text-xs font-semibold tabular-nums">{count}</span>
-      </h2>
       {children}
+      {sortable ? (
+        <DndContext
+          id={dndId}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={({ active: a }: DragStartEvent) => setActiveId(String(a.id))}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveId(null)}
+          accessibility={{
+            announcements,
+            screenReaderInstructions: {
+              draggable: "To pick up a card, press Space or Enter. Use the up and down arrow keys to move it, then Space or Enter to drop it, or Escape to cancel.",
+            },
+          }}
+        >
+          <SortableContext items={order.map((x) => x.id)} strategy={verticalListSortingStrategy}>
+            {list}
+          </SortableContext>
+          <DragOverlay>
+            {active ? (
+              <div className="rounded-lg border border-ink bg-canvas p-3">
+                <p className="font-semibold">{active.title}</p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        list
+      )}
+      {order.length === 0 ? (
+        <p className="rounded-md border border-dashed border-rule px-3 py-4 text-center text-sm text-ink-muted">
+          {status === "todo"
+            ? `Nothing waiting to be claimed.`
+            : status === "in_progress"
+              ? `Nobody is working on anything here yet.`
+              : `Nothing finished matches these filters.`}
+        </p>
+      ) : null}
     </section>
   );
 }
 
-function SortableCard({
+function Card({
   task,
   base,
   today,
-  assignee,
-  prev,
-  next,
-  labelFor,
-  onMove,
+  memberInitials,
+  sortable,
 }: {
   task: TaskRow;
   base: string;
   today: string;
-  assignee?: { initials: string; name: string };
-  prev?: TaskStatus;
-  next?: TaskStatus;
-  labelFor: (s: TaskStatus) => string;
-  onMove: (task: TaskRow, to: TaskStatus) => void;
+  memberInitials: Record<string, { initials: string; name: string }>;
+  sortable: boolean;
 }) {
-  // someone ranked above the viewer made it, and it isn't theirs to move
-  const movable = canMoveTask(useViewer(), task);
+  const t = useT();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
-    disabled: !movable,
+    disabled: !sortable,
   });
   const style = {
     transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
     transition,
   };
+  const [completing, setCompleting] = useState(false);
+  const people = assigneeIds(task).map((id) => memberInitials[id]).filter((p): p is { initials: string; name: string } => Boolean(p));
 
   return (
     <li
@@ -328,80 +273,66 @@ function SortableCard({
       data-task-id={task.id}
       className={`group rounded-lg border bg-canvas p-3 transition-[border-color,transform] hover:-translate-y-0.5 hover:border-ink-muted ${
         isDragging ? "border-dashed border-ink opacity-50" : "border-rule"
-      }`}
+      } ${completing ? "task-completing" : ""}`}
     >
       <div className="flex items-start gap-2">
-        {movable ? (
-        <button
-          ref={setActivatorNodeRef}
-          id={`card-${task.id}`}
-          type="button"
-          className="-ml-1 mt-0.5 inline-flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-muted hover:bg-panel hover:text-ink active:cursor-grabbing"
-          aria-label={`Drag “${task.title}”`}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical aria-hidden className="size-4" />
-        </button>
-        ) : (
-          <span
-            role="img"
+        {sortable ? (
+          <button
+            ref={setActivatorNodeRef}
             id={`card-${task.id}`}
-            className="-ml-1 mt-0.5 inline-flex size-6 shrink-0 items-center justify-center text-ink-muted"
-            aria-label="Locked: someone ranked above you made this"
-            title="Someone ranked above you made this, so only they, someone at or above their rank, or its assignee can move it."
+            type="button"
+            className="-ml-1 mt-0.5 inline-flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-muted hover:bg-panel hover:text-ink active:cursor-grabbing"
+            aria-label={`Reorder “${task.title}”`}
+            {...attributes}
+            {...listeners}
           >
-            <Lock aria-hidden className="size-4" />
-          </span>
-        )}
+            <GripVertical aria-hidden className="size-4" />
+          </button>
+        ) : null}
+        <TaskDoneBox
+          task={task}
+          onCompleteStart={() => {
+            if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setCompleting(true);
+          }}
+        />
         <div className="min-w-0 flex-1">
           <Link
             href={`${base}/tasks/${task.id}`}
-            className={`block font-semibold break-words hover:underline ${task.status === "done" ? "text-ink-muted line-through" : ""}`}
+            className={`task-title block font-semibold break-words hover:underline ${task.status === "done" ? "text-ink-muted line-through" : ""}`}
           >
             {task.title}
           </Link>
-          {task.project ? (
-            <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-ink-muted">
-              <ProjectDot color={task.project.color} />
-              {task.project.name}
-            </p>
-          ) : null}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <DueBadge dueDate={task.due_date} status={task.status} today={today} />
-            {!assignee && task.needs_assignee && task.status !== "done" ? <NeedsAssigneeBadge /> : null}
-            {assignee ? (
-              <span
-                className="inline-flex size-6 items-center justify-center rounded-full border border-ink font-heading text-[0.6rem] font-bold"
-                title={assignee.name}
-              >
-                <span aria-hidden>{assignee.initials}</span>
-                <span className="sr-only">Assigned to {assignee.name}</span>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+            <PriorityFlag priority={task.priority} label={t(`priority.${task.priority}`)} />
+            {task.project ? (
+              <span className="inline-flex min-w-0 items-center gap-1.5 truncate">
+                <ProjectDot color={task.project.color} />
+                {task.project.name}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <User aria-hidden className="size-3.5" />
+                {task.kind === "personal" ? t("task_kind.personal") : `No ${lower(t("project"))}`}
+              </span>
+            )}
+            {task.hidden ? (
+              <span className="inline-flex items-center gap-1">
+                <EyeOff aria-hidden className="size-3.5" />
+                Hidden
               </span>
             ) : null}
-            <span className="ml-auto flex gap-1">
-              {movable && prev ? (
-                <button
-                  type="button"
-                  onClick={() => onMove(task, prev)}
-                  className="inline-flex size-7 items-center justify-center rounded border border-rule hover:border-ink"
-                  aria-label={`Move “${task.title}” to ${labelFor(prev)}`}
-                  title={`Move to ${labelFor(prev)}`}
-                >
-                  <ChevronLeft aria-hidden className="size-4" />
-                </button>
-              ) : null}
-              {movable && next ? (
-                <button
-                  type="button"
-                  onClick={() => onMove(task, next)}
-                  className="inline-flex size-7 items-center justify-center rounded border border-rule hover:border-ink"
-                  aria-label={`Move “${task.title}” to ${labelFor(next)}`}
-                  title={`Move to ${labelFor(next)}`}
-                >
-                  <ChevronRight aria-hidden className="size-4" />
-                </button>
-              ) : null}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <DueBadge dueDate={task.due_date} status={task.status} today={today} />
+            {people.length === 0 && task.needs_assignee && task.status !== "done" ? <NeedsAssigneeBadge /> : null}
+            {task.completion === "all" && task.assignees.length > 1 ? (
+              <span className="text-xs font-semibold">
+                {task.assignees.filter((a) => a.done_at).length} of {task.assignees.length} done
+              </span>
+            ) : null}
+            <AssigneeStack people={people} />
+            <span className="ml-auto">
+              <ClaimButton task={task} />
             </span>
           </div>
         </div>

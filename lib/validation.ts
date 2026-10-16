@@ -35,26 +35,48 @@ export const taskCreateInput = z.object({
   title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
   status: taskStatus.optional(),
   dueDate: isoDate.optional(),
+  priority: z.enum(["critical", "high", "medium", "low"], { error: "Choose a priority." }).optional(),
   assigneeMembershipId: id.optional(),
 });
 
-export const taskUpdateInput = z.object({
-  id,
-  projectId: id,
-  title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
-  description: optionalText(4000, "Use 4,000 characters or fewer."),
-  status: taskStatus,
-  dueDate: isoDate.optional(),
-  // "m:<membership id>" for a member, "i:<invitation id>" for a pending invitee
-  assignee: z
-    .string()
-    .regex(/^[mi]:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Choose who it's for.")
-    .optional(),
-});
+const personRef = z
+  .string()
+  .regex(/^[mi]:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Choose who it's for.");
+
+/**
+ * The full task form, for a new task (no id) or an existing one (D101).
+ * Status isn't here: it follows who's on the task, and done is a tick.
+ */
+export const taskFormInput = z
+  .object({
+    id: id.optional(),
+    organizationId: id,
+    // left out for personal and org-level tasks outside any project
+    projectId: id.optional(),
+    title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
+    description: optionalText(4000, "Use 4,000 characters or fewer."),
+    kind: z.enum(["general", "appointed", "personal"], { error: "Choose what kind of work this is." }),
+    priority: z.enum(["critical", "high", "medium", "low"], { error: "Choose a priority." }),
+    dueDate: isoDate.optional(),
+    hidden: z.boolean(),
+    claimLimit: z.coerce
+      .number({ error: "Use a whole number." })
+      .int("Use a whole number.")
+      .min(1, "Allow at least one person.")
+      .max(1000, "Use 1,000 or fewer.")
+      .optional(),
+    completion: z.enum(["any", "all"], { error: "Choose when it's done." }),
+    assignees: z.array(personRef).max(50, "Choose 50 people or fewer."),
+    shares: z.array(id).max(200, "Choose 200 people or fewer."),
+  })
+  .transform((v) => ({
+    ...v,
+    // a claim limit only means something on open work
+    claimLimit: v.kind === "general" ? v.claimLimit : undefined,
+  }));
 
 export const taskMoveInput = z.object({
   id,
-  status: taskStatus,
   position: z.number().finite(),
 });
 

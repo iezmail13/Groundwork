@@ -32,6 +32,14 @@ describe("check:labels", () => {
     expect(check(`const m = "Take attendance";`)).toEqual(["Take attendance"]);
   });
 
+  it("flags priority levels and task kinds written as labels, but not everyday phrases", () => {
+    expect(check(`export const A = () => <span>High</span>;`)).toEqual(["High"]);
+    expect(check(`const o = { label: "Critical" };`)).toEqual(["Critical"]);
+    expect(check(`export const A = () => <option>Personal</option>;`)).toEqual(["Personal"]);
+    expect(check(`const m = "It's high time to finish this.";`)).toEqual([]);
+    expect(check(`export const A = () => <p>Add a personal note for yourself.</p>;`)).toEqual([]);
+  });
+
   it("allows labels that come from t()", () => {
     expect(check(`export const A = ({t}) => <h1>{t("project", "other")}</h1>;`)).toEqual([]);
   });

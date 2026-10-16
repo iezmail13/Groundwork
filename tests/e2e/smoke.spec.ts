@@ -105,34 +105,49 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(page.getByLabel("New task title")).toHaveValue("");
   await expect(page.getByLabel("Due date")).toHaveValue("");
 
-  // 4. Move the task on the board: keyboard drag (Space, arrow, Space), then the move button.
+  // 4. The board (D101): reorder within a column with the keyboard, claim the task (it moves to
+  // In progress), tick it done (it leaves the board, with Undo), and find it under Completed.
   await visit(page, `${base}/tasks`);
-  const handle = page.getByRole("button", { name: "Drag “Draft the launch checklist”" });
+  const todo = page.locator('section[data-column="todo"]');
+  const inProgress = page.locator('section[data-column="in_progress"]');
+  const handle = page.getByRole("button", { name: "Reorder “Draft the launch checklist”" });
   await expect(handle).toBeVisible();
+  const cards = () => todo.locator("li[data-task-id]").evaluateAll((els) => els.map((el) => el.textContent ?? ""));
+  const from = (await cards()).findIndex((text) => text.includes("Draft the launch checklist"));
+  expect(from).toBeGreaterThan(0);
   // wait on dnd-kit's screen-reader announcements between keys, as a keyboard user would
   const announcer = page.locator("[aria-live]");
   await handle.focus();
   await page.keyboard.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("ArrowRight");
-  await expect(announcer.filter({ hasText: "is over In progress" })).toHaveCount(1);
+  await expect(announcer.filter({ hasText: `“Draft the launch checklist” is over position ${from + 1}` })).toHaveCount(1);
+  await page.keyboard.press("ArrowUp");
+  await expect(announcer.filter({ hasText: `is over position ${from}.` })).toHaveCount(1);
   await page.keyboard.press("Space");
-  const inProgress = page.locator('section[data-column="in_progress"]');
-  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await expect(announcer.filter({ hasText: `Moved “Draft the launch checklist” to position ${from}` })).toHaveCount(1);
   await page.reload();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  expect((await cards()).findIndex((text) => text.includes("Draft the launch checklist"))).toBe(from - 1);
+
+  await todo.getByRole("button", { name: "Claim Draft the launch checklist" }).click();
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.getByRole("button", { name: "Move “Draft the launch checklist” to Done" }).click();
+  await expect(todo.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  const toast = page.getByRole("status").filter({ hasText: "“Draft the launch checklist” is done." });
+  await expect(toast).toBeVisible();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await page.getByLabel("Status").selectOption("done");
   const done = page.locator('section[data-column="done"]');
-  await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.reload();
-  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // open the task and edit it on its own page
   await done.getByRole("link", { name: "Draft the launch checklist" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
   await page.getByLabel("Title").fill("Finalize the launch checklist");
-  await page.getByLabel("Status").selectOption("in_progress");
+  await page.getByLabel("Priority").selectOption("high");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Finalize the launch checklist" })).toBeVisible();
@@ -568,7 +583,7 @@ test("projects are private to their people; leaving frees work for reassignment"
   await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toBeVisible();
   await snacks.getByRole("link", { name: "Restock snack cupboard" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
-  await page.getByLabel("Assignee").selectOption({ label: "Marcus Chen" });
+  await page.getByRole("checkbox", { name: "Marcus Chen" }).check();
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByText("Needs assignee")).toHaveCount(0);
@@ -612,7 +627,7 @@ test("invite from a task: a pending assignee, then join through the invitations 
   await expect(invite.getByText(/assigned to them/)).toBeVisible();
   await invite.getByRole("link", { name: "Back to Set up a quiet reading corner" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
-  await expect(page.getByLabel("Assignee").locator("option:checked")).toHaveText("Robin Tester (pending)");
+  await expect(page.getByRole("checkbox", { name: "Robin Tester (pending)" })).toBeChecked();
 
   // the invitation shows its project in settings
   await visit(page, "/northside-youth-collective/settings?view=members");

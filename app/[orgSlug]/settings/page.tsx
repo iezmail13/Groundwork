@@ -190,7 +190,7 @@ async function MembersPanel({
   const now = new Date().toISOString();
   // only a task on a project they can grant can be handed to the invitee
   const assignTask =
-    task && grantable.some((p) => p.id === task.project_id)
+    task?.project_id && grantable.some((p) => p.id === task.project_id)
       ? { id: task.id, title: task.title, projectId: task.project_id, href: `${ctx.base}/tasks/${task.id}` }
       : null;
 

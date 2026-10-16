@@ -11,6 +11,7 @@ import { ScheduledMaintenanceBanner } from "@/components/maintenance/notices";
 import { TopBar } from "@/components/shell/top-bar";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { getBranding } from "@/lib/branding";
+import { UndoToastProvider } from "@/components/ui/undo-toast";
 import { canManageOrg, rankOf } from "@/lib/roles";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
@@ -51,6 +52,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
       {branding.accentCss ? <style>{branding.accentCss}</style> : null}
       <TerminologyProvider labels={ctx.labels}>
       <ViewerProvider viewer={{ userId: ctx.userId, role: ctx.role, membershipId: ctx.membershipId }}>
+      <UndoToastProvider>
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} themeMode={branding.themeMode} />
         <a
           href="#main"
@@ -77,6 +79,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             </main>
           </div>
         </div>
+      </UndoToastProvider>
       </ViewerProvider>
       </TerminologyProvider>
     </div>

@@ -83,7 +83,10 @@ export function outrankedByCreator(viewer: Viewer, creatorId: string | null, cre
 /** Whether the viewer may move a task between columns and mark it done. */
 export function canMoveTask(
   viewer: Viewer,
-  task: { created_by: string | null; created_by_role: Role | null; assignee_membership_id: string | null },
+  task: { created_by: string | null; created_by_role: Role | null; assignees: { membership_id: string | null }[] },
 ): boolean {
-  return !outrankedByCreator(viewer, task.created_by, task.created_by_role) || task.assignee_membership_id === viewer.membershipId;
+  return (
+    !outrankedByCreator(viewer, task.created_by, task.created_by_role) ||
+    task.assignees.some((a) => a.membership_id === viewer.membershipId)
+  );
 }
