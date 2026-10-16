@@ -209,9 +209,12 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people and the organization; words and colours aren't editable
+  // settings are the preset, the people, the organization, its branding and your own profile;
+  // words aren't editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(3);
+  await expect(sections.getByRole("link")).toHaveCount(5);
+  await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
   await expect(sections.getByRole("link", { name: "Theme" })).toHaveCount(0);
   await page.getByRole("radio", { name: /Tutoring/ }).check();
@@ -232,6 +235,8 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await moveHandle.focus();
   await page.keyboard.press("Space");
   await expect(moveHandle).toHaveAttribute("aria-pressed", "true");
+  // move only once the drop positions are measured, which the first "over" announcement shows
+  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 1" })).toHaveCount(1);
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 2" })).toHaveCount(1);
   await page.keyboard.press("Space");
@@ -414,28 +419,32 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
-test("landing page: signed-out visitors see the hero, features and a way in", async ({ browser }) => {
+test("landing page: signed-out visitors see the hero, the problems, benefits and FAQ, and a way in", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Run your organization on solid ground.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tasks, files and deadlines for your nonprofit, in one place.");
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
+  for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
+    await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+  }
+  await expect(page.getByRole("heading", { level: 3, name: "Never miss a deadline" })).toBeVisible();
 
-  // the feature tabs work from the keyboard
-  const tabs = page.getByRole("tablist", { name: "Features" });
-  await tabs.getByRole("tab", { name: "Plan the work" }).focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.getByRole("tab", { name: "Never miss a date" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tabpanel")).toContainText("Every deadline in one calendar.");
-  await page.keyboard.press("End");
-  await expect(page.getByRole("tabpanel")).toContainText("Your whole organization at a glance.");
-  await page.keyboard.press("Home");
-  await expect(page.getByRole("tabpanel")).toContainText("See who's doing what");
+  // FAQ answers match the code and the verified settings
+  await page.getByText("Can I import files?").click();
+  await expect(page.getByText(/one at a time, up to 25 MB each/)).toBeVisible();
+  await page.getByText("Where is it stored?").click();
+  await expect(page.getByText(/Supabase in its US East region/)).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Get started" }).first().click();
-  await expect(page).toHaveURL(/\/login$/);
+  // one primary action; "Log in" stays a small link in the masthead
+  const site = page.getByRole("navigation", { name: "Site" });
+  await expect(site.getByRole("link", { name: "Log in" })).toBeVisible();
+  await site.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Create your free Groundwork account" })).toBeVisible();
+  await expect(page.getByText("Log in", { exact: true })).toHaveCount(0);
 
   // on a phone the links sit behind a menu button
   const phone = await browser.newPage({ viewport: { width: 360, height: 740 } });
@@ -448,6 +457,41 @@ test("landing page: signed-out visitors see the hero, features and a way in", as
   await expect(phone).toHaveURL(/\/login$/);
   await phone.close();
   await context.close();
+});
+
+test("public pages load signed out, at phone width, with the footer links", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  const page = await context.newPage();
+  for (const [path, title] of [
+    ["/security", "Security"],
+    ["/privacy", "Privacy"],
+    ["/terms", "Terms"],
+  ] as const) {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    const footer = page.getByRole("navigation", { name: "Footer" });
+    for (const link of ["Security", "Privacy", "Terms"]) await expect(footer.getByRole("link", { name: link })).toBeVisible();
+  }
+  // where data lives is stated as verified
+  await page.goto("/security");
+  await expect(page.getByText(/US East region in the United States/).first()).toBeVisible();
+  await expect(page.getByText(/doesn't offer restorable backups yet/)).toBeVisible();
+  await context.close();
+});
+
+test("Start free: a new person signs up, then creates their organization", async ({ page, request }) => {
+  const email = `signup-${Date.now()}@example.org`;
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await page.getByLabel("Work email").fill(email);
+  await page.getByRole("button", { name: "Email me a link to get started" }).click();
+  await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  await finishSignIn(page, await magicLinkFor(request, email));
+  await expect(page).toHaveURL(/\/create-organization$/);
 });
 
 test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {

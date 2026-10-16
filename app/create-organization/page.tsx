@@ -38,7 +38,7 @@ export default async function CreateOrganizationPage() {
       {pending?.length ? (
         <p className="mb-5 border-l-4 border-ink pl-3 text-sm">
           You have {pending.length === 1 ? "an invitation" : `${pending.length} invitations`} waiting.{" "}
-          <Link href="/invitations" className="font-semibold underline underline-offset-4">
+          <Link href="/invitations" className="font-semibold text-accent underline underline-offset-4">
             See {pending.length === 1 ? "it" : "them"}
           </Link>
         </p>
@@ -46,7 +46,7 @@ export default async function CreateOrganizationPage() {
       <CreateOrgForm presets={options} defaultName={profile?.full_name ?? undefined} />
       {count ? (
         <p className="mt-6 text-sm">
-          <Link href="/" className="underline underline-offset-4">
+          <Link href="/" className="text-accent underline underline-offset-4">
             Back to my organizations
           </Link>
         </p>

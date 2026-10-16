@@ -78,7 +78,7 @@ export function TakeAttendance({
                   return (
                     <label
                       key={s}
-                      className="flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-rule px-1 font-heading text-sm font-semibold hover:border-ink has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:disabled]:cursor-not-allowed"
+                      className="flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-rule px-1 font-heading text-sm font-semibold hover:border-ink has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:disabled]:cursor-not-allowed"
                     >
                       <input
                         type="radio"

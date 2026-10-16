@@ -69,7 +69,7 @@ export function ParticipantList({
                     aria-label="Select all"
                     checked={allSelected}
                     onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))}
-                    className="size-4 accent-[var(--ink)]"
+                    className="size-4 accent-[var(--accent)]"
                   />
                 </th>
               ) : null}
@@ -104,7 +104,7 @@ export function ParticipantList({
                       checked={selected.has(r.id)}
                       onChange={() => toggle(r.id)}
                       aria-label={`Select ${r.name}`}
-                      className="size-4 accent-[var(--ink)]"
+                      className="size-4 accent-[var(--accent)]"
                     />
                   </td>
                 ) : null}

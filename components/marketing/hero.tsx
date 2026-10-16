@@ -9,7 +9,7 @@ const guard =
   "[text-shadow:0_0_6px_var(--color-canvas),0_0_14px_var(--color-canvas),0_0_30px_var(--color-canvas),0_0_52px_var(--color-canvas)]";
 
 /** The landing page's opening: headline, actions and a real screenshot. */
-export function Hero({ subheading, imageAlt }: { subheading: string; imageAlt: string }) {
+export function Hero({ headline, subheading, imageAlt }: { headline: string; subheading: string; imageAlt: string }) {
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden border-b border-rule bg-canvas">
       <GridPulse />
@@ -22,18 +22,15 @@ export function Hero({ subheading, imageAlt }: { subheading: string; imageAlt: s
           data-grid-avoid
           className={`mx-auto mt-6 max-w-3xl font-heading text-4xl leading-tight font-bold text-balance sm:text-5xl lg:text-6xl ${guard}`}
         >
-          Run your organization on solid ground.
+          {headline}
         </h1>
         <p data-grid-avoid className={`mx-auto mt-6 max-w-2xl text-lg text-pretty text-ink-muted ${guard}`}>
           {subheading}
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <ButtonLink href="/login" data-grid-avoid className="h-12 w-full px-6 text-base sm:w-auto">
-            Get started
+          <ButtonLink href="/signup" data-grid-avoid className="h-12 w-full px-7 text-base sm:w-auto">
+            Start free
             <ArrowRight aria-hidden className="size-4" />
-          </ButtonLink>
-          <ButtonLink href="#features" variant="secondary" data-grid-avoid className="h-12 w-full px-6 text-base sm:w-auto">
-            See what&apos;s inside
           </ButtonLink>
         </div>
         <div className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-xl border border-rule bg-panel p-1.5 sm:p-2">

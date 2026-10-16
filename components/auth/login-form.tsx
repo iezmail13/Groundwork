@@ -10,7 +10,18 @@ import { FormMessage } from "@/components/ui/form-message";
 import { keepValues } from "@/lib/forms";
 import { GoogleButton } from "./google-button";
 
-export function LoginForm({ next, defaultEmail, google = false }: { next?: string; defaultEmail?: string; google?: boolean }) {
+export function LoginForm({
+  next,
+  defaultEmail,
+  google = false,
+  submitLabel = "Email me a sign-in link",
+}: {
+  next?: string;
+  defaultEmail?: string;
+  google?: boolean;
+  /** The email button's words: signing in, or getting started (/signup). */
+  submitLabel?: string;
+}) {
   const [state, action, pending] = useActionState(sendMagicLink, idle);
   const sent = state.status === "success";
   return (
@@ -41,7 +52,7 @@ export function LoginForm({ next, defaultEmail, google = false }: { next?: strin
       </Field>
       <SubmitButton pending={pending} pendingLabel="Sending link…">
         <Mail aria-hidden className="size-4" />
-        {sent ? "Send another link" : "Email me a sign-in link"}
+        {sent ? "Send another link" : submitLabel}
       </SubmitButton>
       <FormMessage state={state} />
     </form>

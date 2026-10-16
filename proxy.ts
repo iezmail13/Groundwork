@@ -7,7 +7,7 @@ import { maintenancePageHtml } from "@/lib/maintenance-page";
 
 const BYPASS_COOKIE = "gw_maintenance_bypass";
 
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/auth/confirm"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/security", "/privacy", "/terms", "/auth/callback", "/auth/confirm"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/");

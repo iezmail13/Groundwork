@@ -64,7 +64,7 @@ export function TaskCheckbox({
       disabled={pending}
       onClick={toggle}
       className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-ink transition-colors ${
-        checked ? "bg-primary text-on-primary" : "bg-canvas hover:bg-panel"
+        checked ? "bg-accent text-on-accent" : "bg-canvas hover:bg-panel"
       }`}
     >
       {checked ? <Check aria-hidden className="size-3" strokeWidth={3} /> : null}

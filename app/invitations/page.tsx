@@ -64,11 +64,11 @@ export default async function InvitationsPage() {
       ) : null}
       <p className="mt-6 text-sm">
         {hasOrgs ? (
-          <Link href="/?skip=invitations" className="underline underline-offset-4">
+          <Link href="/?skip=invitations" className="text-accent underline underline-offset-4">
             Continue to your {lower(t("section.dashboard"))}
           </Link>
         ) : (
-          <Link href="/create-organization" className="underline underline-offset-4">
+          <Link href="/create-organization" className="text-accent underline underline-offset-4">
             Set up a new organization instead
           </Link>
         )}
