@@ -12,6 +12,7 @@ import { getMembers, getOrgContext, initials } from "@/lib/org";
 import { getMemberPhotos } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
 import { lower } from "@/lib/terminology/t";
+import { MessageButton } from "@/components/chat/message-button";
 import type { TaskPriority, TaskStatus } from "@/lib/queries";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -109,6 +110,7 @@ export default async function MemberPage({ params }: PageProps<"/[orgSlug]/membe
         ) : null}
       </header>
 
+      {!own ? <MessageButton userId={member.userId} name={name} /> : null}
       {!own ? <MuteSwitch organizationId={org.id} userId={member.userId} name={name} initial={Boolean(mute)} /> : null}
 
       <section aria-labelledby="member-projects" className="flex flex-col gap-3">

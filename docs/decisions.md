@@ -468,3 +468,40 @@ Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a 
   - pgTAP `22_dashboards`: the marks' ordering and permissions; signals naming only the program, never the change; who may listen; that nobody can fake a signal, while presence still works.
   - Unit tests for `canEdit`, including the grant extension point.
   - e2e `tests/e2e/dashboards.spec.ts`: read-only dashboards with labelled marks; click-through as an editor (opens the program) versus a viewer (View details); the scope switch and workload; the marks' validation; and a live update in a second browser, while someone off the program gets no signal and no change.
+
+## D106. Communication: chat, discussion boards, comments on work, and change notifications (Part 9, expanded)
+
+The owner made communication the priority of the next three areas (communication, Kanban workflows, reporting). It covers message boards and discussion threads, comments, and notifications whenever work changes, on top of Part 9's chat.
+
+- **Text only.** No attachments, reactions, calls, meeting links, transcripts or AI summaries (scope rules). There's no email or push: everything notifies in the app (D103).
+- **Chat.**
+  - A chat icon next to the bell opens a side panel over the current page.
+    - Its left edge is a drag handle (also keyboard-operable: arrow keys and Home) that resizes it from 420 px up to half the screen.
+    - The width is kept per person in `localStorage` (inside try/catch, falling back to the default).
+    - On phones the panel is full screen.
+  - Channels: one for the organization ("Everyone"), one per program (made automatically, membership following the program's), and direct messages between any two members, opened from the panel or a profile's "Message" button.
+  - `can_view_channel()` is the one source of truth, as a security-definer, non-recursive function:
+    - program channels: the people on the program, plus owners (through `can_view_project`);
+    - the organization channel: every member;
+    - direct messages: only the two people in them, with **no owner exception**. This is the one place an owner can't see what isn't theirs (D90), and it's commented in the migration.
+  - **History starts at the original join date.** On a program channel it starts when the person first joined the program; `project_first_joins` keeps that date if they leave and come back. On the organization channel it starts when they joined the organization. Owners read program channels in full, as they see every program.
+  - Each message shows a photo or initials, the name, the text and a timestamp on the side. Senders edit their own messages (shown as "(edited)") or delete them (leaving "message deleted"). Rows are never removed.
+  - "Name is typing…" is a Realtime broadcast on `chat:{id}:typing` (not Presence state) and clears four seconds after typing stops.
+  - New messages reach open conversations through a database broadcast on `chat:{id}:messages`, and each person's chat badge through `user:{id}:chat`. Only people who can see the conversation may listen; clients may send only presence and typing.
+- **Mentions.** Written as `<@user-id>` in the stored text and shown as "@Name", read live. The database works out who is mentioned (`mentions_in`), keeping only the organization's people. The picker offers only people who can see the conversation, task or thread (`chat_channel_people`, `task_audience`, `discussion_audience`). A mention links to the person's profile and notifies them.
+- **Comments on work.** Every task page has a Comments thread. Anyone who can see the task (`can_view_task`) reads and comments. Edit and delete work as in chat.
+- **Discussion boards.** Titled threads with replies, on the organization's board or a program's, at `/discussions` (a new sidebar item) and in a Discussions section on each program page.
+  - `can_view_discussion()` decides who sees a thread: everyone for the organization's board, `can_view_project` for a program's.
+  - Authors edit their own posts. The author, or whoever runs the board (program admins and leads, or owners and managers for the organization's board), can remove a whole thread.
+- **Notifications (D103) gain six kinds.** Each can be turned off in Settings → Notifications:
+  - `direct_message`: the other person.
+  - `channel_message`: the channel's own people, once until they open it.
+  - `mention`: every time, in chat, comments and threads.
+  - `task_comment`: the task's people, meaning its creator, the people on it, and earlier commenters.
+  - `task_changed`: the task's people, when its title, due date, priority, status or program changes. Finishing it keeps its own D103 notification. A run of edits notifies once until it's read.
+  - `discussion`: the people on a program when a thread starts there, and a thread's author and repliers on each reply.
+  
+  Nobody hears about their own actions, and every notification is checked against the recipient's access (as that person).
+- **Three mute layers.** All decided in `notification_muted()`: by kind (Settings), by person (their profile, D104), and by conversation (a Mute button in the channel header). Any "off" wins, and Do not disturb silences everything. Unread counts and dots keep working while muted; a muted conversation's count is outlined rather than filled and isn't added to the badge.
+- **Opening a chat notification** opens the panel on that conversation (`?chat=<id>` on any page). Opening a conversation marks it read and clears its waiting notification.
+- **Online status** (D104) shows in the direct-message list, the mention picker, a direct conversation's header and a channel's "People here" list.

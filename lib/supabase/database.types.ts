@@ -87,6 +87,108 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"chat_channels": {
+                  Row: {
+                    "created_at": string,"id": string,"kind": Database["public"]['Enums']["chat_channel_kind"],"member_a": string | null,"member_b": string | null,"organization_id": string,"project_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["chat_channel_kind"],"member_a"?: string | null,"member_b"?: string | null,"organization_id": string,"project_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["chat_channel_kind"],"member_a"?: string | null,"member_b"?: string | null,"organization_id"?: string,"project_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "chat_channels_member_a_fkey"
+      columns: ["member_a"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chat_channels_member_b_fkey"
+      columns: ["member_b"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chat_channels_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chat_channels_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"chat_messages": {
+                  Row: {
+                    "body": string,"channel_id": string,"created_at": string,"deleted_at": string | null,"edited_at": string | null,"id": string,"mentions": (string)[],"organization_id": string,"sender_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body": string,"channel_id": string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id": string,"sender_id"?: string | null
+                  }
+                  Update: {
+                    "body"?: string,"channel_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id"?: string,"sender_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "chat_messages_channel_id_organization_id_fkey"
+      columns: ["channel_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "chat_channels"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "chat_messages_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chat_messages_sender_id_fkey"
+      columns: ["sender_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"chat_reads": {
+                  Row: {
+                    "channel_id": string,"last_read_at": string,"organization_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "channel_id": string,"last_read_at"?: string,"organization_id": string,"user_id"?: string
+                  }
+                  Update: {
+                    "channel_id"?: string,"last_read_at"?: string,"organization_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "chat_reads_channel_id_organization_id_fkey"
+      columns: ["channel_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "chat_channels"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "chat_reads_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chat_reads_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"dashboard_layouts": {
                   Row: {
                     "id": string,"layout": NonNullable<Json>,"membership_id": string,"organization_id": string,"updated_at": string
@@ -111,6 +213,70 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "organizations"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"discussion_replies": {
+                  Row: {
+                    "author_id": string | null,"body": string,"created_at": string,"deleted_at": string | null,"discussion_id": string,"edited_at": string | null,"id": string,"mentions": (string)[],"organization_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"body": string,"created_at"?: string,"deleted_at"?: string | null,"discussion_id": string,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id": string
+                  }
+                  Update: {
+                    "author_id"?: string | null,"body"?: string,"created_at"?: string,"deleted_at"?: string | null,"discussion_id"?: string,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "discussion_replies_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "discussion_replies_discussion_id_organization_id_fkey"
+      columns: ["discussion_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "discussions"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "discussion_replies_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"discussions": {
+                  Row: {
+                    "author_id": string | null,"body": string,"created_at": string,"edited_at": string | null,"id": string,"last_activity_at": string,"mentions": (string)[],"organization_id": string,"project_id": string | null,"title": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"body": string,"created_at"?: string,"edited_at"?: string | null,"id"?: string,"last_activity_at"?: string,"mentions"?: (string)[],"organization_id": string,"project_id"?: string | null,"title": string
+                  }
+                  Update: {
+                    "author_id"?: string | null,"body"?: string,"created_at"?: string,"edited_at"?: string | null,"id"?: string,"last_activity_at"?: string,"mentions"?: (string)[],"organization_id"?: string,"project_id"?: string | null,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "discussions_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "discussions_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "discussions_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
     }
                   ]
                 },"documents": {
@@ -327,17 +493,23 @@ isOneToOne: false
                   ]
                 },"notification_mutes": {
                   Row: {
-                    "created_at": string,"id": string,"muted_user_id": string | null,"organization_id": string,"type": Database["public"]['Enums']["notification_type"] | null,"user_id": string
+                    "created_at": string,"id": string,"muted_channel_id": string | null,"muted_user_id": string | null,"organization_id": string,"type": Database["public"]['Enums']["notification_type"] | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"muted_user_id"?: string | null,"organization_id": string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"muted_channel_id"?: string | null,"muted_user_id"?: string | null,"organization_id": string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"muted_user_id"?: string | null,"organization_id"?: string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"muted_channel_id"?: string | null,"muted_user_id"?: string | null,"organization_id"?: string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "notification_mutes_muted_channel_id_fkey"
+      columns: ["muted_channel_id"]
+isOneToOne: false
+      referencedRelation: "chat_channels"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "notification_mutes_muted_user_id_fkey"
       columns: ["muted_user_id"]
 isOneToOne: false
@@ -565,6 +737,38 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"project_first_joins": {
+                  Row: {
+                    "joined_at": string,"membership_id": string,"organization_id": string,"project_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "joined_at"?: string,"membership_id": string,"organization_id": string,"project_id": string
+                  }
+                  Update: {
+                    "joined_at"?: string,"membership_id"?: string,"organization_id"?: string,"project_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "project_first_joins_membership_id_organization_id_fkey"
+      columns: ["membership_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "memberships"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "project_first_joins_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "project_first_joins_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"project_members": {
                   Row: {
                     "created_at": string,"id": string,"membership_id": string,"organization_id": string,"project_id": string,"role": Database["public"]['Enums']["project_role"]
@@ -667,6 +871,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "task_assignees_task_id_organization_id_fkey"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"task_comments": {
+                  Row: {
+                    "author_id": string | null,"body": string,"created_at": string,"deleted_at": string | null,"edited_at": string | null,"id": string,"mentions": (string)[],"organization_id": string,"task_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"body": string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id": string,"task_id": string
+                  }
+                  Update: {
+                    "author_id"?: string | null,"body"?: string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"mentions"?: (string)[],"organization_id"?: string,"task_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "task_comments_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_comments_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_comments_task_id_organization_id_fkey"
       columns: ["task_id","organization_id"]
 isOneToOne: false
       referencedRelation: "tasks"
@@ -804,11 +1040,17 @@ isOneToOne: false
 "can_manage_project_content":
 { Args: { "project_id": string }; Returns: boolean
                            },
+"can_read_chat_message":
+{ Args: { "channel": string,"sent_at": string }; Returns: boolean
+                           },
 "can_read_participant_object":
 { Args: { "object_name": string,"object_owner": string,"purpose": string }; Returns: boolean
                            },
 "can_record_attendance":
 { Args: { "event_id": string,"participant_id": string }; Returns: boolean
+                           },
+"can_remove_discussion":
+{ Args: { "discussion": string }; Returns: boolean
                            },
 "can_share_task":
 { Args: { "task_id": string }; Returns: boolean
@@ -818,6 +1060,12 @@ isOneToOne: false
                            },
 "can_use_realtime_topic":
 { Args: { "topic": string }; Returns: boolean
+                           },
+"can_view_channel":
+{ Args: { "channel": string }; Returns: boolean
+                           },
+"can_view_discussion":
+{ Args: { "discussion": string }; Returns: boolean
                            },
 "can_view_participant":
 { Args: { "participant_id": string }; Returns: boolean
@@ -833,6 +1081,14 @@ isOneToOne: false
                            },
 "can_view_task":
 { Args: { "task_id": string }; Returns: boolean
+                           },
+"chat_channel_people":
+{ Args: { "channel": string }; Returns: {
+              "user_id": string
+            }[]
+                           },
+"chat_history_start":
+{ Args: { "channel": string }; Returns: string
                            },
 "claim_task":
 { Args: { "task_id": string }; Returns: undefined
@@ -863,6 +1119,11 @@ isOneToOne: false
 "decline_invitation":
 { Args: { "token": string }; Returns: undefined
                            },
+"discussion_audience":
+{ Args: { "discussion": string }; Returns: {
+              "user_id": string
+            }[]
+                           },
 "get_invitation":
 { Args: { "token": string }; Returns: {
               "accepted_at": string,"email": string,"expires_at": string,"organization_name": string,"organization_slug": string,"role": Database["public"]['Enums']["member_role"]
@@ -871,11 +1132,25 @@ isOneToOne: false
 "has_permission":
 { Args: { "org_id": string,"required": Database["public"]['Enums']["member_role"] }; Returns: boolean
                            },
+"in_channel":
+{ Args: { "channel": string }; Returns: boolean
+                           },
 "is_member":
 { Args: { "org_id": string }; Returns: boolean
                            },
 "is_own_profile_photo":
 { Args: { "object_name": string }; Returns: boolean
+                           },
+"mark_channel_read":
+{ Args: { "channel": string }; Returns: undefined
+                           },
+"mentions_in":
+{ Args: { "body": string,"org": string }; Returns: (string)[]
+                           },
+"my_chat_channels":
+{ Args: { "org": string }; Returns: {
+              "id": string,"joined": boolean,"kind": Database["public"]['Enums']["chat_channel_kind"],"last_message_at": string,"muted": boolean,"other_user": string,"project_id": string,"project_name": string,"unread": number
+            }[]
                            },
 "my_membership_id":
 { Args: { "org_id": string }; Returns: string
@@ -900,10 +1175,13 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "notification_muted":
-{ Args: { "actor": string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string }; Returns: boolean
+{ Args: { "actor": string,"channel": string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string }; Returns: boolean
                            },
 "notify":
 { Args: { "actor": string,"data"?: Json,"dedupe"?: string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string,"subject_id": string,"subject_type": string }; Returns: undefined
+                           },
+"open_direct_channel":
+{ Args: { "org": string,"other": string }; Returns: string
                            },
 "open_participant_file":
 { Args: { "download": boolean,"file_id": string }; Returns: {
@@ -971,6 +1249,9 @@ isOneToOne: false
 "shares_org":
 { Args: { "other_user": string }; Returns: boolean
                            },
+"signal_chat":
+{ Args: { "channel": string,"event": string,"recipients": (string)[] }; Returns: undefined
+                           },
 "slugify":
 { Args: { "value": string }; Returns: string
                            },
@@ -980,14 +1261,28 @@ isOneToOne: false
 "tags_to_text":
 { Args: { "tags": (string)[] }; Returns: string
                            },
+"task_audience":
+{ Args: { "task": string }; Returns: {
+              "user_id": string
+            }[]
+                           },
 "task_creator_rank":
 { Args: { "task_id": string }; Returns: number
+                           },
+"task_people":
+{ Args: { "task": string }; Returns: string[]
                            },
 "transfer_ownership":
 { Args: { "new_owner_membership_id": string,"org_id": string }; Returns: undefined
                            },
 "unclaim_task":
 { Args: { "task_id": string }; Returns: undefined
+                           },
+"user_can_view_channel":
+{ Args: { "channel": string,"uid": string }; Returns: boolean
+                           },
+"user_can_view_discussion":
+{ Args: { "discussion": string,"uid": string }; Returns: boolean
                            },
 "user_can_view_participant":
 { Args: { "participant_id": string,"uid": string }; Returns: boolean
@@ -997,7 +1292,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1117,7 +1412,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const
