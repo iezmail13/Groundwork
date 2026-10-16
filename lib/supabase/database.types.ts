@@ -325,16 +325,74 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"organizations": {
+                },"notification_mutes": {
                   Row: {
-                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "created_at": string,"id": string,"organization_id": string,"type": Database["public"]['Enums']["notification_type"],"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "created_at"?: string,"id"?: string,"organization_id": string,"type": Database["public"]['Enums']["notification_type"],"user_id"?: string
                   }
                   Update: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "created_at"?: string,"id"?: string,"organization_id"?: string,"type"?: Database["public"]['Enums']["notification_type"],"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notification_mutes_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notification_mutes_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"notifications": {
+                  Row: {
+                    "actor_id": string | null,"created_at": string,"data": NonNullable<Json>,"dedupe_key": string | null,"id": string,"organization_id": string,"read_at": string | null,"recipient_id": string,"subject_id": string,"subject_type": string,"type": Database["public"]['Enums']["notification_type"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_id"?: string | null,"created_at"?: string,"data"?: NonNullable<Json>,"dedupe_key"?: string | null,"id"?: string,"organization_id": string,"read_at"?: string | null,"recipient_id": string,"subject_id": string,"subject_type": string,"type": Database["public"]['Enums']["notification_type"]
+                  }
+                  Update: {
+                    "actor_id"?: string | null,"created_at"?: string,"data"?: NonNullable<Json>,"dedupe_key"?: string | null,"id"?: string,"organization_id"?: string,"read_at"?: string | null,"recipient_id"?: string,"subject_id"?: string,"subject_type"?: string,"type"?: Database["public"]['Enums']["notification_type"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notifications_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notifications_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notifications_recipient_id_fkey"
+      columns: ["recipient_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"organizations": {
+                  Row: {
+                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -694,6 +752,17 @@ isOneToOne: false
 "appoint_to_task":
 { Args: { "invitation_id"?: string,"membership_id"?: string,"task_id": string }; Returns: undefined
                            },
+"as_user_begin":
+{ Args: { "uid": string }; Returns: (string)[]
+                           },
+"as_user_end":
+{ Args: { "saved": (string)[] }; Returns: undefined
+                           },
+"attendance_rate":
+{ Args: { "extra_status": Database["public"]['Enums']["attendance_status"],"participant_id": string,"project_id": string,"skip_mark": string }; Returns: {
+              "counted": number,"rate": number
+            }[]
+                           },
 "calendar_feed":
 { Args: { "feed_token": string }; Returns: {
               "all_day": boolean,"due_date": string,"ends_at": string,"item_id": string,"item_type": string,"starts_at": string,"title": string,"updated_at": string
@@ -767,6 +836,7 @@ isOneToOne: false
 "id": string,
 "logo_dark_path": string | null,
 "logo_path": string | null,
+"low_attendance_percent": number,
 "name": string,
 "preset_key": string,
 "show_illustrations": boolean,
@@ -816,6 +886,12 @@ isOneToOne: false
 "my_verified_email":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"notification_muted":
+{ Args: { "actor": string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string }; Returns: boolean
+                           },
+"notify":
+{ Args: { "actor": string,"data"?: Json,"dedupe"?: string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string,"subject_id": string,"subject_type": string }; Returns: undefined
+                           },
 "open_participant_file":
 { Args: { "download": boolean,"file_id": string }; Returns: {
               "mime_type": string,"name": string,"storage_path": string
@@ -840,6 +916,9 @@ isOneToOne: false
                            },
 "project_role_rank":
 { Args: { "role": Database["public"]['Enums']["project_role"] }; Returns: number
+                           },
+"queue_my_due_notifications":
+{ Args: { "org": string,"today": string }; Returns: undefined
                            },
 "recent_projects":
 { Args: { "max_rows"?: number,"org_id": string }; Returns: {
@@ -890,10 +969,16 @@ isOneToOne: false
                            },
 "unclaim_task":
 { Args: { "task_id": string }; Returns: undefined
+                           },
+"user_can_view_participant":
+{ Args: { "participant_id": string,"uid": string }; Returns: boolean
+                           },
+"user_can_view_task":
+{ Args: { "task_id": string,"uid": string }; Returns: boolean
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","member_role": "owner"|"manager"|"admin"|"staff","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1013,7 +1098,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"member_role": ["owner", "manager", "admin", "staff"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const
