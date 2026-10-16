@@ -8,15 +8,16 @@ Next.js 16 differs from older versions; read AGENTS.md and the bundled docs in `
 
 - Groundwork is a workplace management platform for program-based organizations. The product is one dashboard plus projects, tasks, documents and a calendar with reminders.
 - Also in scope: participant rosters with their files and attendance (only on projects whose type turns them on), invitations by email, and a read-only per-user ICS calendar feed.
-- Also in scope (owner's decision, D82): funds, meaning an amount of money split into labelled allocations that can be linked to projects, with charts. Only owners and managers see them. This is planning, not accounting: no transactions, payments, invoices or bank data.
-- Do not build onboarding, employee directories, certifications, other finance (accounting, payments, payroll, donor management), communications, automations or other integrations. Do not add sidebar items, routes or tables for them.
+- Also in scope (owner's decision, D82, extended by D91): funds and budget and grant tracking, meaning an amount of money split into labelled allocations that can be linked to projects, with charts, plus spending entries with receipts and approval. Budgets, totals and charts are visible to owners and managers only. This is tracking, not accounting: no bank feeds, tax, payroll, invoices, double-entry or accounting-software sync.
+- Also in scope (owner's decisions, D87–D95): a site-wide maintenance switch and scheduled-maintenance notices; in-app notifications (no email, SMS or push); personal and org-level tasks outside projects, with multiple assignees, kinds, priority, hiding and sharing; member profiles, online status and an internal chat hub (text only); read-only dashboards, including one per project; templated reports (PDF and CSV); and public marketing pages (Pricing, Security, About, Privacy, Terms, Use cases, Compare, Resources), a "Start free" path and a read-only public demo.
+- Do not build onboarding, employee directories beyond member profiles, certifications, accounting, payments, payroll, donor management, billing or plans, email or SMS communications, marketing email capture, automations, video calls or meeting links, transcripts, AI-written summaries, chat attachments, per-person permission grants, or other integrations. Do not add sidebar items, routes or tables for them.
 - Nothing shipped may be a placeholder, a TODO, or lorem ipsum.
 
 ## Stack
 
 - Next.js App Router, TypeScript strict, Tailwind CSS, and Supabase (Postgres, auth, storage, RLS) run locally with the Supabase CLI and deployed on Vercel.
 - Auth is Supabase Auth with Google sign-in plus the email magic link. Only trust verified emails, for example when matching invitations.
-- Pre-approved packages: @supabase/supabase-js, @supabase/ssr, zod, @dnd-kit/core, @dnd-kit/sortable, lucide-react, vitest, @playwright/test, tsx. Add nothing else without a written reason in docs/decisions.md, written before the package is added; prefer none (Google sign-in and the ICS feed need no package).
+- Pre-approved packages: @supabase/supabase-js, @supabase/ssr, zod, @dnd-kit/core, @dnd-kit/sortable, lucide-react, vitest, @playwright/test, tsx. Add nothing else without a written reason in docs/decisions.md, written before the package is added; prefer none (Google sign-in and the ICS feed need no package). Charts are hand-built SVG or HTML. Live updates and chat use Supabase Realtime, which `@supabase/supabase-js` already includes.
 - Fonts come from next/font: Archivo for headings and chrome, Source Sans 3 for body text and tables.
 - Animation is CSS only. No animation library. Every animation stops under `prefers-reduced-motion`.
 - Use server components by default. Use client components only where interaction needs them.
@@ -27,7 +28,9 @@ Next.js 16 differs from older versions; read AGENTS.md and the bundled docs in `
 - Every org-scoped table has `organization_id`. The only global tables are `presets` (read-only to authenticated users) and `profiles` (one row per auth user).
 - Every table has select, insert, update and delete policies. Policies use the security-definer helpers `is_member(org)` and `has_permission(org, role)` so they never recurse. `has_permission` compares ranks read live from the membership row, so a promotion or demotion takes effect on the next query.
 - Org roles are ranked: owner (4) > manager (3) > admin (2) > staff (1). Owners and managers handle settings and members and can manage anything they can see. Nobody can grant a role above their own or change someone ranked at or above them, except owners. Project roles are lead > admin > staff, and the org role is their ceiling.
-- Visibility follows project membership. Someone not on a project can't see it, its tasks, roster, files, calendar items or activity; owners see every project. Task visibility has one source of truth, `can_view_task()`, and every list, count, feed, search and calendar feed goes through it.
+- Visibility follows project membership. Someone not on a project can't see it, its tasks, roster, files, calendar items or activity; owners see every project. Task visibility has one source of truth, `can_view_task()`, and every list, count, feed, search, notification, dashboard, profile, report, chat link and calendar feed goes through it. A task may sit outside a project (personal or org-level); `can_view_task()` applies the task-model rules (D89), not just "can see its project".
+- Chat visibility has one source of truth, `can_view_channel()`. Direct messages are visible only to their two participants: they are the one place an owner can't see what isn't theirs (D90).
+- The maintenance switch lives outside the database (Vercel Edge Config, with environment variables as the fallback), so the maintenance page works while the database is being migrated or is down. It adds no global table (D87).
 - What someone creates (projects, tasks, events, documents) stores `created_by_role`; nobody ranked below that role can edit or delete it except its creator, and a task's assignee may still change its status. `guard_creator_rank` enforces it in the database.
 - Org creation, invite acceptance and ownership transfer go through the SECURITY DEFINER functions `create_organization`, `accept_invitation` and `transfer_ownership`. The last owner can never be removed, demoted or leave.
 - Never expose the service-role key to the client. It is used only by `npm run seed` and the dev-only sign-in shortcut, via `lib/supabase/admin.ts` (marked `server-only`).
@@ -38,17 +41,19 @@ Next.js 16 differs from older versions; read AGENTS.md and the bundled docs in `
 
 ## Terminology
 
-- Never hard-code a primitive label (project, task, event, document, member, role names, participant and attendance words, status names) in UI code. Use `t(key, form)`: `useT()` in client components, or `getOrgContext(slug).t` on the server.
+- Never hard-code a primitive label (project, task, event, document, member, role names, participant and attendance words, status names, priority levels, task kinds) in UI code. Use `t(key, form)`: `useT()` in client components, or `getOrgContext(slug).t` on the server.
 - `t` resolves the org override first, then the preset label, then the default (`lib/terminology/defaults.ts`).
 - `npm run check:labels` enforces this. Fix the code, not the checker.
 
 ## Design
 
-- Use two colour scales only, navy and bone. Nothing else anywhere: no orange, olive, red, green or grey. Derive every border, hover and tint from those two. The Tailwind palette is reset in `app/globals.css`, so only theme tokens exist. The logo keeps its own colours.
-- No drop shadows. Use thin bone-300 rules. Interaction shows through border and translate.
-- Never signal status by colour alone. Use labels, icons, filled versus outlined badges, and bold type. Overdue is a filled navy badge with an icon and the word "Overdue".
-- The base navy is fixed at #163260 and there is no theme setting. Any token change must keep text contrast at 4.5:1 or more (`lib/theme/theme.ts` and its unit test).
-- Use ruled tables, not card grids; the dashboard widget grid is the one exception. Layouts must be fully responsive with visible focus, full keyboard access, and correct aria labels and roles.
+- Colour (D83). The base is the white/bone background, with navy #163260 for text and the sidebar. The accent (#0006BF by default) is for buttons, links, active states and focus. Status colours are fixed for everyone: green = good or done, amber = middle, red = bad or overdue. Priority colours are fixed for everyone: red = critical/high, orange = medium-high, yellow = medium, blue = low. Neutral chart data uses the accent and its tints. Brighter colours are for charts, dots, badges and icons; large surfaces stay calm. Use only theme tokens (the Tailwind palette is reset in `app/globals.css`). The logo keeps its own colours.
+- Theming (D84). Dark mode is a per-user setting (light, dark or system). Orgs can set a logo and an accent colour; users can override the accent on their own screen unless their org turns that off. Status and priority colours are never themeable.
+- Contrast (D85). Text must reach 4.5:1, and chart marks, dots and icons 3:1, in both modes. Any accent is lightness-adjusted automatically to pass. `lib/theme/theme.ts` and its unit tests enforce this.
+- Branding (D86). Inside an org, its logo can replace the Groundwork logo, and a small "Powered by Groundwork" mark stays in the sidebar. The public pages, sign-in pages, emails and the maintenance page always use Groundwork branding.
+- No drop shadows. Use thin rules. Interaction shows through border and translate.
+- Never signal status by colour alone. Use labels, icons, filled versus outlined badges, and bold type. Overdue is red with a dot, an icon and the word "Overdue". Priority is a flag icon plus a label, kept visually separate from status.
+- Use ruled tables, not card grids; the dashboard widget grids are the one exception. Dashboards are read-only summaries filtered by permission in the database, and every chart mark links to an editable view or a read-only detail (D92). Layouts must be fully responsive with visible focus, full keyboard access, and correct aria labels and roles.
 
 ## How to work
 
