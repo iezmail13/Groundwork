@@ -105,7 +105,7 @@ test("a change refreshes dashboards live for people on the program, and not for 
   const jordan = await signIn(browser, "Jordan Ellis");
   await jordan.goto(`${ORG}/tasks?view=list`);
   await jordan.locator("html[data-hydrated]").waitFor({ state: "attached" });
-  await jordan.getByRole("checkbox", { name: "Done: Set up a quiet reading corner" }).click();
+  await jordan.getByRole("checkbox", { name: "Done: Send progress notes to families" }).click();
   await expect(jordan.getByRole("status").filter({ hasText: "is done." })).toBeVisible();
 
   // Priya's dashboard updates without a reload
