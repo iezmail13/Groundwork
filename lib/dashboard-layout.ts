@@ -7,7 +7,6 @@ export const WIDGET_IDS = [
   "my_tasks",
   "upcoming_events",
   "project_progress",
-  "recent_activity",
   "pinned_documents",
   "funding",
 ] as const;
@@ -26,7 +25,6 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
     { id: "my_tasks", size: "m", hidden: false },
     { id: "upcoming_events", size: "m", hidden: false },
     { id: "project_progress", size: "m", hidden: false },
-    { id: "recent_activity", size: "m", hidden: false },
     { id: "pinned_documents", size: "l", hidden: false },
     { id: "funding", size: "m", hidden: false },
   ],

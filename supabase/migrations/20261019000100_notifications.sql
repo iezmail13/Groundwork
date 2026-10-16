@@ -235,7 +235,8 @@ begin
   select * into t from public.tasks x where x.id = new.task_id;
   select m.user_id into person from public.memberships m where m.id = new.membership_id;
   if new.kind = 'appointed' then
-    perform public.notify(t.organization_id, person, 'assigned', 'task', t.id, auth.uid());
+    -- outside a session (the demo seed), whoever is recorded as adding them
+    perform public.notify(t.organization_id, person, 'assigned', 'task', t.id, coalesce(auth.uid(), new.added_by));
   else
     perform public.notify(t.organization_id, t.created_by, 'claimed', 'task', t.id, person);
   end if;
@@ -299,9 +300,9 @@ create trigger invitations_notify_accepted
   for each row execute function public.notify_invitation_accepted();
 
 -- Attendance falling below the organization's low mark: owners, and the
--- program's admins and leads. Told once when it crosses the mark, after at
--- least three counted sessions; again only if it recovers and falls again.
-create function public.attendance_rate(participant_id uuid, project_id uuid, skip_mark uuid, extra_status public.attendance_status)
+-- program's admins and leads. Told once when it falls below, after at least
+-- three counted sessions; again only if it recovers and falls again.
+create function public.attendance_rate(participant_id uuid, project_id uuid)
 returns table (counted int, rate numeric)
 language sql
 stable
@@ -314,9 +315,6 @@ as $$
     join public.events e on e.id = a.event_id
     where a.participant_id = attendance_rate.participant_id
       and e.project_id = attendance_rate.project_id
-      and a.id is distinct from skip_mark
-    union all
-    select extra_status where extra_status is not null
   )
   select
     count(*) filter (where status <> 'excused')::int,
@@ -327,7 +325,7 @@ as $$
   from marks;
 $$;
 
-revoke execute on function public.attendance_rate(uuid, uuid, uuid, public.attendance_status) from public, anon, authenticated;
+revoke execute on function public.attendance_rate(uuid, uuid) from public, anon, authenticated;
 
 create function public.notify_low_attendance() returns trigger
 language plpgsql
@@ -337,29 +335,28 @@ as $$
 declare
   program uuid;
   low smallint;
-  before_counted int;
-  before_rate numeric;
-  after_counted int;
-  after_rate numeric;
+  counted int;
+  rate numeric;
   person uuid;
+  episode text;
 begin
   if new.participant_id is null then
     return new;
   end if;
   select e.project_id into program from public.events e where e.id = new.event_id;
-  select o.low_attendance_percent into low from public.organizations o where o.id = new.organization_id;
   if program is null then
     return new;
   end if;
-  select r.counted, r.rate into after_counted, after_rate
-  from public.attendance_rate(new.participant_id, program, null, null) r;
-  select r.counted, r.rate into before_counted, before_rate
-  from public.attendance_rate(new.participant_id, program, new.id, case when tg_op = 'UPDATE' then old.status end) r;
-  if after_counted < 3 or after_rate is null or after_rate >= low then
+  select o.low_attendance_percent into low from public.organizations o where o.id = new.organization_id;
+  select r.counted, r.rate into counted, rate
+  from public.attendance_rate(new.participant_id, program) r;
+  -- one alert per spell below the mark: its key is released when they recover
+  episode := 'low_attendance:' || new.participant_id || ':' || program;
+  if counted < 3 or rate is null then
     return new;
   end if;
-  if before_counted >= 3 and before_rate is not null and before_rate < low then
-    -- already below: they've been told
+  if rate >= low then
+    update public.notifications n set dedupe_key = null where n.dedupe_key = episode;
     return new;
   end if;
   for person in
@@ -373,7 +370,8 @@ begin
   loop
     perform public.notify(
       new.organization_id, person, 'low_attendance', 'participant', new.participant_id, auth.uid(),
-      jsonb_build_object('rate', round(after_rate), 'project_id', program)
+      jsonb_build_object('rate', round(rate), 'project_id', program),
+      episode
     );
   end loop;
   return new;

@@ -224,10 +224,11 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people, the organization, its branding and your own profile;
-  // words aren't editable one by one
+  // settings are the preset, the people, the organization, its branding, your own
+  // profile and your notifications; words aren't editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(5);
+  await expect(sections.getByRole("link")).toHaveCount(6);
+  await expect(sections.getByRole("link", { name: "Notifications" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
@@ -260,14 +261,14 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   expect(after.slice(0, 2)).toEqual(["due_soon", "overdue"]);
   // resize and hide too, so persistence covers every kind of change
   await page.getByRole("radio", { name: "Large" }).first().check({ force: true });
-  await page.getByRole("button", { name: "Hide Recent activity" }).click();
+  await page.getByRole("button", { name: "Hide Quick add" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "recent_activity"));
+  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "quick_add"));
   await expect(page.locator('li[data-widget="due_soon"]')).toHaveClass(/xl:col-span-12/);
-  await expect(page.getByRole("heading", { name: "Recent activity" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Quick add" })).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
@@ -832,8 +833,9 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await visit(page, "/northside-youth-collective/dashboard");
   await expect(page.getByRole("heading", { name: "Funding" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Spring bake sale", exact: true })).toBeVisible();
-  // and the change is in recent activity, for owners and managers
-  await expect(page.getByRole("link", { name: "“Spring bake sale”" }).first()).toBeVisible();
+  // and the change is in the activity log, for owners and managers
+  await visit(page, "/northside-youth-collective/activity");
+  await expect(page.getByRole("table", { name: "Activity, newest first" }).getByRole("link", { name: "Spring bake sale" }).first()).toBeVisible();
 
   // an admin sees none of it
   const context = await browser.newContext();
@@ -845,5 +847,8 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await expect(admin.getByRole("heading", { name: "Funding" })).toHaveCount(0);
   await admin.goto("/northside-youth-collective/funds");
   await expect(admin.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await admin.goto("/northside-youth-collective/activity");
+  await expect(admin.getByRole("heading", { level: 1, name: "Activity" })).toBeVisible();
+  await expect(admin.getByText("Spring bake sale")).toHaveCount(0);
   await context.close();
 });

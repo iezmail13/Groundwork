@@ -3,7 +3,7 @@
 -- read and mark only their own; and the activity log is append-only.
 begin;
 \ir fixtures.inc
-select plan(36);
+select plan(38);
 
 -- Org A also has Max (manager, leads A's program), Ada (admin, project admin
 -- there) and Sam (staff, on no program). Mia is project staff on A's program.
@@ -167,6 +167,17 @@ insert into public.attendance (organization_id, event_id, participant_id, status
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-5555-0000-0000-000000000004', 'aaaaaaaa-8888-0000-0000-000000000001', 'absent', 'a0000000-0000-0000-0000-00000000000d');
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select is((select count(*)::int from public.notifications where type = 'low_attendance'), 1, 'staying below doesn''t notify again');
+-- recovering, then falling again, is a new alert
+select tests.as_user('a0000000-0000-0000-0000-00000000000d');
+update public.attendance set status = 'present'
+where participant_id = 'aaaaaaaa-8888-0000-0000-000000000001' and event_id in ('aaaaaaaa-5555-0000-0000-000000000002', 'aaaaaaaa-5555-0000-0000-000000000003', 'aaaaaaaa-5555-0000-0000-000000000004');
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select count(*)::int from public.notifications where type = 'low_attendance'), 1, 'recovering sends nothing');
+select tests.as_user('a0000000-0000-0000-0000-00000000000d');
+update public.attendance set status = 'absent'
+where participant_id = 'aaaaaaaa-8888-0000-0000-000000000001' and event_id in ('aaaaaaaa-5555-0000-0000-000000000001', 'aaaaaaaa-5555-0000-0000-000000000002', 'aaaaaaaa-5555-0000-0000-000000000003');
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select count(*)::int from public.notifications where type = 'low_attendance'), 2, 'falling below again, even several marks at once, alerts once more');
 
 -- Reading and marking ------------------------------------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');

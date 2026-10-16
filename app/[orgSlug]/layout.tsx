@@ -13,6 +13,8 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { getBranding } from "@/lib/branding";
 import { UndoToastProvider } from "@/components/ui/undo-toast";
 import { canManageOrg, rankOf } from "@/lib/roles";
+import { NotificationBell } from "@/components/shell/notification-bell";
+import { getUnreadCount, queueDueNotifications } from "@/lib/notifications";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -24,6 +26,8 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   const { orgSlug } = await params;
   const ctx = await getOrgContext(orgSlug);
   const { supabase } = await requireUser();
+  // work due tomorrow or overdue becomes a notification when they next open the app (D103)
+  await queueDueNotifications(ctx.org.id, ctx.today);
 
   const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore, attendancePrograms, maintenance, branding] = await Promise.all([
     supabase
@@ -38,13 +42,19 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
     getMaintenance(),
     getBranding(ctx.org, ctx.userId),
   ]);
+  const unread = await getUnreadCount(ctx.org.id);
 
   const orgs = (memberships ?? [])
     .map((m) => m.organization)
     .filter((o): o is { name: string; slug: string } => Boolean(o));
   const name = profile?.full_name || profile?.email || ctx.userEmail;
 
-  const actions = <ThemeToggle initial={branding.themeMode} />;
+  const actions = (
+    <>
+      <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} />
+      <ThemeToggle initial={branding.themeMode} />
+    </>
+  );
 
   return (
     <div className="min-h-dvh bg-canvas text-ink" data-illustrations={branding.showIllustrations ? "on" : "off"}>
@@ -64,7 +74,12 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
           <Sidebar
             org={{ name: ctx.org.name, slug: ctx.org.slug }}
             logo={branding.logoUrl ? { url: branding.logoUrl, darkUrl: branding.logoDarkUrl } : null}
-            mobileActions={<ThemeToggle initial={branding.themeMode} onRail />}
+            mobileActions={
+              <>
+                <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} onRail />
+                <ThemeToggle initial={branding.themeMode} onRail />
+              </>
+            }
             orgs={orgs}
             user={{ name, email: profile?.email ?? ctx.userEmail, initials: initials(name) }}
             recent={(recent ?? []).map((p) => ({ id: p.id, name: p.name }))}

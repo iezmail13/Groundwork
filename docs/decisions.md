@@ -362,3 +362,41 @@ The calendar feed:
 - **The token is a secret.** Lookup compares SHA-256 digests, so its timing reveals nothing about the token (the brief's constant-time requirement). The app never logs the token. The route doesn't send it to the sign-in page, because `/api/calendar/` is public in `proxy.ts`. Unknown, malformed and revoked tokens all get the same plain 404. Hosting request logs (Vercel) still record request paths, which is unavoidable for a subscription URL; anyone who suspects a link was seen can make a new one.
 - **Format.** iCalendar written by hand in `lib/ics.ts` (no package, per D57), with CRLF line endings, escaped text, lines folded at 75 octets without splitting characters, a stable UID per item, and an hourly refresh hint. Unit tests cover the format; pgTAP (`19_calendar_feed`) covers exactly what each person's feed holds, someone else's hidden or personal work never appearing, and new or revoked links stopping the old one.
 - **Tests.** pgTAP `18_participant_files` covers cross-organization isolation, project staff and outsiders getting nothing, storage policies matching the table policies, the access record and privacy deletion. e2e `tests/e2e/carry-overs.spec.ts` covers an upload and download being recorded, project staff blocked, the owner reading the record, a deletion recorded, the feed's contents, a new link replacing the old one, and a revoked link returning 404.
+
+## Notifications and the activity log, part 6
+
+**D103. In-app notifications, mutes, and the finished activity log.** In-app only, as the owner decided: no email, SMS or push.
+
+Notifications:
+- **What notifies.**
+  - Being given (appointed to) work.
+  - Someone claiming work you made.
+  - Work you made, or non-personal work on a program you lead, being finished. This goes to its creator and the program's leads, never to whoever finished it.
+  - Your work being due tomorrow or overdue: once per due date, never repeated.
+  - An invitation you sent being accepted.
+  - A participant's attendance in a program falling below the organization's low mark. This goes to owners and the program's admins and leads.
+  
+  Nothing else notifies: no edits, renames, uploads or other status changes. Nobody is told about their own actions.
+- **The low mark** is a new organization setting, `low_attendance_percent` (75% by default), under Settings → Organization. A rate needs at least three counted sessions (excused ones don't count, as in D81) before it can alert. Each spell below the mark alerts once: its key is released when the rate recovers, so falling again alerts again. Saving many marks at once can't send duplicates.
+- **Due and overdue work** is checked when the person opens the app (the org layout calls `queue_my_due_notifications()` with today's date where they are), not by a scheduled job. Notifications are in-app only, so they appear at the same moment a scheduler's would, with no extension (pg_cron) and no service-role job. Each one is keyed on the task and its due date, so it's sent once, and again only if the due date changes.
+- **The table.** `notifications` holds `organization_id`, `recipient_id`, `type`, `subject_type` (task, participant or invitation), `subject_id`, `actor_id`, `data`, `dedupe_key`, `read_at` and `created_at`.
+  - Recipients select and update only their own rows, and only `read_at` is granted.
+  - Clients can't insert or delete.
+  - Rows are written only by `notify()`, which is called from security-definer triggers and functions.
+- **Visibility first.** `notify()` checks, as the recipient, that they can see what it's about: `can_view_task()` for work and `can_view_participant()` for participants. It sets the request's identity to the recipient for that one check, then restores it. A creator who has since lost access to the program isn't told.
+- **Titles are read live.** Notifications store ids, never titles or names. The bell reads them through the viewer's own access, so something they can no longer see is described without naming it.
+- **One mute check.** `notification_muted(org, recipient, type, actor)` is the only place that decides. Today it reads per-type mutes (`notification_mutes`) set in Settings → Notifications, a switch per kind (all on by default). Parts 7 and 9 add per-person and per-channel mutes to the same function.
+- **Screens.**
+  - **Bell:** in the top bar on wide screens and in the small-screen bar on phones. It shows an unread count, as a number badge and in the button's name.
+  - **Panel:** a popover on wide screens, a full-height sheet on phones. It lists the latest 20, each with an icon, a sentence, a relative time and a link, plus Mark all read. Unread items are bold with a dot and an "Unread" label for screen readers. Following one marks it read.
+  - **Full Notifications page:** All and Unread views, and Mark read or Mark unread per item.
+  - **Freshness:** the count refreshes every minute while the page is open. Part 8 brings live updates.
+
+The activity log:
+- **Append-only, now enforced.** RLS used to let members insert entries attributed to themselves and let owners delete entries. Both are now refused. Entries are written only by the logging triggers, which are all security definer. pgTAP checks both.
+- **Recent activity has left the dashboard.** Saved layouts drop the widget automatically. The log has its own page, Activity, in the sidebar for everyone. Each entry shows who, what (with an icon for the kind of item), where (the item, linked, and its program) and when.
+- **Filters:** person, program, kind of change (created, uploaded, changed, moved, finished, archived, restored, pinned, unpinned, deleted) and a date range in the viewer's time zone. Filters live in the URL, and the page shows 100 entries at a time with "Show older".
+- **Export is owner-only.** CSV of the filtered entries (up to 10,000), formula-safe like the attendance export. Anyone else gets a 404, and the button only shows for owners.
+- **Visibility is unchanged:** the same RLS as before. Owners see everything; others see their programs' activity filtered by `can_view_task()`; fund entries are for owners and managers (D82); participant entries follow D81.
+
+Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a creator who lost access, personal work, due and overdue sent once, mutes (including not muting for someone else), low attendance (alert, once per spell, recovery, batches), recipients reading and marking only their own, organizations kept apart, and the append-only log. e2e `tests/e2e/notifications.spec.ts` covers the completion notification reaching the creator and lead but not the finisher, Mark all read, a mute stopping and resuming a kind, the activity filters, and owner-only export.
