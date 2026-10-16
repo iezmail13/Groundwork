@@ -303,3 +303,31 @@ export const accentInput = z
   .optional()
   .transform((v) => (!v ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
   .refine((v) => v === null || /^#[0-9A-F]{6}$/.test(v), "Use a colour like #0006BF.");
+
+// Member profiles (D104) ------------------------------------------------------------------
+
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+export const photoUploadInput = z.object({
+  organizationId: id,
+  size: z.number().int().min(1, "Choose a photo.").max(MAX_PHOTO_BYTES, "Photos can be at most 5 MB."),
+  mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image." }),
+});
+
+export const profileInput = z.object({
+  fullName: z.string({ error: "Add your name." }).trim().min(1, "Add your name.").max(120, "Use 120 characters or fewer."),
+  title: z
+    .string()
+    .trim()
+    .max(120, "Use 120 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+  bio: z
+    .string()
+    .trim()
+    .max(1000, "Use 1,000 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+});
+
+export const PRESENCE_MODES = ["auto", "dnd", "invisible"] as const;

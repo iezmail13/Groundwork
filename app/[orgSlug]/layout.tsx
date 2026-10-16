@@ -14,6 +14,7 @@ import { getBranding } from "@/lib/branding";
 import { UndoToastProvider } from "@/components/ui/undo-toast";
 import { canManageOrg, rankOf } from "@/lib/roles";
 import { NotificationBell } from "@/components/shell/notification-bell";
+import { PresenceProvider } from "@/components/people/presence";
 import { getUnreadCount, queueDueNotifications } from "@/lib/notifications";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
@@ -35,7 +36,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
       .select("organization:organizations(name, slug)")
       .eq("user_id", ctx.userId)
       .order("created_at"),
-    supabase.from("profiles").select("full_name, email").eq("id", ctx.userId).maybeSingle(),
+    supabase.from("profiles").select("full_name, email, presence_mode").eq("id", ctx.userId).maybeSingle(),
     supabase.rpc("recent_projects", { org_id: ctx.org.id, max_rows: 5 }),
     cookies(),
     getAttendancePrograms(ctx.org.id),
@@ -62,6 +63,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
       {branding.accentCss ? <style>{branding.accentCss}</style> : null}
       <TerminologyProvider labels={ctx.labels}>
       <ViewerProvider viewer={{ userId: ctx.userId, role: ctx.role, membershipId: ctx.membershipId }}>
+      <PresenceProvider organizationId={ctx.org.id} userId={ctx.userId} mode={profile?.presence_mode ?? "auto"}>
       <UndoToastProvider>
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} themeMode={branding.themeMode} />
         <a
@@ -95,6 +97,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
           </div>
         </div>
       </UndoToastProvider>
+      </PresenceProvider>
       </ViewerProvider>
       </TerminologyProvider>
     </div>

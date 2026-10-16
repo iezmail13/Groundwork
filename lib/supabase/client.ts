@@ -6,8 +6,11 @@ import { supabasePublishableKey, supabaseUrl } from "./env";
 
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | undefined;
 
-/** Browser Supabase client, used only for direct-to-storage uploads. */
+/** Browser Supabase client: direct-to-storage uploads and Realtime (presence). */
 export function createClient() {
-  browserClient ??= createBrowserClient<Database>(supabaseUrl(), supabasePublishableKey());
+  browserClient ??= createBrowserClient<Database>(supabaseUrl(), supabasePublishableKey(), {
+    // heartbeats from a worker aren't throttled in background tabs, so presence stays accurate
+    realtime: { worker: true },
+  });
   return browserClient;
 }
