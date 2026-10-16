@@ -5,7 +5,7 @@
 -- own actions, and a run of changes notifies once until it's read.
 begin;
 \ir fixtures.inc
-select plan(45);
+select plan(46);
 
 -- Org A also has Sam (staff, on no program). A task on A's program is made by
 -- Alice and given to Mia.
@@ -91,9 +91,12 @@ select lives_ok($$ insert into public.discussions (id, organization_id, title, b
   values ('aaaaaaaa-6666-0000-0000-0000000000d2', 'aaaaaaaa-0000-0000-0000-000000000000', 'Welcome', 'Say hello, <@a0000000-0000-0000-0000-00000000000e>.') $$,
   'and on the organization''s board');
 select is(tests.notes('a0000000-0000-0000-0000-00000000000e', 'mention'), 1, 'a mention in a thread notifies');
+select lives_ok($$ insert into public.discussions (organization_id, title, body)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', 'Read back', 'Hello.') returning id $$,
+  'a new thread can be read back as it''s written');
 
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
-select is((select count(*)::int from public.discussions), 1, 'someone off a program sees only the organization''s threads');
+select is((select count(*)::int from public.discussions), 2, 'someone off a program sees only the organization''s threads');
 select throws_ok($$ insert into public.discussion_replies (organization_id, discussion_id, body)
   values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-6666-0000-0000-0000000000d1', 'Me too') $$, '42501', null,
   'and can''t reply to a program''s thread');

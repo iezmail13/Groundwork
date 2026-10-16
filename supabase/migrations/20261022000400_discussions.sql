@@ -112,9 +112,14 @@ grant execute on function public.can_remove_discussion(uuid) to authenticated;
 alter table public.discussions enable row level security;
 alter table public.discussion_replies enable row level security;
 
+-- the same rule as can_view_discussion(), read from the row itself, so a new
+-- thread can be read back by the statement that wrote it
 create policy discussions_select on public.discussions
   for select to authenticated
-  using (public.is_member(organization_id) and public.can_view_discussion(id));
+  using (
+    public.is_member(organization_id)
+    and (project_id is null or public.can_view_project(project_id))
+  );
 create policy discussions_insert on public.discussions
   for insert to authenticated
   with check (

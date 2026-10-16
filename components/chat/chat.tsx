@@ -685,13 +685,16 @@ function Conversation({
 
   const mentionable = (data?.mentionable ?? []).map((id) => people[id]).filter((p): p is ChatPerson => Boolean(p));
 
-  const toggleMute = async () => {
-    const next = !muted;
-    setMuted(next);
-    const result = await setChannelMuted({ orgSlug, channelId: channel.id, muted: next });
-    if (!result.ok) setMuted(!next);
-    else onChanged();
-  };
+  const [muting, startMuting] = useTransition();
+  // shows "Muted" only once it's saved
+  const toggleMute = () =>
+    startMuting(async () => {
+      const result = await setChannelMuted({ orgSlug, channelId: channel.id, muted: !muted });
+      if (result.ok) {
+        setMuted(!muted);
+        onChanged();
+      }
+    });
 
   const nameOf = (id: string) => people[id]?.name;
 
@@ -723,6 +726,8 @@ function Conversation({
         <button
           type="button"
           aria-pressed={muted}
+          aria-busy={muting}
+          disabled={muting}
           onClick={toggleMute}
           className="inline-flex items-center gap-1 rounded border border-rule px-2 py-1 font-heading text-xs font-semibold hover:bg-panel"
         >
@@ -768,8 +773,9 @@ function Conversation({
                   ? "This is where your history here starts."
                   : "This is the start of the conversation."}
             </p>
+            <div role="log" aria-live="polite" aria-label={`Messages in ${channel.title}`}>
             {data.messages.length === 0 ? <p className="text-sm text-ink-muted">No messages yet. Say hello.</p> : null}
-            <ol ref={listRef} role="log" aria-live="polite" aria-label={`Messages in ${channel.title}`} className="flex flex-col gap-3">
+            <ol ref={listRef} className="flex flex-col gap-3">
               {data.messages.map((m) => {
                 const sender = m.senderId ? people[m.senderId] : undefined;
                 const name = sender?.name ?? "Someone who left";
@@ -843,6 +849,7 @@ function Conversation({
                 );
               })}
             </ol>
+            </div>
           </>
         ) : null}
       </div>

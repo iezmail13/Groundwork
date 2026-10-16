@@ -92,6 +92,9 @@ test("messages arrive live, with typing, edits, deletes and a mention that notif
   await marcus.reload();
   await marcus.getByRole("toolbar", { name: "Your controls" }).getByRole("button", { name: /^Notifications/ }).click();
   await expect(marcus.getByText("Priya Shah mentioned you in #Homework Club.")).toBeVisible();
+  await marcus.keyboard.press("Escape");
+  await openChat(marcus);
+  await openConversation(marcus, "Homework Club");
 
   // Priya edits, then deletes
   const mine = panel(priya).getByRole("log", { name: "Messages in Homework Club" }).locator("li").filter({ hasText: "for the snacks!" });
@@ -162,7 +165,7 @@ test("muting a conversation stops its notifications but keeps its unread count",
   await sofia.reload();
   expect(await sofia.getByRole("link", { name: /in #Everyone/ }).count()).toBe(before);
   await openChat(sofia);
-  const row = panel(sofia).getByRole("button", { name: /^#\s*Everyone/ });
+  const row = panel(sofia).getByRole("button", { name: /^Everyone/ });
   await expect(row.getByText("Muted")).toBeAttached();
   await expect(row).toContainText(/\d+ unread/);
   for (const p of [sofia, jordan]) await p.context().close();
@@ -183,7 +186,8 @@ test("comments on work notify its people; changes to it notify them too", async 
   // Priya made the task, so she hears about the comment
   const priya = await signIn(browser, "Priya Shah");
   await priya.goto(`${ORG}/notifications`);
-  await expect(priya.getByRole("link", { name: "Marcus Chen commented on “Restock snack cupboard”." })).toBeVisible();
+  // the newest first (the seed has an earlier comment of his too)
+  await expect(priya.getByRole("link", { name: "Marcus Chen commented on “Restock snack cupboard”." }).first()).toBeVisible();
 
   // Priya changes its due date; Marcus, on it, hears about that
   await priya.goto(taskUrl);
@@ -196,8 +200,9 @@ test("comments on work notify its people; changes to it notify them too", async 
 
   // Sofia can't see the task, so she can't read its comments either
   const sofia = await signIn(browser, "Sofia Alvarez");
-  const response = await sofia.goto(taskUrl);
-  expect(response?.status()).toBe(404);
+  await sofia.goto(taskUrl);
+  await expect(sofia.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
+  await expect(sofia.getByText("Bought everything, receipts are in the folder.")).toHaveCount(0);
   for (const p of [marcus, priya, sofia]) await p.context().close();
 });
 
@@ -222,7 +227,8 @@ test("discussion boards: a program's threads are for its people", async ({ brows
   // Priya started the winter thread: Marcus's reply notifies her
   const priya = await signIn(browser, "Priya Shah");
   await priya.goto(`${ORG}/notifications`);
-  await expect(priya.getByRole("link", { name: "Marcus Chen posted in “Ideas for the winter term”." })).toBeVisible();
+  // the newest first (the seed has his earlier reply too)
+  await expect(priya.getByRole("link", { name: "Marcus Chen posted in “Ideas for the winter term”." }).first()).toBeVisible();
 
   // Sofia, off Homework Club, sees the organization's thread but not the program's
   const sofia = await signIn(browser, "Sofia Alvarez");

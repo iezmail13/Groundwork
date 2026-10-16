@@ -679,6 +679,10 @@ async function main() {
   // Conversations (D106): the organization channel, Homework Club's channel,
   // a direct message, a comment thread on a task and a discussion.
   const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  // chat history starts when someone joined (D106): the demo team has been here for weeks
+  const joined = ago(60 * 24 * 60);
+  must(await db.from("memberships").update({ created_at: joined }).eq("organization_id", org.id).select("id"), "join dates");
+  must(await db.from("project_first_joins").update({ joined_at: joined }).eq("organization_id", org.id).select("project_id"), "program join dates");
   const channel = async (filter: { kind: "org" } | { kind: "project"; project_id: string }) => {
     let q = db.from("chat_channels").select("id").eq("organization_id", org.id).eq("kind", filter.kind);
     if (filter.kind === "project") q = q.eq("project_id", filter.project_id);
