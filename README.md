@@ -129,6 +129,20 @@ Until the settings below exist, the Deploy job finishes without deploying and it
 
 To redeploy at any time, run CI on `main` again (Actions → CI → Run workflow). Re-running an older run never redeploys an older commit; only the latest commit on `main` is deployed.
 
+### Maintenance mode
+
+Maintenance mode shows everyone a "We're doing some maintenance" page (HTTP 503) while the landing page stays up. It's switched from GitHub, not the database, so it works while the database is being changed.
+
+One-time setup:
+
+1. In Vercel: **Storage → Create → Edge Config**, then connect it to the `groundwork` project (this adds the `EDGE_CONFIG` environment variable).
+2. In GitHub (**Settings → Secrets and variables → Actions**): add the variable `EDGE_CONFIG_ID` (the Edge Config's id, `ecfg_…`).
+3. For the owner bypass: add a long random `MAINTENANCE_BYPASS_TOKEN` (16+ characters) both as a Vercel environment variable (Production) and as a GitHub secret. Visiting any page with `?bypass=<token>` then lets you use the site during maintenance for that browser session.
+
+To switch it: **Actions → Maintenance → Run workflow**, choose on or off, and optionally a message, a start time and an expected end time (e.g. `2026-10-25T22:00:00-04:00`). "Off" with a future start schedules a notice that signed-in people see from 48 hours before. To deploy behind maintenance, run **CI** by hand on main with "Deploy behind maintenance mode" ticked, or put `[maintenance]` in the commit message: it switches on before the migrations and off after the smoke test.
+
+Without Edge Config, the `MAINTENANCE_MODE`, `MAINTENANCE_MESSAGE`, `MAINTENANCE_STARTS_AT` and `MAINTENANCE_ENDS_AT` Vercel environment variables work too, but changing them needs a redeploy.
+
 ### Google sign-in
 
 Optional. Until both settings below exist, the sign-in page offers only the email link.

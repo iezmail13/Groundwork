@@ -3,9 +3,11 @@ import { Features } from "./features";
 import { MarketingFooter } from "./footer";
 import { Hero } from "./hero";
 import { Masthead } from "./masthead";
+import { LandingMaintenanceNotice } from "@/components/maintenance/notices";
+import type { MaintenanceSetting } from "@/lib/maintenance";
 
 /** The public page signed-out visitors see at /. */
-export function Landing() {
+export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSetting; timeZone: string }) {
   // no organization here, so the built-in default labels
   const t = createTranslator();
   return (
@@ -13,6 +15,7 @@ export function Landing() {
       <a href="#main" className="sr-only-focusable absolute top-2 left-2 z-30 rounded-md bg-primary px-3 py-2 text-on-primary">
         Skip to content
       </a>
+      <LandingMaintenanceNotice setting={maintenance} timeZone={timeZone} />
       <Masthead />
       <main id="main" className="flex-1">
         <Hero

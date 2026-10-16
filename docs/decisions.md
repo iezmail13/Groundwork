@@ -233,7 +233,6 @@ The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behi
 - **Where funding shows.** The Funds list shows every fund with its total, allocated, left and a split bar. Each fund has its own page with the full chart and its parts, which can be added, edited and removed. A project page shows a Funding section for funds linked to it or with a part allocated to it. The dashboard has a Funding widget, movable and hideable like the others, showing each fund's split and percentage allocated. The owner asked not to make the dashboard switch per project yet.
 - **Activity.** Creating, editing and deleting a fund, and changing its parts, are logged as entries about the fund for signed-in people; seed and script writes aren't.
 
-
 ## Standing rules for the next update (owner's decisions)
 
 The owner changed the standing rules in CLAUDE.md before the maintenance, website, theme, tasks, notifications, people, chat, dashboards, finance, reports and demo work. Each change is theirs; the build follows it.
@@ -265,3 +264,17 @@ The owner changed the standing rules in CLAUDE.md before the maintenance, websit
 **D95. The public website grows.** The marketing site gains Pricing, Security, About, Privacy, Terms, Use cases, Compare and Resources pages, a "Start free" sign-up path and a read-only public demo. Payments, email capture and marketing emails stay out.
 
 **D96. Terminology covers the new words.** Label keys are added for new primitive words that reach UI copy (priority levels, task kinds), and `check:labels` checks them.
+
+## Maintenance mode (Part 1)
+
+**D97. How maintenance mode works.** It follows D87: the switch is outside the database.
+
+- **Where the setting lives.** One Vercel Edge Config item, `maintenance`, holding `{ "active", "message", "starts_at", "ends_at" }`. The proxy reads it with a plain `fetch` to Edge Config's read endpoint (no package), using the `EDGE_CONFIG` connection string Vercel adds when an Edge Config is connected to the project, and caches it for 10 seconds per server instance. If Edge Config isn't configured, or can't be reached and nothing is cached, the `MAINTENANCE_MODE`, `MAINTENANCE_MESSAGE`, `MAINTENANCE_STARTS_AT` and `MAINTENANCE_ENDS_AT` environment variables apply (changing those needs a redeploy). A malformed setting counts as "no maintenance", so a typo can never take the site down.
+- **Switching it.** The **Maintenance** workflow (Actions → Maintenance → Run workflow, which works from GitHub's mobile app) writes the item through the Vercel API with the existing `VERCEL_TOKEN`, and summarises what it set. "Off" with a future start schedules a notice without taking the site down. It needs the `EDGE_CONFIG_ID` repository variable.
+- **While it's on.** Every app route gets the maintenance page with HTTP 503 and `Retry-After` (until the expected end, else five minutes), at the URL the person asked for. The page is plain HTML written by the proxy, so it needs no database, session or React; its one script is the static `/maintenance.js` (with the request's CSP nonce), which shows the expected end in the visitor's time zone and checks `/maintenance/status` every minute, reloading when maintenance is over. The check pauses while the tab is hidden and, under reduced motion, is replaced by a "Check now" button. The landing page stays up with a banner and doesn't touch auth or the database. `/maintenance` itself answers 200 while maintenance is on and redirects home when it's off.
+- **Owner bypass.** `?bypass=<MAINTENANCE_BYPASS_TOKEN>` on any URL sets an httpOnly, same-site session cookie holding a SHA-256 hash of the token (never the token) and reloads without the parameter. Tokens are compared in constant time and never logged. Tokens shorter than 16 characters are ignored. The token is a secret in Vercel (for the app) and GitHub (for the deploy smoke test).
+- **Scheduled notices.** From 48 hours before `starts_at`, signed-in people see a slim banner ("Scheduled maintenance: Sun, Oct 25, 10:00–11:00 pm EDT. Groundwork will be unavailable.") in their own time zone, dismissible for the browser session; the landing page shows the same sentence quietly.
+- **Deploys behind maintenance.** Running CI by hand with "Deploy behind maintenance mode" ticked, or a commit message containing `[maintenance]`, switches maintenance on before the migrations and off after the smoke test, including when a step fails. The smoke test uses the bypass token. Without the input, deploys behave exactly as before.
+- **Contact email.** The owner chose to keep groundworkceo@gmail.com for now.
+- **Testing.** In development only, and only when the end-to-end setup sets `E2E_MAINTENANCE_OVERRIDE=1`, a request header can set the maintenance state for one browser, so the tests can check both states against one dev server. Production never reads that header.
+
