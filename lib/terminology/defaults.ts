@@ -30,6 +30,13 @@ export const LABEL_KEYS = [
   "attendance.late",
   "attendance.absent",
   "attendance.excused",
+  "priority.critical",
+  "priority.high",
+  "priority.medium",
+  "priority.low",
+  "task_kind.general",
+  "task_kind.appointed",
+  "task_kind.personal",
 ] as const;
 
 export type LabelKey = (typeof LABEL_KEYS)[number];
@@ -65,4 +72,11 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   "attendance.late": { one: "Late", other: "Late" },
   "attendance.absent": { one: "Absent", other: "Absent" },
   "attendance.excused": { one: "Excused", other: "Excused" },
+  "priority.critical": { one: "Critical", other: "Critical" },
+  "priority.high": { one: "High", other: "High" },
+  "priority.medium": { one: "Medium", other: "Medium" },
+  "priority.low": { one: "Low", other: "Low" },
+  "task_kind.general": { one: "Open to claim", other: "Open to claim" },
+  "task_kind.appointed": { one: "Appointed", other: "Appointed" },
+  "task_kind.personal": { one: "Personal", other: "Personal" },
 };

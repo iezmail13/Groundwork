@@ -1,10 +1,14 @@
 "use client";
 
+import Link from "next/link";
+
 import { useActionState, useState } from "react";
 import { Copy, Crown, Trash2, X } from "lucide-react";
 import { changeRole, removeMember, revokeInvitation, transferOwnership } from "@/app/[orgSlug]/settings/actions";
 import { idle } from "@/lib/action-state";
 import { canManageMember, canManageOrg, grantableRoles, type Role } from "@/lib/roles";
+import { Avatar } from "@/components/people/avatar";
+import { PresenceBadge } from "@/components/people/presence";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +18,17 @@ import { FormMessage } from "@/components/ui/form-message";
 import { DialogButton } from "@/components/ui/modal";
 import { Field, inputClass, Select } from "@/components/ui/field";
 
-export type MemberRow = { id: string; name: string; email: string; role: Role; isYou: boolean };
+export type MemberRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: Role;
+  isYou: boolean;
+  initials: string;
+  photoUrl: string | null;
+  href: string;
+};
 export type InviteRow = {
   id: string;
   email: string;
@@ -46,9 +60,17 @@ export function MembersTable({ members, viewerRole, orgSlug }: { members: Member
           {members.map((m) => (
             <tr key={m.id} className="border-b border-rule">
               <th scope="row" className="py-2.5 pr-4 font-normal">
-                <span className="font-semibold">{m.name}</span>
-                {m.isYou ? <span className="ml-2 text-sm text-ink-muted">(you)</span> : null}
-                <span className="block text-sm text-ink-muted">{m.email}</span>
+                <span className="flex items-center gap-3">
+                  <Avatar name={m.name} initials={m.initials} photoUrl={m.photoUrl} size="sm" />
+                  <span className="min-w-0">
+                    <Link href={m.href} className="font-semibold hover:underline">
+                      {m.name}
+                    </Link>
+                    {m.isYou ? <span className="ml-2 text-sm text-ink-muted">(you)</span> : null}
+                    <span className="block text-sm text-ink-muted">{m.email}</span>
+                    <PresenceBadge userId={m.userId} />
+                  </span>
+                </span>
               </th>
               <td className="py-2.5 pr-4">
                 {canManageMember(viewerRole, m.role) ? (

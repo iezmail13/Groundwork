@@ -13,11 +13,15 @@ export type FilterOption = { value: string; label: string };
 export function FilterBar({
   projects,
   members,
-  showStatus,
+  showOrder = false,
+  showProject = true,
 }: {
+  /** Off on a project's own page. */
+  showProject?: boolean;
   projects: FilterOption[];
   members: FilterOption[];
-  showStatus: boolean;
+  /** The board's own ordering: by hand, or by priority. */
+  showOrder?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -32,7 +36,7 @@ export function FilterBar({
     startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
   };
 
-  const filters = ["project", "assignee", "status", "due"];
+  const filters = ["project", "assignee", "status", "priority", "due", "order"];
   const active = filters.some((f) => params.get(f));
 
   const select = (key: string, label: string, options: FilterOption[], allLabel: string) => (
@@ -63,20 +67,25 @@ export function FilterBar({
       aria-busy={pending}
       className="flex flex-wrap items-end gap-3 border-b border-rule pb-4"
     >
-      {select("project", t("project"), projects, "All")}
+      {showProject ? select("project", t("project"), projects, "All") : null}
       {select("assignee", "Assignee", [{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...members], "Anyone")}
-      {showStatus
-        ? select(
-            "status",
-            "Status",
-            [
-              { value: "todo", label: t("status.todo") },
-              { value: "in_progress", label: t("status.in_progress") },
-              { value: "done", label: t("status.done") },
-            ],
-            "Any status",
-          )
-        : null}
+      {select(
+        "status",
+        "Status",
+        [
+          { value: "todo", label: t("status.todo") },
+          { value: "in_progress", label: t("status.in_progress") },
+          // finished work is hidden from everyday views; this brings it back
+          { value: "done", label: "Completed" },
+        ],
+        "Open",
+      )}
+      {select(
+        "priority",
+        "Priority",
+        (["critical", "high", "medium", "low"] as const).map((p) => ({ value: p, label: t(`priority.${p}`) })),
+        "Any",
+      )}
       {select(
         "due",
         "Due",
@@ -89,6 +98,7 @@ export function FilterBar({
         ],
         "Any time",
       )}
+      {showOrder ? select("order", "Order", [{ value: "priority", label: "Most urgent first" }], "Board order") : null}
       {active ? (
         <Button
           variant="ghost"

@@ -43,7 +43,7 @@ export function PresetForm({
                 name="preset"
                 value={p.key}
                 defaultChecked={p.key === current}
-                className="mt-1 size-4 accent-[var(--ink)]"
+                className="mt-1 size-4 accent-[var(--accent)]"
               />
               <span>
                 <span className="block font-heading font-semibold">
@@ -70,13 +70,16 @@ export function OrganizationForm({
   organizationId,
   name,
   slug,
+  lowAttendancePercent,
   disabled,
 }: {
   organizationId: string;
   name: string;
   slug: string;
+  lowAttendancePercent: number;
   disabled: boolean;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState(updateOrganization, idle);
   const e = state.fieldErrors ?? {};
   return (
@@ -104,6 +107,28 @@ export function OrganizationForm({
               className="rounded-l-none"
               invalid={Boolean(e.slug)}
             />
+          </div>
+        </Field>
+        <Field
+          label={`Flag ${lower(t("section.attendance"))} below`}
+          htmlFor="org-low-attendance"
+          hint={`A ${lower(t("participant"))} whose rate falls below this percentage is flagged to ${lower(t("role.owner", "other"))} and the ${lower(t("project"))}'s ${lower(t("project_role.admin", "other"))} and ${lower(t("project_role.lead", "other"))}.`}
+          error={e.lowAttendancePercent}
+        >
+          <div className="flex items-center">
+            <Input
+              id="org-low-attendance"
+              name="lowAttendancePercent"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              required
+              defaultValue={lowAttendancePercent}
+              className="w-24 rounded-r-none"
+              invalid={Boolean(e.lowAttendancePercent)}
+            />
+            <span className="rounded-r-md border border-l-0 border-rule bg-panel px-3 py-2 text-ink-muted">%</span>
           </div>
         </Field>
       </fieldset>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { SITE_LINKS } from "./masthead";
 
 /** The masthead's links on small screens: a disclosure that slides down. */
 export function MobileMenu() {
@@ -42,9 +43,11 @@ export function MobileMenu() {
         hidden={!open}
         className="menu-slide-down absolute inset-x-0 top-full z-20 border-b border-rule bg-canvas px-4 pb-4"
       >
-        <a href="#features" onClick={close} className={linkClass}>
-          Features
-        </a>
+        {SITE_LINKS.map((l) => (
+          <Link key={l.href} href={l.href} onClick={close} className={linkClass}>
+            {l.label}
+          </Link>
+        ))}
         <Link href="/login" onClick={close} className={linkClass}>
           Log in
         </Link>

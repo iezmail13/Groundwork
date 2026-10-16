@@ -90,6 +90,16 @@ export function QuickAddTask({
         ) : null}
         {!compact ? (
           <>
+            <label htmlFor={`quick-add-priority-${idSuffix}`} className="sr-only">
+              Priority
+            </label>
+            <select id={`quick-add-priority-${idSuffix}`} name="priority" defaultValue="medium" className={`${inputClass} w-auto flex-1`}>
+              {(["critical", "high", "medium", "low"] as const).map((p) => (
+                <option key={p} value={p}>
+                  {t(`priority.${p}`)}
+                </option>
+              ))}
+            </select>
             <label htmlFor={`quick-add-due-${idSuffix}`} className="sr-only">
               Due date
             </label>

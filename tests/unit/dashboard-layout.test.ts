@@ -8,9 +8,9 @@ describe("dashboard layout", () => {
   });
 
   it("keeps the saved order, sizes and visibility", () => {
-    const saved = { version: 1, widgets: [{ id: "recent_activity", size: "l", hidden: false }, { id: "overdue", size: "m", hidden: true }] };
+    const saved = { version: 1, widgets: [{ id: "pinned_documents", size: "l", hidden: false }, { id: "overdue", size: "m", hidden: true }] };
     const layout = normalizeLayout(saved);
-    expect(layout.widgets[0]).toEqual({ id: "recent_activity", size: "l", hidden: false });
+    expect(layout.widgets[0]).toEqual({ id: "pinned_documents", size: "l", hidden: false });
     expect(layout.widgets[1]).toEqual({ id: "overdue", size: "m", hidden: true });
     expect(layout.widgets).toHaveLength(WIDGET_IDS.length);
   });

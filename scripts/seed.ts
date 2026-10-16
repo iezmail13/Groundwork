@@ -65,6 +65,11 @@ async function ensureUsers() {
 async function removeExistingOrg() {
   const { data: org } = await db.from("organizations").select("id").eq("slug", DEMO_ORG.slug).maybeSingle();
   if (!org) return;
+  const { data: kept } = await db.from("participant_files").select("storage_path").eq("organization_id", org.id);
+  if (kept?.length) {
+    const { error } = await db.storage.from("participant-files").remove(kept.map((f) => f.storage_path));
+    if (error) throw new Error(`remove old participant files: ${error.message}`);
+  }
   const { data: objects } = await db.storage.from("documents").list(org.id, { limit: 1000 });
   if (objects?.length) {
     const { error } = await db.storage.from("documents").remove(objects.map((o) => `${org.id}/${o.name}`));
@@ -338,7 +343,8 @@ async function main() {
           title,
           due_date: due === null ? null : day(due),
           status: "todo" as const,
-          assignee_membership_id: assignee ? m(assignee) : null,
+          // given to someone else: appointed; taken by its creator, or nobody's yet: open to claim
+          kind: assignee && assignee !== by ? ("appointed" as const) : ("general" as const),
           position: i + 1,
           created_by: by,
         })),
@@ -346,12 +352,87 @@ async function main() {
       .select("id, title"),
     "tasks",
   );
+  // assignees (D100): the creator claimed their own, anyone else was appointed by the creator
+  must(
+    await db
+      .from("task_assignees")
+      .insert(
+        tasks
+          .filter(([, , , , assignee]) => assignee)
+          .map(([, title, , , assignee, by]) => ({
+            organization_id: org.id,
+            task_id: insertedTasks.find((x) => x.title === title)!.id,
+            membership_id: m(assignee!),
+            kind: assignee === by ? ("claimed" as const) : ("appointed" as const),
+            added_by: by,
+          })),
+      )
+      .select("id"),
+    "task assignees",
+  );
   // move tasks into their real status afterwards, so the activity log reads like real work
   for (const [, title, , status] of tasks) {
     if (status === "todo") continue;
     const id = insertedTasks.find((x) => x.title === title)!.id;
     must(await db.from("tasks").update({ status }).eq("id", id).select("id"), `status ${title}`);
   }
+
+  // priorities (D100): a few urgent ones, a few that can wait; the rest stay medium
+  const priorities: [string, "critical" | "high" | "low"][] = [
+    ["Review volunteer police checks", "critical"],
+    ["Confirm room booking for November", "high"],
+    ["Book the van for collection days", "high"],
+    ["Match new mentors with students", "high"],
+    ["Order new graph-paper notebooks", "low"],
+    ["Plan the distribution day layout", "low"],
+    ["Share the mentor guide", "low"],
+  ];
+  for (const [title, priority] of priorities) {
+    const id = insertedTasks.find((x) => x.title === title)!.id;
+    must(await db.from("tasks").update({ priority }).eq("id", id).select("id"), `priority ${title}`);
+  }
+  // open work with spots to claim
+  const openSpots = insertedTasks.find((x) => x.title === "Recruit sorting-day volunteers")!.id;
+  must(await db.from("tasks").update({ kind: "general", claim_limit: 3 }).eq("id", openSpots).select("id"), "claim limit");
+
+  // the newer kinds of work (D100): personal, org-level, hidden, and work everyone finishes
+  type TaskSeed = Database["public"]["Tables"]["tasks"]["Insert"];
+  // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
+  const extra = (t: Omit<TaskSeed, "organization_id">): TaskSeed => ({
+    organization_id: org.id,
+    status: "todo",
+    position: 100,
+    hidden: false,
+    claim_limit: null,
+    completion: "any",
+    ...t,
+  });
+  const more = must(
+    await db
+      .from("tasks")
+      .insert([
+        extra({ project_id: null, kind: "personal", title: "Draft my notes for the mentor check-ins", due_date: day(2), priority: "medium", created_by: sofia! }),
+        extra({ project_id: null, kind: "general", title: "Renew the liability insurance", due_date: day(10), priority: "critical", claim_limit: 1, created_by: jordan! }),
+        extra({ project_id: null, kind: "appointed", completion: "all", title: "Sign the updated volunteer code of conduct", due_date: day(6), priority: "high", created_by: jordan! }),
+        extra({ project_id: HC, kind: "appointed", hidden: true, title: "Follow up on a family's fee waiver", due_date: day(3), priority: "high", created_by: priya! }),
+      ])
+      .select("id, title"),
+    "more tasks",
+  );
+  const moreId = (title: string) => more.find((x) => x.title.startsWith(title))!.id;
+  must(
+    await db
+      .from("task_assignees")
+      .insert([
+        { organization_id: org.id, task_id: moreId("Draft my notes"), membership_id: m(sofia!), kind: "claimed", added_by: sofia! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(priya!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(marcus!), kind: "appointed", added_by: jordan!, done_at: new Date().toISOString() },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(sofia!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Follow up on a family"), membership_id: m(marcus!), kind: "appointed", added_by: priya! },
+      ])
+      .select("id"),
+    "more assignees",
+  );
 
   const at = (offset: number, time: string) => zonedTimeToUtc(day(offset), time, TZ).toISOString();
   type EventSeed = Database["public"]["Tables"]["events"]["Insert"];
@@ -432,6 +513,49 @@ async function main() {
       .select("id"),
     "attendance",
   );
+
+  // Files kept about two of the students (D102): a signed waiver and a care plan.
+  const studentFiles = [
+    {
+      who: "Amara Okafor",
+      name: "Amara Okafor - signed waiver.txt",
+      kind: "waiver" as const,
+      body: Buffer.from(
+        "Homework Club participation waiver\n\nParticipant: Amara Okafor\nGuardian: Grace Okafor\nSigned: September 8, 2026\n",
+      ),
+    },
+    {
+      who: "Jonah Brooks",
+      name: "Jonah Brooks - allergy care plan.txt",
+      kind: "medical" as const,
+      body: Buffer.from(
+        "Allergy care plan\n\nParticipant: Jonah Brooks\nAllergy: peanuts\nEpinephrine auto-injector kept in the staff room first-aid kit.\n",
+      ),
+    },
+  ];
+  for (const f of studentFiles) {
+    const student = students.find((x) => x.name === f.who)!;
+    const path = `${org.id}/${HC}/${student.id}/${randomUUID()}`;
+    const up = await db.storage.from("participant-files").upload(path, f.body, { contentType: "text/plain", upsert: false });
+    if (up.error) throw new Error(`upload ${f.name}: ${up.error.message}`);
+    must(
+      await db
+        .from("participant_files")
+        .insert({
+          organization_id: org.id,
+          participant_id: student.id,
+          project_id: HC,
+          kind: f.kind,
+          name: f.name,
+          storage_path: path,
+          mime_type: "text/plain",
+          size_bytes: f.body.length,
+          uploaded_by: priya,
+        })
+        .select("id"),
+      `participant file ${f.name}`,
+    );
+  }
 
   // Two funds, split into parts; owners and managers see them under Funds.
   const funds = must(
@@ -543,10 +667,23 @@ async function main() {
     "invitation grant",
   );
   const notebooks = insertedTasks.find((x) => x.title === "Order new graph-paper notebooks")!.id;
-  must(await db.from("tasks").update({ assignee_invitation_id: invite.id }).eq("id", notebooks).select("id"), "invitee task");
+  must(
+    await db
+      .from("task_assignees")
+      .insert({ organization_id: org.id, task_id: notebooks, invitation_id: invite.id, kind: "appointed", added_by: priya })
+      .select("id"),
+    "invitee task",
+  );
+  must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
+
+  // work the seed marked done has no one who finished it: those notifications would only say "Someone"
+  must(
+    await db.from("notifications").delete().eq("organization_id", org.id).eq("type", "completed").is("actor_id", null).select("id"),
+    "seeded completion notifications",
+  );
 
   console.log(
-    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
+    `Done: 4 people, ${projects.length} projects, ${tasks.length + more.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
       `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }

@@ -7,9 +7,9 @@ import { getMaintenance } from "@/lib/maintenance-request";
 import { getTimeZone } from "@/lib/org";
 
 export const metadata: Metadata = {
-  title: { absolute: "Groundwork: run your organization on solid ground" },
+  title: { absolute: "Groundwork: work, files and deadlines for your nonprofit, in one place" },
   description:
-    "One place for your team's work, files and calendar, built for youth and community organizations.",
+    "One place for your team's work, files and calendar, built for youth and community organizations. Start free.",
 };
 
 /**

@@ -4,12 +4,12 @@ import { BellRing } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import type { DashboardData, TaskLite } from "@/components/dashboard/widgets";
-import { getMembers, getOrgContext } from "@/lib/org";
-import { getActivity, getEvents, getProjectProgress, TASK_SELECT, type TaskRow } from "@/lib/queries";
+import { getOrgContext } from "@/lib/org";
+import { getEvents, getProjectProgress, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, dueState, eventStartDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { normalizeLayout } from "@/lib/dashboard-layout";
-import { activityHref, describeActivity, timeAgo } from "@/lib/activity";
+import { byPriority, isAssignee, taskPart } from "@/lib/task-filters";
 import { lower } from "@/lib/terminology/t";
 import { getFunds } from "@/lib/funds";
 import { canManageOrg } from "@/lib/roles";
@@ -26,14 +26,12 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
   const supabase = await createClient();
   const now = new Date();
 
-  const [{ data: openTasks, error }, { data: projects }, progress, events, activity, members, { data: pinned }, { data: layoutRow }, { data: profile }, funds] =
+  const [{ data: openTasks, error }, { data: projects }, progress, events, { data: pinned }, { data: layoutRow }, { data: profile }, funds] =
     await Promise.all([
       supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).neq("status", "done").order("due_date", { nullsFirst: false }).limit(1000),
       supabase.from("projects").select("id, name, color").eq("organization_id", org.id).eq("status", "active").order("name"),
       getProjectProgress(org.id),
       getEvents(org.id, now.toISOString(), new Date(now.getTime() + 14 * 86400000).toISOString()),
-      getActivity(org.id, 10),
-      getMembers(org.id),
       supabase.from("documents").select("id, name, mime_type, size_bytes").eq("organization_id", org.id).eq("pinned", true).order("name").limit(8),
       supabase.from("dashboard_layouts").select("layout").eq("membership_id", ctx.membershipId).maybeSingle(),
       supabase.from("profiles").select("full_name").eq("id", ctx.userId).maybeSingle(),
@@ -47,11 +45,12 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     title: x.title,
     status: x.status,
     due_date: x.due_date,
+    priority: x.priority,
+    part: taskPart(x, ctx.membershipId),
     project: x.project ? { name: x.project.name, color: x.project.color } : null,
     href: `${base}/tasks/${x.id}`,
   });
   const weekEnd = addDays(today, 7);
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
 
   const data: DashboardData = {
     organizationId: org.id,
@@ -59,7 +58,11 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     today,
     overdue: tasks.filter((x) => x.due_date && x.due_date < today).map(lite),
     dueSoon: tasks.filter((x) => x.due_date && x.due_date >= today && x.due_date <= weekEnd).map(lite),
-    myTasks: tasks.filter((x) => x.assignee_membership_id === ctx.membershipId).map(lite),
+    // my open work, most urgent first (D101)
+    myTasks: tasks
+      .filter((x) => isAssignee(x, ctx.membershipId) && !taskPart(x, ctx.membershipId)?.mineDone)
+      .sort(byPriority)
+      .map(lite),
     projects: (projects ?? []).map((p) => ({ ...p, ...(progress.get(p.id) ?? { done: 0, total: 0 }) })),
     events: events.slice(0, 6).map((e) => ({
       id: e.id,
@@ -67,15 +70,6 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
       day: formatRelativeDate(eventStartDate(e.starts_at, e.all_day, tz), today),
       time: e.all_day ? "All day" : formatTime(e.starts_at, tz),
       location: e.location,
-    })),
-    activity: activity.map((a) => ({
-      id: a.id,
-      // a person who has since left keeps the name stored with the entry
-      actor: (a.actor_membership_id ? memberName.get(a.actor_membership_id) : undefined) ?? a.metadata.actor_name ?? "Someone",
-      sentence: describeActivity(a, t),
-      label: a.metadata.label ?? null,
-      href: activityHref(a, base),
-      ago: timeAgo(a.created_at, now.getTime()),
     })),
     pinned: (pinned ?? []).map((d) => ({ id: d.id, name: d.name, mime: d.mime_type, size: d.size_bytes })),
     projectOptions: (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
@@ -91,7 +85,7 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
   };
 
   // In-app reminders: the viewer's own overdue and due-soon work.
-  const mine = tasks.filter((x) => x.assignee_membership_id === ctx.membershipId);
+  const mine = tasks.filter((x) => isAssignee(x, ctx.membershipId));
   const myOverdue = mine.filter((x) => dueState(x.due_date, x.status, today) === "overdue").length;
   const mySoon = mine.filter((x) => dueState(x.due_date, x.status, today) === "due_soon").length;
   const firstName = profile?.full_name?.split(" ")[0];
@@ -108,12 +102,12 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
             Reminders
           </h2>
           {myOverdue ? (
-            <Link href={`${base}/tasks?view=list&assignee=me&due=overdue`} className="font-semibold underline underline-offset-4">
+            <Link href={`${base}/tasks?view=list&assignee=me&due=overdue`} className="font-semibold text-accent underline underline-offset-4">
               {myOverdue} of your {taskWord(myOverdue)} {myOverdue === 1 ? "is" : "are"} overdue
             </Link>
           ) : null}
           {mySoon ? (
-            <Link href={`${base}/tasks?view=list&assignee=me&due=week`} className="underline underline-offset-4">
+            <Link href={`${base}/tasks?view=list&assignee=me&due=week`} className="text-accent underline underline-offset-4">
               {mySoon} due in the next two days
             </Link>
           ) : null}

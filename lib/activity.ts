@@ -11,8 +11,23 @@ const ENTITY_KEY: Record<string, LabelKey> = {
   participant: "participant",
 };
 
+/** Branding changes (D99), worded after the actor's name. */
+const BRANDING: Record<string, string> = {
+  changed_accent: "changed the accent colour",
+  reset_accent: "reset the accent colour",
+  uploaded_logo: "uploaded a new logo",
+  removed_logo: "removed the logo",
+  uploaded_dark_logo: "uploaded a dark-mode logo",
+  removed_dark_logo: "removed the dark-mode logo",
+  allowed_personal_accents: "let people choose their own accent colour",
+  blocked_personal_accents: "set one accent colour for everyone",
+  showed_illustrations: "turned illustrations on",
+  hid_illustrations: "turned illustrations off",
+};
+
 /** "completed task" / "moved task to In progress" — the verb phrase after the actor's name. */
 export function describeActivity(a: ActivityRow, t: Translate): string {
+  if (a.entity_type === "organization") return BRANDING[a.action] ?? "changed the branding";
   // funds aren't a relabelled primitive, so they keep their own word
   const noun = a.entity_type === "fund" ? "fund" : lower(t(ENTITY_KEY[a.entity_type] ?? "task"));
   if (a.action === "moved" && a.metadata.to) {
@@ -38,6 +53,8 @@ export function activityHref(a: ActivityRow, base: string): string | null {
       return `${base}/funds/${a.entity_id}`;
     case "participant":
       return `${base}/attendance/participants/${a.entity_id}`;
+    case "organization":
+      return `${base}/settings?view=branding`;
     default:
       return null;
   }

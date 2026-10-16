@@ -23,14 +23,14 @@ export function maintenancePageHtml(setting: MaintenanceSetting, nonce: string):
 <title>Maintenance · Groundwork</title>
 <link rel="icon" href="/logo.svg">
 <style>
-  :root { color-scheme: light dark; --bg: #fbf9f4; --ink: #163260; --muted: #3f5274; --rule: #ddd6c8; --accent: #0006bf; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #0c1a33; --ink: #eef2fa; --muted: #b8c4dc; --rule: #2a3d63; --accent: #8f95ff; } }
+  :root { color-scheme: light dark; --bg: #fbf9f4; --ink: #163260; --muted: #445a7e; --rule: #ddd6c8; --accent: #0006bf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0c1c35; --ink: #f1eee7; --muted: #b6c1d8; --rule: #364152; --accent: #8084ff; } }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
     font: 1rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px 16px; }
   main { max-width: 34rem; width: 100%; border-top: 3px solid var(--accent); padding-top: 24px; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1rem; margin-bottom: 28px; }
-  .brand img { width: 32px; height: 32px; }
+  .brand img { width: 36px; height: 36px; }
   h1 { font-size: clamp(1.6rem, 6vw, 2.2rem); line-height: 1.15; margin: 0 0 12px; }
   .message { font-size: 1.1rem; margin: 0 0 12px; }
   .end { font-weight: 600; margin: 0 0 20px; }
@@ -44,7 +44,7 @@ export function maintenancePageHtml(setting: MaintenanceSetting, nonce: string):
 </head>
 <body>
 <main>
-  <div class="brand"><img src="/logo.svg" alt="" width="32" height="32">Groundwork</div>
+  <div class="brand"><img src="/logo.svg" alt="" width="36" height="36">groundwork</div>
   <h1>We're doing some maintenance</h1>
   ${message}
   ${end}

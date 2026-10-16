@@ -37,7 +37,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
   if (invite.accepted_at) {
     return (
       <AuthFrame title={title} subtitle="This invitation has already been accepted.">
-        <Link className="underline underline-offset-4" href={user ? `/${invite.organization_slug}/dashboard` : "/login"}>
+        <Link className="text-accent underline underline-offset-4" href={user ? `/${invite.organization_slug}/dashboard` : "/login"}>
           {user ? `Go to ${invite.organization_name}` : "Sign in"}
         </Link>
       </AuthFrame>

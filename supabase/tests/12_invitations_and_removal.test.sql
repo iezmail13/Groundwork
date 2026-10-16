@@ -23,11 +23,15 @@ insert into public.projects (id, organization_id, name, created_by) values
 insert into public.project_members (organization_id, project_id, membership_id, role) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000e', 'staff'),
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000e', 'staff');
-insert into public.tasks (id, organization_id, project_id, title, created_by, assignee_membership_id, status) values
-  ('aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'Private task', 'a0000000-0000-0000-0000-00000000000c', null, 'todo'),
-  ('aaaaaaaa-4444-0000-0000-0000000000e1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Sam open in A', 'a0000000-0000-0000-0000-00000000000e', 'aaaaaaaa-1111-0000-0000-00000000000e', 'todo'),
-  ('aaaaaaaa-4444-0000-0000-0000000000e2', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'Sam open in private', 'a0000000-0000-0000-0000-00000000000e', 'aaaaaaaa-1111-0000-0000-00000000000e', 'in_progress'),
-  ('aaaaaaaa-4444-0000-0000-0000000000e3', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Sam done', 'a0000000-0000-0000-0000-00000000000e', 'aaaaaaaa-1111-0000-0000-00000000000e', 'done');
+insert into public.tasks (id, organization_id, project_id, title, created_by, status) values
+  ('aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'Private task', 'a0000000-0000-0000-0000-00000000000c', 'todo'),
+  ('aaaaaaaa-4444-0000-0000-0000000000e1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Sam open in A', 'a0000000-0000-0000-0000-00000000000e', 'todo'),
+  ('aaaaaaaa-4444-0000-0000-0000000000e2', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000a2', 'Sam open in private', 'a0000000-0000-0000-0000-00000000000e', 'in_progress'),
+  ('aaaaaaaa-4444-0000-0000-0000000000e3', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Sam done', 'a0000000-0000-0000-0000-00000000000e', 'done');
+-- Sam claimed his three
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by)
+select 'aaaaaaaa-0000-0000-0000-000000000000', id, 'aaaaaaaa-1111-0000-0000-00000000000e', 'claimed', 'a0000000-0000-0000-0000-00000000000e'
+from public.tasks where id in ('aaaaaaaa-4444-0000-0000-0000000000e1', 'aaaaaaaa-4444-0000-0000-0000000000e2', 'aaaaaaaa-4444-0000-0000-0000000000e3');
 
 -- Invitation grants -----------------------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000c');
@@ -59,10 +63,10 @@ select is(tests.affected($q$ delete from public.invitation_projects where organi
 
 -- Pending invitees as assignees ----------------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000c');
-select lives_ok($$ update public.tasks set assignee_invitation_id = 'aaaaaaaa-2222-0000-0000-0000000000a1' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2' $$, 'a pending invitee can be assigned work on a granted project');
+select lives_ok($$ select public.appoint_to_task('aaaaaaaa-4444-0000-0000-0000000000a2', null, 'aaaaaaaa-2222-0000-0000-0000000000a1') $$, 'a pending invitee can be assigned work on a granted project');
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
-select throws_ok($$ update public.tasks set assignee_invitation_id = 'aaaaaaaa-2222-0000-0000-0000000000a1' where id = 'aaaaaaaa-4444-0000-0000-000000000000' $$, 'P0001', 'That invitation doesn''t include this project', 'but not on a project the invitation doesn''t grant');
-select throws_ok($$ update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2' $$, '23514', null, 'a task has one assignee, member or invitee');
+select throws_ok($$ select public.appoint_to_task('aaaaaaaa-4444-0000-0000-000000000000', null, 'aaaaaaaa-2222-0000-0000-0000000000a1') $$, 'P0001', 'That invitation doesn''t include this project', 'but not on a project the invitation doesn''t grant');
+select throws_ok($$ select public.appoint_to_task('aaaaaaaa-4444-0000-0000-0000000000a2', 'aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-2222-0000-0000-0000000000a1') $$, '22023', null, 'an appointment names one person, member or invitee');
 
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 select is((select array_agg(name) from public.pending_invitees('aaaaaaaa-0000-0000-0000-000000000000')), array['Nia New'], 'people on the project see the invitee''s name');
@@ -89,7 +93,7 @@ select is(public.accept_invitation('token-new'), 'org-a', 'and can accept it');
 select is((select count(*)::int from public.projects), 1, 'they see only the granted project');
 select is((select role::text from public.project_members where membership_id = public.my_membership_id('aaaaaaaa-0000-0000-0000-000000000000')), 'staff', 'with the granted role');
 select is(
-  (select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000a2'),
+  (select membership_id from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-0000000000a2'),
   public.my_membership_id('aaaaaaaa-0000-0000-0000-000000000000'),
   'work assigned while pending is now theirs'
 );
@@ -102,7 +106,9 @@ insert into public.invitations (id, organization_id, email, role, token, invited
   ('aaaaaaaa-2222-0000-0000-0000000000d1', 'aaaaaaaa-0000-0000-0000-000000000000', 'oscar@c.test', 'staff', 'token-decline', 'a0000000-0000-0000-0000-00000000000a');
 insert into public.invitation_projects (organization_id, invitation_id, project_id) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-2222-0000-0000-0000000000d1', 'aaaaaaaa-3333-0000-0000-000000000000');
-update public.tasks set assignee_membership_id = null, assignee_invitation_id = 'aaaaaaaa-2222-0000-0000-0000000000d1' where id = 'aaaaaaaa-4444-0000-0000-000000000000';
+delete from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-000000000000';
+insert into public.task_assignees (organization_id, task_id, invitation_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-2222-0000-0000-0000000000d1', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.decline_invitation('token-decline') $$, '42501', null, 'someone else cannot decline your invitation');
 select tests.as_user('c0000000-0000-0000-0000-00000000000c');
@@ -110,8 +116,8 @@ select lives_ok($$ select public.decline_invitation('token-decline') $$, 'the in
 reset role;
 select is((select count(*)::int from public.invitations where token = 'token-decline'), 0, 'which removes the invitation');
 select is(
-  (select row(assignee_invitation_id, needs_assignee)::text from public.tasks where id = 'aaaaaaaa-4444-0000-0000-000000000000'),
-  row(null::uuid, true)::text,
+  (select row((select count(*)::int from public.task_assignees a where a.task_id = t.id), needs_assignee)::text from public.tasks t where id = 'aaaaaaaa-4444-0000-0000-000000000000'),
+  row(0, true)::text,
   'and flags the work that was waiting for them'
 );
 
@@ -120,7 +126,8 @@ insert into public.invitations (id, organization_id, email, role, token, invited
   ('aaaaaaaa-2222-0000-0000-0000000000d2', 'aaaaaaaa-0000-0000-0000-000000000000', 'later@a.test', 'staff', 'token-later', 'a0000000-0000-0000-0000-00000000000a');
 insert into public.invitation_projects (organization_id, invitation_id, project_id) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-2222-0000-0000-0000000000d2', 'aaaaaaaa-3333-0000-0000-000000000000');
-update public.tasks set assignee_invitation_id = 'aaaaaaaa-2222-0000-0000-0000000000d2' where id = 'aaaaaaaa-4444-0000-0000-000000000000';
+insert into public.task_assignees (organization_id, task_id, invitation_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-2222-0000-0000-0000000000d2', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select is(tests.affected($q$ delete from public.invitation_projects where invitation_id = 'aaaaaaaa-2222-0000-0000-0000000000d2' $q$), 1, 'an owner withdraws the project from an invitation');
 select is((select needs_assignee from public.tasks where id = 'aaaaaaaa-4444-0000-0000-000000000000'), true, 'and the invitee''s work there is flagged');
@@ -142,10 +149,10 @@ select is(
   'a manager removes staff, handing their open work to someone'
 );
 reset role;
-select is((select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000e1'), 'aaaaaaaa-1111-0000-0000-00000000000b'::uuid, 'work on a project the heir is on goes to the heir');
+select is((select membership_id from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-0000000000e1'), 'aaaaaaaa-1111-0000-0000-00000000000b'::uuid, 'work on a project the heir is on goes to the heir');
 select is(
-  (select row(assignee_membership_id, needs_assignee)::text from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000e2'),
-  row(null::uuid, true)::text,
+  (select row((select count(*)::int from public.task_assignees a where a.task_id = t.id), needs_assignee)::text from public.tasks t where id = 'aaaaaaaa-4444-0000-0000-0000000000e2'),
+  row(0, true)::text,
   'work on a project the heir can''t see is flagged instead'
 );
 select is((select count(*)::int from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000e3'), 1, 'finished work stays');
@@ -162,10 +169,11 @@ select is(public.remove_member('aaaaaaaa-1111-0000-0000-00000000000b', null), '{
 
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 reset role;
-update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where id = 'aaaaaaaa-4444-0000-0000-0000000000e1';
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000e1', 'aaaaaaaa-1111-0000-0000-00000000000a', 'claimed', 'a0000000-0000-0000-0000-00000000000a');
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select throws_ok($$ select public.remove_member('aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-1111-0000-0000-00000000000c') $$, 'P0001', 'An organization must keep at least one owner', 'the last owner cannot leave');
-select is((select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000e1'), 'aaaaaaaa-1111-0000-0000-00000000000a'::uuid, 'and nothing was reassigned');
+select is((select membership_id from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-0000000000e1'), 'aaaaaaaa-1111-0000-0000-00000000000a'::uuid, 'and nothing was reassigned');
 select throws_ok($$ select public.remove_member('aaaaaaaa-1111-0000-0000-00000000000c', 'bbbbbbbb-1111-0000-0000-00000000000a') $$, '22023', null, 'work cannot be handed to someone in another organization');
 
 select tests.as_anon();

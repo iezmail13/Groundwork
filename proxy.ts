@@ -7,10 +7,11 @@ import { maintenancePageHtml } from "@/lib/maintenance-page";
 
 const BYPASS_COOKIE = "gw_maintenance_bypass";
 
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/auth/confirm"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/security", "/privacy", "/terms", "/auth/callback", "/auth/confirm"];
 
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/");
+  // calendar apps can't sign in: the feed's secret URL is its key (D102)
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/") || pathname.startsWith("/api/calendar/");
 }
 
 /**

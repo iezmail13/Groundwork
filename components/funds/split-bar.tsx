@@ -1,19 +1,19 @@
 import { formatMoney, formatShare } from "@/lib/money";
 
-// Each part of a fund gets a fill from the navy and bone scales that differs
-// in shade AND pattern from its neighbours, so parts can be told apart
-// without colour, and every part is named with its amount in the legend.
-const NAVY = "var(--navy-900)";
-const mix = (pct: number) => `color-mix(in oklab, ${NAVY} ${pct}%, var(--bone-50))`;
+// Each part of a fund gets a fill from the neutral chart series (the accent
+// and its tints and shades, D83) that differs in shade AND pattern from its
+// neighbours, so parts can be told apart without colour, and every part is
+// named with its amount in the legend.
+const C = (n: number) => `var(--chart-${n})`;
 export const PART_FILLS = [
-  NAVY,
-  `repeating-linear-gradient(45deg, ${NAVY} 0 3px, ${mix(55)} 3px 7px)`,
-  mix(55),
-  `repeating-linear-gradient(-45deg, ${mix(80)} 0 2px, var(--bone-50) 2px 6px)`,
-  mix(30),
-  `radial-gradient(${NAVY} 1.4px, ${mix(14)} 1.6px) 0 0 / 6px 6px`,
-  mix(75),
-  `repeating-linear-gradient(90deg, ${mix(65)} 0 2px, var(--bone-100) 2px 5px)`,
+  C(1),
+  `repeating-linear-gradient(45deg, ${C(2)} 0 3px, ${C(3)} 3px 7px)`,
+  C(3),
+  `repeating-linear-gradient(-45deg, ${C(4)} 0 2px, var(--canvas) 2px 6px)`,
+  C(5),
+  `radial-gradient(${C(2)} 1.4px, var(--accent-tint) 1.6px) 0 0 / 6px 6px`,
+  C(4),
+  `repeating-linear-gradient(90deg, ${C(1)} 0 2px, var(--panel) 2px 5px)`,
 ];
 export const fillFor = (i: number) => PART_FILLS[i % PART_FILLS.length]!;
 

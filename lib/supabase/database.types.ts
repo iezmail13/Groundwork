@@ -301,14 +301,14 @@ isOneToOne: false
                   ]
                 },"memberships": {
                   Row: {
-                    "created_at": string,"id": string,"organization_id": string,"role": Database["public"]['Enums']["member_role"],"user_id": string
+                    "created_at": string,"id": string,"organization_id": string,"photo_path": string | null,"role": Database["public"]['Enums']["member_role"],"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"organization_id": string,"role"?: Database["public"]['Enums']["member_role"],"user_id": string
+                    "created_at"?: string,"id"?: string,"organization_id": string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["member_role"],"user_id": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"organization_id"?: string,"role"?: Database["public"]['Enums']["member_role"],"user_id"?: string
+                    "created_at"?: string,"id"?: string,"organization_id"?: string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["member_role"],"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -325,16 +325,80 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"organizations": {
+                },"notification_mutes": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"preset_key": string,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "created_at": string,"id": string,"muted_user_id": string | null,"organization_id": string,"type": Database["public"]['Enums']["notification_type"] | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"preset_key"?: string,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "created_at"?: string,"id"?: string,"muted_user_id"?: string | null,"organization_id": string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"preset_key"?: string,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "created_at"?: string,"id"?: string,"muted_user_id"?: string | null,"organization_id"?: string,"type"?: Database["public"]['Enums']["notification_type"] | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notification_mutes_muted_user_id_fkey"
+      columns: ["muted_user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notification_mutes_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notification_mutes_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"notifications": {
+                  Row: {
+                    "actor_id": string | null,"created_at": string,"data": NonNullable<Json>,"dedupe_key": string | null,"id": string,"organization_id": string,"read_at": string | null,"recipient_id": string,"subject_id": string,"subject_type": string,"type": Database["public"]['Enums']["notification_type"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_id"?: string | null,"created_at"?: string,"data"?: NonNullable<Json>,"dedupe_key"?: string | null,"id"?: string,"organization_id": string,"read_at"?: string | null,"recipient_id": string,"subject_id": string,"subject_type": string,"type": Database["public"]['Enums']["notification_type"]
+                  }
+                  Update: {
+                    "actor_id"?: string | null,"created_at"?: string,"data"?: NonNullable<Json>,"dedupe_key"?: string | null,"id"?: string,"organization_id"?: string,"read_at"?: string | null,"recipient_id"?: string,"subject_id"?: string,"subject_type"?: string,"type"?: Database["public"]['Enums']["notification_type"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notifications_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notifications_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notifications_recipient_id_fkey"
+      columns: ["recipient_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"organizations": {
+                  Row: {
+                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -343,6 +407,76 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "presets"
       referencedColumns: ["key"]
+    }
+                  ]
+                },"participant_file_events": {
+                  Row: {
+                    "action": Database["public"]['Enums']["participant_file_action"],"actor_id": string | null,"actor_name": string | null,"created_at": string,"file_id": string,"file_kind": Database["public"]['Enums']["participant_file_kind"],"file_name": string | null,"id": number,"organization_id": string,"participant_id": string | null,"project_id": string | null,"storage_path": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "action": Database["public"]['Enums']["participant_file_action"],"actor_id"?: string | null,"actor_name"?: string | null,"created_at"?: string,"file_id": string,"file_kind": Database["public"]['Enums']["participant_file_kind"],"file_name"?: string | null,"id"?: never,"organization_id": string,"participant_id"?: string | null,"project_id"?: string | null,"storage_path": string
+                  }
+                  Update: {
+                    "action"?: Database["public"]['Enums']["participant_file_action"],"actor_id"?: string | null,"actor_name"?: string | null,"created_at"?: string,"file_id"?: string,"file_kind"?: Database["public"]['Enums']["participant_file_kind"],"file_name"?: string | null,"id"?: never,"organization_id"?: string,"participant_id"?: string | null,"project_id"?: string | null,"storage_path"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "participant_file_events_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "participant_file_events_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "participant_file_events_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"participant_files": {
+                  Row: {
+                    "created_at": string,"id": string,"kind": Database["public"]['Enums']["participant_file_kind"],"mime_type": string,"name": string,"organization_id": string,"participant_id": string,"project_id": string,"size_bytes": number,"storage_path": string,"uploaded_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["participant_file_kind"],"mime_type": string,"name": string,"organization_id": string,"participant_id": string,"project_id": string,"size_bytes": number,"storage_path": string,"uploaded_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["participant_file_kind"],"mime_type"?: string,"name"?: string,"organization_id"?: string,"participant_id"?: string,"project_id"?: string,"size_bytes"?: number,"storage_path"?: string,"uploaded_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "participant_files_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "participant_files_participant_id_organization_id_fkey"
+      columns: ["participant_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "participants"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "participant_files_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "participant_files_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     }
                   ]
                 },"participant_programs": {
@@ -419,14 +553,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"email": string,"full_name": string | null,"id": string
+                    "accent": string | null,"bio": string | null,"calendar_feed_created_at": string | null,"calendar_feed_token_hash": string | null,"created_at": string,"email": string,"full_name": string | null,"id": string,"presence_mode": Database["public"]['Enums']["presence_mode"],"theme_mode": string,"title": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"email": string,"full_name"?: string | null,"id": string
+                    "accent"?: string | null,"bio"?: string | null,"calendar_feed_created_at"?: string | null,"calendar_feed_token_hash"?: string | null,"created_at"?: string,"email": string,"full_name"?: string | null,"id": string,"presence_mode"?: Database["public"]['Enums']["presence_mode"],"theme_mode"?: string,"title"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string,"full_name"?: string | null,"id"?: string
+                    "accent"?: string | null,"bio"?: string | null,"calendar_feed_created_at"?: string | null,"calendar_feed_token_hash"?: string | null,"created_at"?: string,"email"?: string,"full_name"?: string | null,"id"?: string,"presence_mode"?: Database["public"]['Enums']["presence_mode"],"theme_mode"?: string,"title"?: string | null
                   }
                   Relationships: [
                     
@@ -495,31 +629,101 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
-                },"tasks": {
+                },"task_assignees": {
                   Row: {
-                    "assignee_invitation_id": string | null,"assignee_membership_id": string | null,"completed_at": string | null,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"id": string,"needs_assignee": boolean,"organization_id": string,"position": number,"project_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
+                    "added_by": string | null,"created_at": string,"done_at": string | null,"id": string,"invitation_id": string | null,"kind": Database["public"]['Enums']["task_assignee_kind"],"membership_id": string | null,"organization_id": string,"task_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"project_id": string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
+                    "added_by"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"invitation_id"?: string | null,"kind": Database["public"]['Enums']["task_assignee_kind"],"membership_id"?: string | null,"organization_id": string,"task_id": string
                   }
                   Update: {
-                    "assignee_invitation_id"?: string | null,"assignee_membership_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"id"?: string,"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"project_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
+                    "added_by"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"invitation_id"?: string | null,"kind"?: Database["public"]['Enums']["task_assignee_kind"],"membership_id"?: string | null,"organization_id"?: string,"task_id"?: string
                   }
                   Relationships: [
                     {
-      foreignKeyName: "tasks_assignee_invitation_fkey"
-      columns: ["assignee_invitation_id","organization_id"]
+      foreignKeyName: "task_assignees_added_by_fkey"
+      columns: ["added_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_assignees_invitation_id_organization_id_fkey"
+      columns: ["invitation_id","organization_id"]
 isOneToOne: false
       referencedRelation: "invitations"
       referencedColumns: ["id","organization_id"]
     },{
-      foreignKeyName: "tasks_assignee_membership_id_organization_id_fkey"
-      columns: ["assignee_membership_id","organization_id"]
+      foreignKeyName: "task_assignees_membership_id_organization_id_fkey"
+      columns: ["membership_id","organization_id"]
 isOneToOne: false
       referencedRelation: "memberships"
       referencedColumns: ["id","organization_id"]
     },{
+      foreignKeyName: "task_assignees_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_assignees_task_id_organization_id_fkey"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"task_shares": {
+                  Row: {
+                    "added_by": string | null,"created_at": string,"id": string,"membership_id": string,"organization_id": string,"task_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_by"?: string | null,"created_at"?: string,"id"?: string,"membership_id": string,"organization_id": string,"task_id": string
+                  }
+                  Update: {
+                    "added_by"?: string | null,"created_at"?: string,"id"?: string,"membership_id"?: string,"organization_id"?: string,"task_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "task_shares_added_by_fkey"
+      columns: ["added_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_shares_membership_id_organization_id_fkey"
+      columns: ["membership_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "memberships"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "task_shares_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_shares_task_id_organization_id_fkey"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"tasks": {
+                  Row: {
+                    "claim_limit": number | null,"completed_at": string | null,"completion": Database["public"]['Enums']["task_completion"],"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"hidden": boolean,"id": string,"kind": Database["public"]['Enums']["task_kind"],"needs_assignee": boolean,"organization_id": string,"position": number,"priority": Database["public"]['Enums']["task_priority"],"project_id": string | null,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
       foreignKeyName: "tasks_created_by_fkey"
       columns: ["created_by"]
 isOneToOne: false
@@ -551,11 +755,45 @@ isOneToOne: false
 "add_participant":
 { Args: { "name": string,"project_id": string }; Returns: string
                            },
+"appoint_to_task":
+{ Args: { "invitation_id"?: string,"membership_id"?: string,"task_id": string }; Returns: undefined
+                           },
+"as_user_begin":
+{ Args: { "uid": string }; Returns: (string)[]
+                           },
+"as_user_end":
+{ Args: { "saved": (string)[] }; Returns: undefined
+                           },
+"attendance_rate":
+{ Args: { "participant_id": string,"project_id": string }; Returns: {
+              "counted": number,"rate": number
+            }[]
+                           },
+"calendar_feed":
+{ Args: { "feed_token": string }; Returns: {
+              "all_day": boolean,"due_date": string,"ends_at": string,"item_id": string,"item_type": string,"starts_at": string,"title": string,"updated_at": string
+            }[]
+                           },
+"can_add_participant_file":
+{ Args: { "participant_id": string,"project_id": string }; Returns: boolean
+                           },
+"can_appoint":
+{ Args: { "target_rank": number,"task_id": string }; Returns: boolean
+                           },
+"can_delete_participant_file":
+{ Args: { "file_id": string }; Returns: boolean
+                           },
+"can_edit_task":
+{ Args: { "task_id": string }; Returns: boolean
+                           },
 "can_grant_project_role":
 { Args: { "project_id": string,"role": Database["public"]['Enums']["project_role"] }; Returns: boolean
                            },
 "can_grant_role":
 { Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
+                           },
+"can_hide_task":
+{ Args: { "org_id": string,"project_id": string }; Returns: boolean
                            },
 "can_manage_member":
 { Args: { "org_id": string,"role": Database["public"]['Enums']["member_role"] }; Returns: boolean
@@ -566,8 +804,20 @@ isOneToOne: false
 "can_manage_project_content":
 { Args: { "project_id": string }; Returns: boolean
                            },
+"can_read_participant_object":
+{ Args: { "object_name": string,"object_owner": string,"purpose": string }; Returns: boolean
+                           },
 "can_record_attendance":
 { Args: { "event_id": string,"participant_id": string }; Returns: boolean
+                           },
+"can_share_task":
+{ Args: { "task_id": string }; Returns: boolean
+                           },
+"can_upload_participant_object":
+{ Args: { "object_name": string }; Returns: boolean
+                           },
+"can_use_realtime_topic":
+{ Args: { "topic": string }; Returns: boolean
                            },
 "can_view_participant":
 { Args: { "participant_id": string }; Returns: boolean
@@ -584,12 +834,21 @@ isOneToOne: false
 "can_view_task":
 { Args: { "task_id": string }; Returns: boolean
                            },
+"claim_task":
+{ Args: { "task_id": string }; Returns: undefined
+                           },
 "create_organization":
 { Args: { "name": string,"preset_key": string }; Returns: {
-              "created_at": string,
+              "accent": string | null,
+"allow_personal_accent": boolean,
+"created_at": string,
 "id": string,
+"logo_dark_path": string | null,
+"logo_path": string | null,
+"low_attendance_percent": number,
 "name": string,
 "preset_key": string,
+"show_illustrations": boolean,
 "slug": string,
 "terminology_overrides": NonNullable<Json>,
 "theme": NonNullable<Json>
@@ -614,6 +873,9 @@ isOneToOne: false
 "is_member":
 { Args: { "org_id": string }; Returns: boolean
                            },
+"is_own_profile_photo":
+{ Args: { "object_name": string }; Returns: boolean
+                           },
 "my_membership_id":
 { Args: { "org_id": string }; Returns: string
                            },
@@ -636,6 +898,17 @@ isOneToOne: false
 "my_verified_email":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"notification_muted":
+{ Args: { "actor": string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string }; Returns: boolean
+                           },
+"notify":
+{ Args: { "actor": string,"data"?: Json,"dedupe"?: string,"kind": Database["public"]['Enums']["notification_type"],"org": string,"recipient": string,"subject_id": string,"subject_type": string }; Returns: undefined
+                           },
+"open_participant_file":
+{ Args: { "download": boolean,"file_id": string }; Returns: {
+              "mime_type": string,"name": string,"storage_path": string
+            }[]
+                           },
 "outranked_by_creator":
 { Args: { "creator": string,"creator_role": Database["public"]['Enums']["member_role"],"org_id": string }; Returns: boolean
                            },
@@ -656,16 +929,40 @@ isOneToOne: false
 "project_role_rank":
 { Args: { "role": Database["public"]['Enums']["project_role"] }; Returns: number
                            },
+"queue_my_due_notifications":
+{ Args: { "org": string,"today": string }; Returns: undefined
+                           },
 "recent_projects":
 { Args: { "max_rows"?: number,"org_id": string }; Returns: {
               "color": string,"id": string,"last_activity_at": string,"name": string
             }[]
                            },
+"record_participant_file_event":
+{ Args: { "f": Omit<Database["public"]['Tables']["participant_files"]['Row'], Database["public"]['Tables']["participant_files"]['ComputedFields']>,"what": Database["public"]['Enums']["participant_file_action"] }; Returns: undefined
+                           },
+"regenerate_calendar_feed":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"release_program_files":
+{ Args: { "project_id": string }; Returns: string[]
+                           },
 "remove_member":
 { Args: { "membership_id": string,"reassign_to"?: string }; Returns: Json
                            },
+"remove_task_assignee":
+{ Args: { "invitation_id"?: string,"membership_id"?: string,"task_id": string }; Returns: undefined
+                           },
+"revoke_calendar_feed":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "role_rank":
 { Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
+                           },
+"set_my_photo":
+{ Args: { "org_id": string,"path": string }; Returns: string
+                           },
+"set_task_done":
+{ Args: { "done": boolean,"task_id": string }; Returns: Database["public"]['Enums']["task_status"]
                            },
 "shares_org":
 { Args: { "other_user": string }; Returns: boolean
@@ -679,12 +976,24 @@ isOneToOne: false
 "tags_to_text":
 { Args: { "tags": (string)[] }; Returns: string
                            },
+"task_creator_rank":
+{ Args: { "task_id": string }; Returns: number
+                           },
 "transfer_ownership":
 { Args: { "new_owner_membership_id": string,"org_id": string }; Returns: undefined
+                           },
+"unclaim_task":
+{ Args: { "task_id": string }; Returns: undefined
+                           },
+"user_can_view_participant":
+{ Args: { "participant_id": string,"uid": string }; Returns: boolean
+                           },
+"user_can_view_task":
+{ Args: { "task_id": string,"uid": string }; Returns: boolean
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","member_role": "owner"|"manager"|"admin"|"staff","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -804,7 +1113,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"member_role": ["owner", "manager", "admin", "staff"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const

@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 export const inputClass =
-  "w-full rounded-md border border-rule bg-canvas px-3 py-2 text-ink placeholder:text-ink-muted hover:border-ink-muted focus-visible:border-ink focus-visible:outline-2 focus-visible:outline-offset-0 aria-[invalid=true]:border-ink aria-[invalid=true]:border-2";
+  "w-full rounded-md border border-rule bg-canvas px-3 py-2 text-ink placeholder:text-ink-muted hover:border-ink-muted focus-visible:border-ink focus-visible:outline-2 focus-visible:outline-offset-0 aria-[invalid=true]:border-bad aria-[invalid=true]:border-2";
 
 export function Field({
   label,
@@ -31,7 +31,7 @@ export function Field({
         </p>
       ) : null}
       {message ? (
-        <p id={`${htmlFor}-error`} className="text-sm font-semibold" role="alert">
+        <p id={`${htmlFor}-error`} className="text-sm font-semibold text-bad-ink" role="alert">
           <span aria-hidden>! </span>
           {message}
         </p>

@@ -45,7 +45,7 @@ export default async function FundPage({ params }: PageProps<"/[orgSlug]/funds/[
 
   return (
     <div className="flex flex-col gap-8">
-      <Link href={`${base}/funds`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+      <Link href={`${base}/funds`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
         <ArrowLeft aria-hidden className="size-4" />
         All funds
       </Link>

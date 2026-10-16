@@ -5,20 +5,23 @@ import { useState } from "react";
 import { CalendarDays, Download, MapPin } from "lucide-react";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
-import { DueBadge, ProjectDot } from "@/components/tasks/badges";
-import { TaskCheckbox } from "@/components/tasks/task-checkbox";
+import { DueBadge, PriorityFlag, ProjectDot } from "@/components/tasks/badges";
+import { TaskCheckbox, type TaskPart } from "@/components/tasks/task-checkbox";
 import { QuickAddTask } from "@/components/tasks/quick-add";
 import { ProgressBar } from "@/components/projects/progress";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { SplitBar } from "@/components/funds/split-bar";
 import { formatMoney, formatShare } from "@/lib/money";
-import type { ProjectOption, TaskStatus } from "@/lib/queries";
+import type { ProjectOption, TaskPriority, TaskStatus } from "@/lib/queries";
 
 export type TaskLite = {
   id: string;
   title: string;
   status: TaskStatus;
   due_date: string | null;
+  priority: TaskPriority;
+  /** The viewer's own part, for tasks that need everyone to finish. */
+  part?: TaskPart;
   project: { name: string; color: string | null } | null;
   href: string;
 };
@@ -32,7 +35,6 @@ export type DashboardData = {
   myTasks: TaskLite[];
   projects: { id: string; name: string; color: string | null; done: number; total: number }[];
   events: { id: string; title: string; day: string; time: string; location: string | null }[];
-  activity: { id: string; actor: string; sentence: string; label: string | null; href: string | null; ago: string }[];
   pinned: { id: string; name: string; mime: string; size: number }[];
   projectOptions: ProjectOption[];
   /** Funds and their split, for owners and managers; null for everyone else. */
@@ -88,7 +90,7 @@ export function OverdueWidget({ data }: { data: DashboardData }) {
       {n ? (
         <>
           <TaskLines tasks={data.overdue} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-semibold text-accent underline underline-offset-4">
             See all overdue
           </Link>
         </>
@@ -111,7 +113,7 @@ export function DueSoonWidget({ data }: { data: DashboardData }) {
       {n ? (
         <>
           <TaskLines tasks={data.dueSoon} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-semibold text-accent underline underline-offset-4">
             See the week
           </Link>
         </>
@@ -166,17 +168,26 @@ export function MyTasksWidget({ data }: { data: DashboardData }) {
             if (e.animationName === "slide-out") remove(task.id);
           }}
         >
-          <TaskCheckbox id={task.id} title={task.title} done={false} onCompleteStart={() => start(task.id)} />
+          <TaskCheckbox
+            id={task.id}
+            title={task.title}
+            done={false}
+            part={task.part}
+            onCompleteStart={() => start(task.id)}
+          />
           <div className="min-w-0 flex-1">
             <Link href={task.href} className="task-title inline font-semibold hover:underline">
               {task.title}
             </Link>
-            {task.project ? (
-              <p className="flex items-center gap-1.5 truncate text-sm text-ink-muted">
-                <ProjectDot color={task.project.color} />
-                {task.project.name}
-              </p>
-            ) : null}
+            <p className="flex flex-wrap items-center gap-x-3 truncate text-sm text-ink-muted">
+              <PriorityFlag priority={task.priority} label={t(`priority.${task.priority}`)} />
+              {task.project ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <ProjectDot color={task.project.color} />
+                  {task.project.name}
+                </span>
+              ) : null}
+            </p>
           </div>
           <DueBadge dueDate={task.due_date} status={task.status} today={data.today} />
         </li>
@@ -211,7 +222,7 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         Nothing scheduled in the next two weeks.{" "}
-        <Link href={`${data.base}/calendar`} className="underline underline-offset-4">
+        <Link href={`${data.base}/calendar`} className="text-accent underline underline-offset-4">
           Open the calendar
         </Link>
         .
@@ -238,38 +249,12 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
         </li>
       ))}
       <li className="pt-2">
-        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-semibold underline underline-offset-4">
+        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-semibold text-accent underline underline-offset-4">
           <CalendarDays aria-hidden className="size-4" />
           All {lower(t("event", "other"))}
         </Link>
       </li>
     </ul>
-  );
-}
-
-export function RecentActivityWidget({ data }: { data: DashboardData }) {
-  if (data.activity.length === 0) return <Empty>Changes your team makes show up here.</Empty>;
-  return (
-    <ol className="divide-y divide-rule">
-      {data.activity.map((a) => (
-        <li key={a.id} className="py-2 text-sm">
-          <span className="font-semibold">{a.actor}</span> {a.sentence}
-          {a.label ? (
-            <>
-              {" "}
-              {a.href ? (
-                <Link href={a.href} className="font-semibold underline-offset-4 hover:underline">
-                  “{a.label}”
-                </Link>
-              ) : (
-                <span className="font-semibold">“{a.label}”</span>
-              )}
-            </>
-          ) : null}
-          <span className="block text-ink-muted">{a.ago}</span>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -279,7 +264,7 @@ export function PinnedDocumentsWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         Pin the {lower(t("document", "other"))} people reach for most from the{" "}
-        <Link href={`${data.base}/documents`} className="underline underline-offset-4">
+        <Link href={`${data.base}/documents`} className="text-accent underline underline-offset-4">
           {lower(t("document", "other"))} page
         </Link>{" "}
         and they&apos;ll appear here.
@@ -312,7 +297,7 @@ export function FundingWidget({ data }: { data: DashboardData }) {
     return (
       <Empty>
         No funds yet.{" "}
-        <Link href={`${data.base}/funds`} className="underline underline-offset-4">
+        <Link href={`${data.base}/funds`} className="text-accent underline underline-offset-4">
           Add one
         </Link>{" "}
         to see where its money goes.

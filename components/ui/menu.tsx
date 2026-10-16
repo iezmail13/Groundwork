@@ -11,12 +11,15 @@ export function Menu({
   buttonClassName = "",
   buttonLabel,
   placement = "top",
+  align = "left",
   children,
 }: {
   button: ReactNode;
   buttonClassName?: string;
   buttonLabel: string;
   placement?: "top" | "bottom";
+  /** Which edge of the button the menu lines up with. */
+  align?: "left" | "right";
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -25,7 +28,7 @@ export function Menu({
   const listRef = useRef<HTMLDivElement>(null);
   const id = useId();
 
-  const items = () => Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+  const items = () => Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemradio"]') ?? []);
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +92,7 @@ export function Menu({
           id={id}
           role="menu"
           aria-label={buttonLabel}
-          className={`absolute left-0 z-50 min-w-56 rounded-lg border border-rule bg-canvas p-1 text-ink ${
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} z-50 min-w-56 rounded-lg border border-rule bg-canvas p-1 text-ink ${
             placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >

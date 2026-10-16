@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Start Supabase (local stack in Docker)
-        run: npx supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime
+        run: npx supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime
 
       - name: Write .env.local from the local stack
         run: npm run env:local

@@ -92,13 +92,14 @@ select throws_ok($$ update public.tasks set title = 'Ada' where id = 'aaaaaaaa-4
 
 -- The assignee may move their task and mark it done --------------------------------------------
 reset role;
-update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000e' where id = 'aaaaaaaa-4444-0000-0000-000000000000';
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000e', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 select is(tests.affected($q$ update public.tasks set status = 'done' where id = 'aaaaaaaa-4444-0000-0000-000000000000' $q$), 1, 'the assignee can mark an owner''s task done');
 select is(tests.affected($q$ update public.tasks set position = 1 where id = 'aaaaaaaa-4444-0000-0000-000000000000' $q$), 1, 'and move it on the board');
 select throws_ok($$ update public.tasks set title = 'Sam renamed it' where id = 'aaaaaaaa-4444-0000-0000-000000000000' $$,
   '42501', null, 'but not rename it');
-select throws_ok($$ update public.tasks set assignee_membership_id = null where id = 'aaaaaaaa-4444-0000-0000-000000000000' $$,
+select throws_ok($$ select public.unclaim_task('aaaaaaaa-4444-0000-0000-000000000000') $$,
   '42501', null, 'or hand it off');
 select is(tests.affected($q$ update public.tasks set title = 'A task', status = 'done' where id = 'aaaaaaaa-4444-0000-0000-000000000000' $q$), 1, 'saving without changing anything is fine');
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');
@@ -111,7 +112,7 @@ select throws_ok($$ update public.tasks set status = 'todo' where id = 'aaaaaaaa
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 select is(tests.affected($q$ delete from public.memberships where id = 'aaaaaaaa-1111-0000-0000-00000000000e' $q$), 1, 'staff can leave while assigned an owner''s task');
 reset role;
-select is((select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-000000000000'), null, 'and the task is unassigned by the cascade');
+select is((select count(*)::int from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-000000000000'), 0, 'and the task is unassigned by the cascade');
 
 -- The helper is for signed-in people only -------------------------------------------------
 select tests.as_anon();

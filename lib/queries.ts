@@ -5,6 +5,17 @@ import type { Database } from "@/lib/supabase/database.types";
 type Role = Database["public"]["Enums"]["member_role"];
 
 export type TaskStatus = Database["public"]["Enums"]["task_status"];
+export type TaskKind = Database["public"]["Enums"]["task_kind"];
+export type TaskPriority = Database["public"]["Enums"]["task_priority"];
+export type TaskCompletion = Database["public"]["Enums"]["task_completion"];
+
+/** Someone on a task: a member, or a pending invitee (D70, D100). */
+export type TaskAssignee = {
+  membership_id: string | null;
+  invitation_id: string | null;
+  kind: Database["public"]["Enums"]["task_assignee_kind"];
+  done_at: string | null;
+};
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
 
@@ -15,9 +26,14 @@ export type TaskRow = {
   status: TaskStatus;
   due_date: string | null;
   position: number;
-  project_id: string;
-  assignee_membership_id: string | null;
-  assignee_invitation_id: string | null;
+  /** Null for personal and org-level tasks outside a project. */
+  project_id: string | null;
+  kind: TaskKind;
+  priority: TaskPriority;
+  hidden: boolean;
+  claim_limit: number | null;
+  completion: TaskCompletion;
+  assignees: TaskAssignee[];
   needs_assignee: boolean;
   completed_at: string | null;
   created_by: string | null;
@@ -27,7 +43,7 @@ export type TaskRow = {
 };
 
 export const TASK_SELECT =
-  "id, title, description, status, due_date, position, project_id, assignee_membership_id, assignee_invitation_id, needs_assignee, completed_at, created_by, created_by_role, project:projects(id, name, color, status)";
+  "id, title, description, status, due_date, position, project_id, kind, priority, hidden, claim_limit, completion, needs_assignee, completed_at, created_by, created_by_role, project:projects(id, name, color, status), assignees:task_assignees(membership_id, invitation_id, kind, done_at)";
 
 export type ProjectOption = { id: string; name: string };
 
@@ -49,6 +65,8 @@ export async function getProjectProgress(orgId: string): Promise<Map<string, Pro
   if (error) throw error;
   const map = new Map<string, ProjectProgress>();
   for (const row of data ?? []) {
+    // personal and org-level tasks belong to no project
+    if (!row.project_id) continue;
     const entry = map.get(row.project_id) ?? { total: 0, done: 0 };
     entry.total += 1;
     if (row.status === "done") entry.done += 1;
@@ -115,18 +133,6 @@ export type ActivityRow = {
   created_at: string;
   actor_membership_id: string | null;
 };
-
-export async function getActivity(orgId: string, limit = 12): Promise<ActivityRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("activity_log")
-    .select("id, entity_type, entity_id, action, metadata, created_at, actor_membership_id")
-    .eq("organization_id", orgId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []) as ActivityRow[];
-}
 
 /** Turns a free-text search into a prefix tsquery: "bud 26" -> "bud:* & 26:*". */
 export function toPrefixQuery(text: string): string | null {

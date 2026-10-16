@@ -105,34 +105,49 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(page.getByLabel("New task title")).toHaveValue("");
   await expect(page.getByLabel("Due date")).toHaveValue("");
 
-  // 4. Move the task on the board: keyboard drag (Space, arrow, Space), then the move button.
+  // 4. The board (D101): reorder within a column with the keyboard, claim the task (it moves to
+  // In progress), tick it done (it leaves the board, with Undo), and find it under Completed.
   await visit(page, `${base}/tasks`);
-  const handle = page.getByRole("button", { name: "Drag “Draft the launch checklist”" });
+  const todo = page.locator('section[data-column="todo"]');
+  const inProgress = page.locator('section[data-column="in_progress"]');
+  const handle = page.getByRole("button", { name: "Reorder “Draft the launch checklist”" });
   await expect(handle).toBeVisible();
+  const cards = () => todo.locator("li[data-task-id]").evaluateAll((els) => els.map((el) => el.textContent ?? ""));
+  const from = (await cards()).findIndex((text) => text.includes("Draft the launch checklist"));
+  expect(from).toBeGreaterThan(0);
   // wait on dnd-kit's screen-reader announcements between keys, as a keyboard user would
   const announcer = page.locator("[aria-live]");
   await handle.focus();
   await page.keyboard.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("ArrowRight");
-  await expect(announcer.filter({ hasText: "is over In progress" })).toHaveCount(1);
+  await expect(announcer.filter({ hasText: `“Draft the launch checklist” is over position ${from + 1}` })).toHaveCount(1);
+  await page.keyboard.press("ArrowUp");
+  await expect(announcer.filter({ hasText: `is over position ${from}.` })).toHaveCount(1);
   await page.keyboard.press("Space");
-  const inProgress = page.locator('section[data-column="in_progress"]');
-  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await expect(announcer.filter({ hasText: `Moved “Draft the launch checklist” to position ${from}` })).toHaveCount(1);
   await page.reload();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  expect((await cards()).findIndex((text) => text.includes("Draft the launch checklist"))).toBe(from - 1);
+
+  await todo.getByRole("button", { name: "Claim Draft the launch checklist" }).click();
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.getByRole("button", { name: "Move “Draft the launch checklist” to Done" }).click();
+  await expect(todo.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  const toast = page.getByRole("status").filter({ hasText: "“Draft the launch checklist” is done." });
+  await expect(toast).toBeVisible();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await page.getByLabel("Status").selectOption("done");
   const done = page.locator('section[data-column="done"]');
-  await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.reload();
-  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // open the task and edit it on its own page
   await done.getByRole("link", { name: "Draft the launch checklist" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
   await page.getByLabel("Title").fill("Finalize the launch checklist");
-  await page.getByLabel("Status").selectOption("in_progress");
+  await page.getByLabel("Priority").selectOption("high");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Finalize the launch checklist" })).toBeVisible();
@@ -209,9 +224,13 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people and the organization; words and colours aren't editable
+  // settings are the preset, the people, the organization, its branding, your own
+  // profile and your notifications; words aren't editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(3);
+  await expect(sections.getByRole("link")).toHaveCount(6);
+  await expect(sections.getByRole("link", { name: "Notifications" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
   await expect(sections.getByRole("link", { name: "Theme" })).toHaveCount(0);
   await page.getByRole("radio", { name: /Tutoring/ }).check();
@@ -232,6 +251,8 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await moveHandle.focus();
   await page.keyboard.press("Space");
   await expect(moveHandle).toHaveAttribute("aria-pressed", "true");
+  // move only once the drop positions are measured, which the first "over" announcement shows
+  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 1" })).toHaveCount(1);
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 2" })).toHaveCount(1);
   await page.keyboard.press("Space");
@@ -240,14 +261,14 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   expect(after.slice(0, 2)).toEqual(["due_soon", "overdue"]);
   // resize and hide too, so persistence covers every kind of change
   await page.getByRole("radio", { name: "Large" }).first().check({ force: true });
-  await page.getByRole("button", { name: "Hide Recent activity" }).click();
+  await page.getByRole("button", { name: "Hide Quick add" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "recent_activity"));
+  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "quick_add"));
   await expect(page.locator('li[data-widget="due_soon"]')).toHaveClass(/xl:col-span-12/);
-  await expect(page.getByRole("heading", { name: "Recent activity" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Quick add" })).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
@@ -414,28 +435,32 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
-test("landing page: signed-out visitors see the hero, features and a way in", async ({ browser }) => {
+test("landing page: signed-out visitors see the hero, the problems, benefits and FAQ, and a way in", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Run your organization on solid ground.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tasks, files and deadlines for your nonprofit, in one place.");
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
+  for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
+    await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+  }
+  await expect(page.getByRole("heading", { level: 3, name: "Never miss a deadline" })).toBeVisible();
 
-  // the feature tabs work from the keyboard
-  const tabs = page.getByRole("tablist", { name: "Features" });
-  await tabs.getByRole("tab", { name: "Plan the work" }).focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.getByRole("tab", { name: "Never miss a date" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tabpanel")).toContainText("Every deadline in one calendar.");
-  await page.keyboard.press("End");
-  await expect(page.getByRole("tabpanel")).toContainText("Your whole organization at a glance.");
-  await page.keyboard.press("Home");
-  await expect(page.getByRole("tabpanel")).toContainText("See who's doing what");
+  // FAQ answers match the code and the verified settings
+  await page.getByText("Can I import files?").click();
+  await expect(page.getByText(/one at a time, up to 25 MB each/)).toBeVisible();
+  await page.getByText("Where is it stored?").click();
+  await expect(page.getByText(/Supabase in its US East region/)).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Get started" }).first().click();
-  await expect(page).toHaveURL(/\/login$/);
+  // one primary action; "Log in" stays a small link in the masthead
+  const site = page.getByRole("navigation", { name: "Site" });
+  await expect(site.getByRole("link", { name: "Log in" })).toBeVisible();
+  await site.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Create your free Groundwork account" })).toBeVisible();
+  await expect(page.getByText("Log in", { exact: true })).toHaveCount(0);
 
   // on a phone the links sit behind a menu button
   const phone = await browser.newPage({ viewport: { width: 360, height: 740 } });
@@ -448,6 +473,41 @@ test("landing page: signed-out visitors see the hero, features and a way in", as
   await expect(phone).toHaveURL(/\/login$/);
   await phone.close();
   await context.close();
+});
+
+test("public pages load signed out, at phone width, with the footer links", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  const page = await context.newPage();
+  for (const [path, title] of [
+    ["/security", "Security"],
+    ["/privacy", "Privacy"],
+    ["/terms", "Terms"],
+  ] as const) {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    const footer = page.getByRole("navigation", { name: "Footer" });
+    for (const link of ["Security", "Privacy", "Terms"]) await expect(footer.getByRole("link", { name: link })).toBeVisible();
+  }
+  // where data lives is stated as verified
+  await page.goto("/security");
+  await expect(page.getByText(/US East region in the United States/).first()).toBeVisible();
+  await expect(page.getByText(/doesn't offer restorable backups yet/)).toBeVisible();
+  await context.close();
+});
+
+test("Start free: a new person signs up, then creates their organization", async ({ page, request }) => {
+  const email = `signup-${Date.now()}@example.org`;
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await page.getByLabel("Work email").fill(email);
+  await page.getByRole("button", { name: "Email me a link to get started" }).click();
+  await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  await finishSignIn(page, await magicLinkFor(request, email));
+  await expect(page).toHaveURL(/\/create-organization$/);
 });
 
 test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {
@@ -524,7 +584,7 @@ test("projects are private to their people; leaving frees work for reassignment"
   await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toBeVisible();
   await snacks.getByRole("link", { name: "Restock snack cupboard" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
-  await page.getByLabel("Assignee").selectOption({ label: "Marcus Chen" });
+  await page.getByRole("checkbox", { name: "Marcus Chen" }).check();
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByText("Needs assignee")).toHaveCount(0);
@@ -568,7 +628,7 @@ test("invite from a task: a pending assignee, then join through the invitations 
   await expect(invite.getByText(/assigned to them/)).toBeVisible();
   await invite.getByRole("link", { name: "Back to Set up a quiet reading corner" }).click();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
-  await expect(page.getByLabel("Assignee").locator("option:checked")).toHaveText("Robin Tester (pending)");
+  await expect(page.getByRole("checkbox", { name: "Robin Tester (pending)" })).toBeChecked();
 
   // the invitation shows its project in settings
   await visit(page, "/northside-youth-collective/settings?view=members");
@@ -773,8 +833,9 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await visit(page, "/northside-youth-collective/dashboard");
   await expect(page.getByRole("heading", { name: "Funding" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Spring bake sale", exact: true })).toBeVisible();
-  // and the change is in recent activity, for owners and managers
-  await expect(page.getByRole("link", { name: "“Spring bake sale”" }).first()).toBeVisible();
+  // and the change is in the activity log, for owners and managers
+  await visit(page, "/northside-youth-collective/activity");
+  await expect(page.getByRole("table", { name: "Activity, newest first" }).getByRole("link", { name: "Spring bake sale" }).first()).toBeVisible();
 
   // an admin sees none of it
   const context = await browser.newContext();
@@ -786,5 +847,8 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await expect(admin.getByRole("heading", { name: "Funding" })).toHaveCount(0);
   await admin.goto("/northside-youth-collective/funds");
   await expect(admin.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await admin.goto("/northside-youth-collective/activity");
+  await expect(admin.getByRole("heading", { level: 1, name: "Activity" })).toBeVisible();
+  await expect(admin.getByText("Spring bake sale")).toHaveCount(0);
   await context.close();
 });

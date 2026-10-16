@@ -36,7 +36,7 @@ function DeleteForm({ id, name, orgSlug, onCancel }: { id: string; name: string;
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="orgSlug" value={orgSlug} />
       <p>
-        This erases <strong>{name}</strong>&apos;s details and notes for good, for example to meet a privacy request. Their {word}{" "}
+        This erases <strong>{name}</strong>&apos;s details, notes and files for good, for example to meet a privacy request. Their {word}{" "}
         marks stay without a name, so past {lower(t("event"))} counts and rates don&apos;t change. To hide them but keep their details, archive
         them instead.
       </p>

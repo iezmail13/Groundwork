@@ -106,7 +106,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         <p className="flex items-center gap-2 text-sm">
           Tagged
           <Badge variant="filled">#{tag}</Badge>
-          <Link href={withParams({ tag: "" })} className="underline underline-offset-4">
+          <Link href={withParams({ tag: "" })} className="text-accent underline underline-offset-4">
             Remove tag filter
           </Link>
         </p>
@@ -120,6 +120,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         ) : (
           <EmptyState
             icon={<FileText />}
+            illustration="documents"
             title={`No ${lower(plural)} yet`}
             action={<UploadButton organizationId={org.id} projects={projects} />}
           >

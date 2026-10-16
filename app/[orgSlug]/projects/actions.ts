@@ -75,6 +75,16 @@ export async function deleteProject(_prev: ActionState, formData: FormData): Pro
   const parsed = z.object({ id, orgSlug: z.string().min(1) }).safeParse(formObject(formData));
   if (!parsed.success) return failure("Invalid request.");
   const supabase = await createClient();
+  // participant files kept in this program go with it (D102): the leads who
+  // may delete it release them first, so the stored copies can be removed
+  const { data: rank } = await supabase.rpc("my_project_rank", { project_id: parsed.data.id });
+  if (rank !== 3) return failure("Only the person who created this, or someone who manages the organization, can delete it.");
+  const { data: paths, error: releaseError } = await supabase.rpc("release_program_files", { project_id: parsed.data.id });
+  if (releaseError) return dbFailure(releaseError);
+  if (paths?.length) {
+    const { error: storageError } = await supabase.storage.from("participant-files").remove(paths);
+    if (storageError) console.error("Files released but some stored copies could not be removed", parsed.data.id, storageError);
+  }
   const { data, error } = await supabase.from("projects").delete().eq("id", parsed.data.id).select("id");
   if (error) return dbFailure(error);
   if (!data?.length) return failure("Only the person who created this, or someone who manages the organization, can delete it.");

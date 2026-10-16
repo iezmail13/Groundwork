@@ -1,20 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Archive, ArrowLeft, CircleCheck, X } from "lucide-react";
+import { Archive, ArrowLeft, CircleCheck, Download, Eye, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { ParticipantForm } from "@/components/attendance/participant-form";
 import { ArchiveParticipantButton, EnrollForm } from "@/components/attendance/profile-actions";
 import { DeleteParticipantButton } from "@/components/attendance/delete-participant";
+import { DeleteParticipantFileButton, UploadParticipantFileButton } from "@/components/attendance/participant-files";
+import { FILE_KIND_LABELS } from "@/lib/validation";
+import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { MarkBadge } from "@/components/attendance/status";
 import { getOrgContext } from "@/lib/org";
-import { getAttendancePrograms, getMarksForParticipant, getParticipant } from "@/lib/participants";
+import {
+  getAttendancePrograms,
+  getMarksForParticipant,
+  getParticipant,
+  getParticipantFileEvents,
+  getParticipantFiles,
+  type ParticipantFileEvent,
+} from "@/lib/participants";
 import { attendanceRate, emptyTally, addMark, formatRate } from "@/lib/attendance-report";
 import { dateInZone, formatRelativeDate, formatTimestamp } from "@/lib/dates";
 import { rankOf } from "@/lib/roles";
-import { lower } from "@/lib/terminology/t";
+import { lower, type Translate } from "@/lib/terminology/t";
 import { unenrollParticipant } from "../../actions";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -37,17 +47,26 @@ export default async function ParticipantPage({ params, searchParams }: PageProp
   const { ctx, participant: p } = await load(orgSlug, participantId);
   if (!p) notFound();
   const { t, org, base, tz, today } = ctx;
-  const [programs, marks] = await Promise.all([getAttendancePrograms(org.id), getMarksForParticipant(org.id, p.id)]);
+  const [programs, marks, files, fileEvents] = await Promise.all([
+    getAttendancePrograms(org.id),
+    getMarksForParticipant(org.id, p.id),
+    getParticipantFiles(p.id),
+    getParticipantFileEvents(p.id),
+  ]);
   const manages = new Map(programs.map((g) => [g.id, g]));
   const enrolled = new Set(p.programs.map((g) => g.project_id));
   const canEnroll = programs.filter((g) => g.active && !enrolled.has(g.id));
   const tally = marks.reduce((acc, m) => addMark(acc, m.status), emptyTally());
   const archived = Boolean(p.archived_at);
+  const isOwner = ctx.role === "owner";
+  // files can be added in an active program the viewer manages and they're enrolled in
+  const uploadPrograms = programs.filter((g) => g.active && enrolled.has(g.id));
+  const canDeleteFile = (projectId: string) => isOwner || manages.has(projectId);
   const programName = (id: string | null) => p.programs.find((g) => g.project_id === id)?.project?.name ?? manages.get(id ?? "")?.name ?? t("project");
 
   return (
     <div className="flex flex-col gap-8">
-      <Link href={`${base}/attendance`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+      <Link href={`${base}/attendance`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
         <ArrowLeft aria-hidden className="size-4" />
         All {lower(t("participant", "other"))}
       </Link>
@@ -98,6 +117,81 @@ export default async function ParticipantPage({ params, searchParams }: PageProp
           }}
         />
       </section>
+
+      <section aria-labelledby="files-heading" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="files-heading" className="text-xl font-bold">
+            Files
+          </h2>
+          {uploadPrograms.length && !archived ? (
+            <UploadParticipantFileButton organizationId={org.id} participantId={p.id} participantName={p.name} programs={uploadPrograms} />
+          ) : null}
+        </div>
+        <p className="max-w-2xl text-sm text-ink-muted">
+          Waivers, medical and consent forms, ID and other files. Every view, download and deletion is recorded for{" "}
+          {lower(t("role.owner", "other"))} and {lower(t("project"))} {lower(t("project_role.lead", "other"))}.
+        </p>
+        {files.length === 0 ? (
+          <p className="text-ink-muted">No files yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <caption className="sr-only">Files for {p.name}</caption>
+              <thead>
+                <tr className="border-b border-ink font-heading text-sm">
+                  <th scope="col" className="py-2 pr-4 font-semibold">Name</th>
+                  <th scope="col" className="py-2 pr-4 font-semibold">Kind</th>
+                  <th scope="col" className="py-2 pr-4 font-semibold">{t("project")}</th>
+                  <th scope="col" className="py-2 pr-4 font-semibold">Added</th>
+                  <th scope="col" className="py-2 font-semibold">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((f) => (
+                  <tr key={f.id} className="border-b border-rule">
+                    <td className="py-2 pr-4">
+                      <span className="inline-flex items-center gap-2 font-semibold">
+                        <FileIcon mime={f.mime_type} />
+                        {f.name}
+                      </span>
+                      <span className="block text-xs text-ink-muted">{formatBytes(f.size_bytes)}</span>
+                    </td>
+                    <td className="py-2 pr-4 text-sm">{FILE_KIND_LABELS[f.kind]}</td>
+                    <td className="py-2 pr-4 text-sm">{programName(f.project_id)}</td>
+                    <td className="py-2 pr-4 text-sm whitespace-nowrap">
+                      {formatRelativeDate(dateInZone(new Date(f.created_at), tz), today)}
+                      <span className="block text-xs text-ink-muted">{f.uploader?.full_name || f.uploader?.email || "Someone"}</span>
+                    </td>
+                    <td className="py-2">
+                      <span className="flex flex-wrap justify-end gap-1">
+                        <a
+                          href={`${base}/attendance/files/${f.id}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className={buttonClass("ghost", "sm")}
+                          aria-label={`Open ${f.name}`}
+                        >
+                          <Eye aria-hidden className="size-4" />
+                          Open
+                        </a>
+                        <a href={`${base}/attendance/files/${f.id}?download=1`} className={buttonClass("ghost", "sm")} aria-label={`Download ${f.name}`}>
+                          <Download aria-hidden className="size-4" />
+                          Download
+                        </a>
+                        {canDeleteFile(f.project_id) ? <DeleteParticipantFileButton id={f.id} name={f.name} /> : null}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {fileEvents.length || isOwner ? <FileAccessLog events={fileEvents} tz={tz} t={t} programName={programName} /> : null}
 
       <section aria-labelledby="programs-heading" className="flex flex-col gap-3">
         <h2 id="programs-heading" className="text-xl font-bold">
@@ -182,7 +276,7 @@ export default async function ParticipantPage({ params, searchParams }: PageProp
         {rankOf(ctx.role) >= rankOf("manager") ? (
           <div className="flex flex-col gap-2 pt-2">
             <p className="max-w-2xl text-ink-muted">
-              For a privacy request, delete them permanently: their details are erased and their past marks stay without a name.
+              For a privacy request, delete them permanently: their details and files are erased and their past marks stay without a name.
             </p>
             <div>
               <DeleteParticipantButton id={p.id} name={p.name} orgSlug={org.slug} />
@@ -191,5 +285,67 @@ export default async function ParticipantPage({ params, searchParams }: PageProp
         ) : null}
       </section>
     </div>
+  );
+}
+
+const ACTION_LABELS: Record<ParticipantFileEvent["action"], string> = {
+  uploaded: "Added",
+  viewed: "Opened",
+  downloaded: "Downloaded",
+  deleted: "Deleted",
+};
+
+/** Who touched which file and when: owners and the file's program leads only (D102). */
+function FileAccessLog({
+  events,
+  tz,
+  t,
+  programName,
+}: {
+  events: ParticipantFileEvent[];
+  tz: string;
+  t: Translate;
+  programName: (id: string | null) => string;
+}) {
+  return (
+    <section aria-labelledby="file-access-heading" className="flex flex-col gap-3">
+      <h2 id="file-access-heading" className="text-xl font-bold">
+        File access
+      </h2>
+      {events.length === 0 ? (
+        <p className="text-ink-muted">Nobody has added or opened a file for them yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] border-collapse text-left">
+            <caption className="sr-only">Who added, opened, downloaded or deleted their files</caption>
+            <thead>
+              <tr className="border-b border-ink font-heading text-sm">
+                <th scope="col" className="py-2 pr-4 font-semibold">When</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Who</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">What</th>
+                <th scope="col" className="py-2 font-semibold">File</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e) => (
+                <tr key={e.id} className="border-b border-rule text-sm">
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {formatTimestamp(e.created_at, tz)}
+                  </td>
+                  <td className="py-2 pr-4">{e.actor_name ?? `A former ${lower(t("member"))}`}</td>
+                  <td className="py-2 pr-4 font-semibold">{ACTION_LABELS[e.action]}</td>
+                  <td className="py-2">
+                    {e.file_name ?? "A removed file"}
+                    <span className="block text-xs text-ink-muted">
+                      {FILE_KIND_LABELS[e.file_kind]} · {programName(e.project_id)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

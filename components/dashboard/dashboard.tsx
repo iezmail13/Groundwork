@@ -13,7 +13,6 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import {
-  Activity,
   CalendarDays,
   ChartNoAxesColumn,
   Check,
@@ -42,7 +41,6 @@ import {
   PinnedDocumentsWidget,
   ProjectProgressWidget,
   QuickAddWidget,
-  RecentActivityWidget,
   UpcomingEventsWidget,
   type DashboardData,
 } from "./widgets";
@@ -66,7 +64,6 @@ function useWidgetDefs(): Record<WidgetId, WidgetDef> {
       icon: icon(CalendarDays),
       render: (d) => <UpcomingEventsWidget data={d} />,
     },
-    recent_activity: { title: "Recent activity", icon: icon(Activity), render: (d) => <RecentActivityWidget data={d} /> },
     pinned_documents: {
       title: `Pinned ${lower(t("document", "other"))}`,
       icon: icon(Pin),
@@ -300,10 +297,10 @@ function SortableWidget({
                       onChange={() => onSize(size)}
                       className="peer sr-only"
                     />
-                    <span className="sr-only">{{ s: "Small", m: "Medium", l: "Large" }[size]}</span>
+                    <span className="sr-only">{{ s: "Small size", m: "Medium size", l: "Large size" }[size]}</span>
                     <span
                       aria-hidden
-                      className="block px-2 py-0.5 font-heading text-xs font-bold peer-checked:bg-primary peer-checked:text-on-primary peer-focus-visible:outline-2 peer-focus-visible:outline-ink"
+                      className="block px-2 py-0.5 font-heading text-xs font-bold peer-checked:bg-accent peer-checked:text-on-accent peer-focus-visible:outline-2 peer-focus-visible:outline-ink"
                     >
                       {size.toUpperCase()}
                     </span>
