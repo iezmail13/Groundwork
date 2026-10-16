@@ -11,7 +11,7 @@ insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, c
 values ('a0000000-0000-0000-0000-00000000000e', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sam@a.test', '{"full_name":"Sam Staff"}', now(), now(), now());
 insert into public.memberships (id, organization_id, user_id, role) values
   ('aaaaaaaa-1111-0000-0000-00000000000e', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000e', 'staff');
-update public.memberships set role = 'admin' where id = 'aaaaaaaa-1111-0000-0000-00000000000b';
+update public.memberships set role = 'manager' where id = 'aaaaaaaa-1111-0000-0000-00000000000b';
 update public.project_members set role = 'lead' where membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b';
 insert into public.project_members (organization_id, project_id, membership_id, role) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000e', 'staff');
@@ -81,7 +81,7 @@ select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 select is(public.move_task_to_step('aaaaaaaa-4444-0000-0000-0000000000e3', tests.step('Review'))::text, 'in_progress', 'someone on the work moves its card');
 select throws_ok($$ select public.move_task_to_step('aaaaaaaa-4444-0000-0000-0000000000e1', tests.step('Review')) $$, '42501', null,
   'but not someone else''s');
-select is(tests.affected($q$ update public.tasks set step_id = null where id = 'aaaaaaaa-4444-0000-0000-0000000000e3' $q$), 0,
+select throws_ok($$ update public.tasks set step_id = null where id = 'aaaaaaaa-4444-0000-0000-0000000000e3' $$, '42501', null,
   'and not around the rules by hand');
 
 select tests.as_user('b0000000-0000-0000-0000-00000000000a');

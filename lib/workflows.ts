@@ -20,12 +20,12 @@ export async function getWorkflow(projectId: string): Promise<WorkflowStep[]> {
 export const WORKFLOW_TEMPLATES: { key: string; name: string; steps: { name: string; kind: "open" | "done"; wip_limit?: number }[] }[] = [
   {
     key: "simple",
-    name: "To do, doing, review, done",
+    name: "Backlog, doing, review, finished",
     steps: [
-      { name: "To do", kind: "open" },
+      { name: "Backlog", kind: "open" },
       { name: "Doing", kind: "open", wip_limit: 5 },
       { name: "Review", kind: "open" },
-      { name: "Done", kind: "done" },
+      { name: "Finished", kind: "done" },
     ],
   },
   {
@@ -40,7 +40,7 @@ export const WORKFLOW_TEMPLATES: { key: string; name: string; steps: { name: str
   },
   {
     key: "event",
-    name: "Event planning",
+    name: "Planning a gathering",
     steps: [
       { name: "Ideas", kind: "open" },
       { name: "Booked", kind: "open" },

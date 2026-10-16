@@ -206,7 +206,7 @@ function describe(
   }
 }
 
-const CHANGE_WORDS: Record<string, string> = { title: "title", due_date: "due date", priority: "priority", status: "status", project: "home" };
+const CHANGE_WORDS: Record<string, string> = { title: "title", due_date: "due date", priority: "priority", status: "status", project: "home", step: "step" };
 
 function listWords(words: string[]): string {
   return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   DndContext,
   DragOverlay,
@@ -15,8 +22,14 @@ import {
   type Announcements,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CircleCheck, CircleDot, TriangleAlert } from "lucide-react";
 import { moveTaskToStep } from "@/app/[orgSlug]/tasks/workflow-actions";
 import { useT } from "@/lib/terminology/context";
@@ -34,16 +47,25 @@ type Columns = Record<string, TaskRow[]>;
 function arrange(steps: WorkflowStep[], tasks: TaskRow[]): Columns {
   const firstOpen = steps.find((s) => s.kind === "open")?.id;
   const firstDone = steps.find((s) => s.kind === "done")?.id;
-  const cols: Columns = Object.fromEntries(steps.map((s) => [s.id, [] as TaskRow[]]));
+  const cols: Columns = Object.fromEntries(
+    steps.map((s) => [s.id, [] as TaskRow[]]),
+  );
   for (const t of tasks) {
     // work without a step yet sits at the start (or the end, if it's done)
-    const id = t.step_id && cols[t.step_id] ? t.step_id : t.status === "done" ? firstDone : firstOpen;
+    const id =
+      t.step_id && cols[t.step_id]
+        ? t.step_id
+        : t.status === "done"
+          ? firstDone
+          : firstOpen;
     if (id) cols[id]!.push(t);
   }
   for (const s of steps) {
     cols[s.id] =
       s.kind === "done"
-        ? cols[s.id]!.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))
+        ? cols[s.id]!.sort((a, b) =>
+            (b.completed_at ?? "").localeCompare(a.completed_at ?? ""),
+          )
         : cols[s.id]!.sort((a, b) => a.position - b.position);
   }
   return cols;
@@ -90,7 +112,9 @@ export function WorkflowBoard({
   const [activeId, setActiveId] = useState<string | null>(null);
   const dndId = useId();
 
-  const signature = tasks.map((x) => `${x.id}:${x.step_id}:${x.position}:${x.status}`).join("|");
+  const signature = tasks
+    .map((x) => `${x.id}:${x.step_id}:${x.position}:${x.status}`)
+    .join("|");
   const [lastSignature, setLastSignature] = useState(signature);
   const [cols, setCols] = useState<Columns>(() => arrange(steps, tasks));
   if (signature !== lastSignature) {
@@ -98,12 +122,65 @@ export function WorkflowBoard({
     setCols(arrange(steps, tasks));
   }
 
-  const stepOf = (taskId: string) => Object.keys(cols).find((k) => cols[k]!.some((x) => x.id === taskId));
-  const titleOf = (id: string | number) => tasks.find((x) => x.id === String(id))?.title ?? lower(t("task"));
-  const stepName = (id: string | undefined) => steps.find((s) => s.id === id)?.name ?? "";
+  const stepOf = (taskId: string) =>
+    Object.keys(cols).find((k) => cols[k]!.some((x) => x.id === taskId));
+  const titleOf = (id: string | number) =>
+    tasks.find((x) => x.id === String(id))?.title ?? lower(t("task"));
+  const stepName = (id: string | undefined) =>
+    steps.find((s) => s.id === id)?.name ?? "";
+  // Left and Right move a carried card exactly one step; Up and Down reorder it within its step
+  const latest = useRef({ cols, steps });
+  useEffect(() => {
+    latest.current = { cols, steps };
+  });
+  const [coordinateGetter] = useState(() => {
+    const getter: KeyboardCoordinateGetter = (event, args) => {
+      if (event.code !== "ArrowRight" && event.code !== "ArrowLeft")
+        return sortableKeyboardCoordinates(event, args);
+      event.preventDefault();
+      const { cols: now, steps: order } = latest.current;
+      const activeId = String(args.context.active?.id ?? "");
+      const here = order.findIndex((st) =>
+        now[st.id]?.some((x) => x.id === activeId),
+      );
+      const next = order[here + (event.code === "ArrowRight" ? 1 : -1)];
+      const rect = next ? args.context.droppableRects.get(next.id) : undefined;
+      if (!rect) return args.currentCoordinates;
+      // the carried card's top-left corner, just inside the next column
+      return { x: rect.left + 8, y: rect.top + 8 };
+    };
+    return getter;
+  });
+  // the column under the card (by its horizontal position) decides the step;
+  // within it, the closest card decides the place
+  const [collision] = useState(() => {
+    const detect: CollisionDetection = (args) => {
+      const { cols: now, steps: order } = latest.current;
+      const x =
+        args.pointerCoordinates?.x ??
+        args.collisionRect.left + Math.min(24, args.collisionRect.width / 2);
+      const column = order.find((st) => {
+        const r = args.droppableRects.get(st.id);
+        return r && x >= r.left && x <= r.right;
+      });
+      if (!column) return closestCorners(args);
+      const inside = new Set<string>([
+        column.id,
+        ...(now[column.id] ?? []).map((t) => t.id),
+      ]);
+      const hits = closestCorners({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((c) =>
+          inside.has(String(c.id)),
+        ),
+      });
+      return hits.length ? hits : [{ id: column.id }];
+    };
+    return detect;
+  });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter }),
   );
 
   const move = (taskId: string, toStep: string, index?: number) => {
@@ -113,10 +190,21 @@ export function WorkflowBoard({
     const target = cols[toStep]!.filter((x) => x.id !== taskId);
     const at = index ?? target.length;
     const position = positionAt(target, at);
-    const next = { ...cols, [from]: cols[from]!.filter((x) => x.id !== taskId) };
-    next[toStep] = [...target.slice(0, at), { ...card, step_id: toStep, position }, ...target.slice(at)];
+    const next = {
+      ...cols,
+      [from]: cols[from]!.filter((x) => x.id !== taskId),
+    };
+    next[toStep] = [
+      ...target.slice(0, at),
+      { ...card, step_id: toStep, position },
+      ...target.slice(at),
+    ];
     setCols(next);
-    setMessage(from === toStep ? `Moved “${card.title}” within ${stepName(toStep)}.` : `Moved “${card.title}” to ${stepName(toStep)}.`);
+    setMessage(
+      from === toStep
+        ? `Moved “${card.title}” within ${stepName(toStep)}.`
+        : `Moved “${card.title}” to ${stepName(toStep)}.`,
+    );
     startTransition(async () => {
       const result = await moveTaskToStep({ taskId, stepId: toStep, position });
       if (!result.ok) {
@@ -131,7 +219,9 @@ export function WorkflowBoard({
   const targetOf = (overId: string) => {
     if (cols[overId]) return { step: overId, index: cols[overId]!.length };
     const step = stepOf(overId);
-    return step ? { step, index: cols[step]!.findIndex((x) => x.id === overId) } : null;
+    return step
+      ? { step, index: cols[step]!.findIndex((x) => x.id === overId) }
+      : null;
   };
 
   const onDragOver = ({ active, over }: DragOverEvent) => {
@@ -144,7 +234,11 @@ export function WorkflowBoard({
     setCols({
       ...cols,
       [from]: cols[from]!.filter((x) => x.id !== active.id),
-      [to.step]: [...cols[to.step]!.slice(0, to.index), card, ...cols[to.step]!.slice(to.index)],
+      [to.step]: [
+        ...cols[to.step]!.slice(0, to.index),
+        card,
+        ...cols[to.step]!.slice(to.index),
+      ],
     });
   };
 
@@ -157,25 +251,38 @@ export function WorkflowBoard({
     const to = targetOf(String(over.id));
     if (!to) return;
     const original = tasks.find((x) => x.id === active.id);
-    const sameSpot = original?.step_id === to.step && String(over.id) === String(active.id);
+    const sameSpot =
+      original?.step_id === to.step && String(over.id) === String(active.id);
     if (sameSpot) return;
     move(String(active.id), to.step, Math.max(0, to.index));
   };
 
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up “${titleOf(active.id)}” in ${stepName(stepOf(String(active.id)))}. Use the arrow keys to move it between steps, Space to drop, Escape to cancel.`,
-    onDragOver: ({ active, over }) => (over ? `“${titleOf(active.id)}” is over ${stepName(targetOf(String(over.id))?.step)}.` : `“${titleOf(active.id)}” is not over a step.`),
-    onDragEnd: ({ active, over }) => (over ? `Dropped “${titleOf(active.id)}” in ${stepName(targetOf(String(over.id))?.step)}.` : `Dropped “${titleOf(active.id)}”.`),
-    onDragCancel: ({ active }) => `Cancelled. “${titleOf(active.id)}” is back where it was.`,
+    onDragStart: ({ active }) =>
+      `Picked up “${titleOf(active.id)}” in ${stepName(stepOf(String(active.id)))}. Use the arrow keys to move it between steps, Space to drop, Escape to cancel.`,
+    onDragOver: ({ active, over }) =>
+      over
+        ? `“${titleOf(active.id)}” is over ${stepName(targetOf(String(over.id))?.step)}.`
+        : `“${titleOf(active.id)}” is not over a step.`,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `Dropped “${titleOf(active.id)}” in ${stepName(targetOf(String(over.id))?.step)}.`
+        : `Dropped “${titleOf(active.id)}”.`,
+    onDragCancel: ({ active }) =>
+      `Cancelled. “${titleOf(active.id)}” is back where it was.`,
   };
 
   const active = activeId ? tasks.find((x) => x.id === activeId) : undefined;
-  const stepChoices = useMemo(() => steps.map((s) => ({ id: s.id, name: s.name })), [steps]);
+  const stepChoices = useMemo(
+    () => steps.map((s) => ({ id: s.id, name: s.name })),
+    [steps],
+  );
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-muted">
-        Drag a card to another step, or focus its handle and press Space then the arrow keys. Each card&apos;s step menu moves it too. Moving a card
+        Drag a card to another step, or focus its handle and press Space then
+        the arrow keys. Each card&apos;s step menu moves it too. Moving a card
         into a done step finishes the {lower(t("task"))}.
       </p>
       <p role="status" aria-live="polite" className="sr-only">
@@ -184,7 +291,7 @@ export function WorkflowBoard({
       <DndContext
         id={dndId}
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collision}
         onDragStart={({ active: a }) => setActiveId(String(a.id))}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
@@ -205,7 +312,11 @@ export function WorkflowBoard({
             <StepColumn
               key={step.id}
               step={step}
-              tasks={step.kind === "done" ? cols[step.id]!.slice(0, DONE_SHOWN) : cols[step.id]!}
+              tasks={
+                step.kind === "done"
+                  ? cols[step.id]!.slice(0, DONE_SHOWN)
+                  : cols[step.id]!
+              }
               total={cols[step.id]!.length}
               base={base}
               today={today}
@@ -234,8 +345,13 @@ export function WorkflowBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
-      {steps.some((s) => s.kind === "done" && cols[s.id]!.length > DONE_SHOWN) ? (
-        <Link href={`${base}/tasks?view=list&project=${projectId}&status=done`} className="self-start text-sm font-semibold text-accent hover:underline">
+      {steps.some(
+        (s) => s.kind === "done" && cols[s.id]!.length > DONE_SHOWN,
+      ) ? (
+        <Link
+          href={`${base}/tasks?view=list&project=${projectId}&status=done`}
+          className="self-start text-sm font-semibold text-accent hover:underline"
+        >
           See all finished work
         </Link>
       ) : null}
@@ -265,7 +381,8 @@ function StepColumn({
   children?: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: step.id });
-  const over = step.wip_limit !== null && step.kind === "open" && total > step.wip_limit;
+  const over =
+    step.wip_limit !== null && step.kind === "open" && total > step.wip_limit;
   const headingId = `step-${step.id}`;
   return (
     <section
@@ -276,13 +393,30 @@ function StepColumn({
         over ? "border-t-4 border-t-warn" : ""
       }`}
     >
-      <h2 id={headingId} className="flex items-center gap-2 font-heading text-sm font-bold">
-        {step.kind === "done" ? <CircleCheck aria-hidden className="size-4 text-good" /> : <CircleDot aria-hidden className="size-4 text-accent" />}
+      <h2
+        id={headingId}
+        className="flex items-center gap-2 font-heading text-sm font-bold"
+      >
+        {step.kind === "done" ? (
+          <CircleCheck aria-hidden className="size-4 text-good" />
+        ) : (
+          <CircleDot aria-hidden className="size-4 text-accent" />
+        )}
         <span className="min-w-0 truncate">{step.name}</span>
-        {step.kind === "done" ? <span className="sr-only">(done step)</span> : null}
+        {step.kind === "done" ? (
+          <span className="sr-only">(done step)</span>
+        ) : null}
         <span className="ml-auto rounded-full border border-rule px-2 text-xs font-semibold tabular-nums">
-          {step.wip_limit !== null && step.kind === "open" ? `${total} / ${step.wip_limit}` : total}
-          <span className="sr-only"> cards{step.wip_limit !== null && step.kind === "open" ? `, limit ${step.wip_limit}` : ""}</span>
+          {step.wip_limit !== null && step.kind === "open"
+            ? `${total} / ${step.wip_limit}`
+            : total}
+          <span className="sr-only">
+            {" "}
+            cards
+            {step.wip_limit !== null && step.kind === "open"
+              ? `, limit ${step.wip_limit}`
+              : ""}
+          </span>
         </span>
       </h2>
       {over ? (
@@ -292,8 +426,14 @@ function StepColumn({
         </p>
       ) : null}
       {children}
-      <SortableContext items={tasks.map((x) => x.id)} strategy={verticalListSortingStrategy}>
-        <ul className="flex min-h-16 flex-col gap-2" aria-label={`${step.name}: ${total}`}>
+      <SortableContext
+        items={tasks.map((x) => x.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <ul
+          className="flex min-h-16 flex-col gap-2"
+          aria-label={`${step.name}: ${total}`}
+        >
           {tasks.map((task) => (
             <BoardCard
               key={task.id}
@@ -325,7 +465,9 @@ function StepColumn({
         </ul>
       </SortableContext>
       {total === 0 ? (
-        <p className="rounded-md border border-dashed border-rule px-3 py-4 text-center text-sm text-ink-muted">Drop a card here.</p>
+        <p className="rounded-md border border-dashed border-rule px-3 py-4 text-center text-sm text-ink-muted">
+          Drop a card here.
+        </p>
       ) : null}
     </section>
   );

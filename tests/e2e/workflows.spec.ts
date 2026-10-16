@@ -72,11 +72,18 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
   await expect(column(marcus, "Being reviewed").getByRole("heading")).toContainText("2 / 1");
 
-  // with the keyboard: pick up, move right, drop
+  // with the keyboard: pick up, move right, drop (on a settled page)
+  await marcus.reload();
+  await marcus.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
   const handle = column(marcus, "Being reviewed").getByRole("button", { name: "Move “Build the size and inventory spreadsheet”" });
   await handle.focus();
   await marcus.keyboard.press("Space");
+  // move only once the drop targets are measured, which the first "over" announcement shows
+  const live = marcus.locator("[aria-live]");
+  await expect(live.filter({ hasText: "“Build the size and inventory spreadsheet” is over Being reviewed" })).toHaveCount(1);
   await marcus.keyboard.press("ArrowRight");
+  await expect(live.filter({ hasText: "is over Waiting on approval" })).toHaveCount(1);
   await marcus.keyboard.press("Space");
   await expect(column(marcus, "Waiting on approval").getByRole("link", { name: "Build the size and inventory spreadsheet" })).toBeVisible();
 

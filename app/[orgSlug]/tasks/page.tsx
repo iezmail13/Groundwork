@@ -13,6 +13,8 @@ import { getAssigneeNames } from "@/lib/projects";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
+import { WorkflowBoard } from "@/components/tasks/workflow-board";
+import { getWorkflow } from "@/lib/workflows";
 import { lower } from "@/lib/terminology/t";
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/tasks">): Promise<Metadata> {
@@ -42,6 +44,14 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   // finished work is hidden unless the Completed filter asks for it (D101)
   const visible = forStatusView(filterTasks(all, filters, today, ctx.membershipId), filters.status);
   const byUrgency = sp.order === "priority";
+  // a board filtered to one program that has its own steps shows those steps (D107)
+  const workflowProject =
+    view === "board" && filters.project && projects.some((p) => p.id === filters.project) ? filters.project : null;
+  const steps = workflowProject ? await getWorkflow(workflowProject) : [];
+  // every card on that program, finished ones too: its done steps hold them
+  const workflowTasks = steps.length
+    ? filterTasks(all, { ...filters, status: undefined }, today, ctx.membershipId).filter((x) => x.project_id === workflowProject)
+    : [];
   const plural = t("task", "other");
 
   const sortHref = (key: SortKey) => {
@@ -90,7 +100,18 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
             projects={projects.map((p) => ({ value: p.id, label: p.name }))}
             members={members.map((m) => ({ value: m.id, label: m.name }))}
           />
-          {view === "board" ? (
+          {view === "board" && steps.length > 0 && workflowProject ? (
+            <WorkflowBoard
+              steps={steps}
+              tasks={workflowTasks}
+              base={base}
+              today={today}
+              organizationId={org.id}
+              projects={projects}
+              projectId={workflowProject}
+              memberInitials={avatars}
+            />
+          ) : view === "board" ? (
             <TaskBoard
               tasks={byUrgency ? [...visible].sort(byPriority) : visible}
               completed={filters.status === "done"}

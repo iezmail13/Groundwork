@@ -949,14 +949,14 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "claim_limit": number | null,"completed_at": string | null,"completion": Database["public"]['Enums']["task_completion"],"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"hidden": boolean,"id": string,"kind": Database["public"]['Enums']["task_kind"],"needs_assignee": boolean,"organization_id": string,"position": number,"priority": Database["public"]['Enums']["task_priority"],"project_id": string | null,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string
+                    "claim_limit": number | null,"completed_at": string | null,"completion": Database["public"]['Enums']["task_completion"],"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"hidden": boolean,"id": string,"kind": Database["public"]['Enums']["task_kind"],"needs_assignee": boolean,"organization_id": string,"position": number,"priority": Database["public"]['Enums']["task_priority"],"project_id": string | null,"status": Database["public"]['Enums']["task_status"],"step_id": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -973,6 +973,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "tasks_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "tasks_step_fkey"
+      columns: ["step_id","project_id"]
+isOneToOne: false
+      referencedRelation: "workflow_steps"
+      referencedColumns: ["id","project_id"]
+    }
+                  ]
+                },"workflow_steps": {
+                  Row: {
+                    "created_at": string,"id": string,"kind": Database["public"]['Enums']["step_kind"],"name": string,"organization_id": string,"position": number,"project_id": string,"wip_limit": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["step_kind"],"name": string,"organization_id": string,"position": number,"project_id": string,"wip_limit"?: number | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["step_kind"],"name"?: string,"organization_id"?: string,"position"?: number,"project_id"?: string,"wip_limit"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "workflow_steps_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "workflow_steps_project_id_organization_id_fkey"
       columns: ["project_id","organization_id"]
 isOneToOne: false
       referencedRelation: "projects"
@@ -1124,6 +1156,9 @@ isOneToOne: false
               "user_id": string
             }[]
                            },
+"first_step":
+{ Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string
+                           },
 "get_invitation":
 { Args: { "token": string }; Returns: {
               "accepted_at": string,"email": string,"expires_at": string,"organization_name": string,"organization_slug": string,"role": Database["public"]['Enums']["member_role"]
@@ -1141,11 +1176,17 @@ isOneToOne: false
 "is_own_profile_photo":
 { Args: { "object_name": string }; Returns: boolean
                            },
+"last_step":
+{ Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string
+                           },
 "mark_channel_read":
 { Args: { "channel": string }; Returns: undefined
                            },
 "mentions_in":
 { Args: { "body": string,"org": string }; Returns: (string)[]
+                           },
+"move_task_to_step":
+{ Args: { "new_position"?: number,"step": string,"task": string }; Returns: Database["public"]['Enums']["task_status"]
                            },
 "my_chat_channels":
 { Args: { "org": string }; Returns: {
@@ -1237,6 +1278,9 @@ isOneToOne: false
 "role_rank":
 { Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
                            },
+"save_workflow":
+{ Args: { "project": string,"steps": Json }; Returns: undefined
+                           },
 "send_change_signal":
 { Args: { "org": string,"project": string }; Returns: undefined
                            },
@@ -1292,7 +1336,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","step_kind": "open"|"done","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1412,7 +1456,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"step_kind": ["open", "done"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const

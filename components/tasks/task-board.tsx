@@ -183,7 +183,7 @@ function BoardColumn({
   const list = (
     <ul className="flex min-h-16 flex-col gap-2" aria-label={`${title}: ${order.length}`}>
       {order.map((task) => (
-        <Card key={task.id} task={task} base={base} today={today} memberInitials={memberInitials} sortable={sortable} />
+        <BoardCard key={task.id} task={task} base={base} today={today} memberInitials={memberInitials} sortable={sortable} />
       ))}
     </ul>
   );
@@ -241,18 +241,24 @@ function BoardColumn({
   );
 }
 
-function Card({
+/** A card on the board, also used by a program's workflow board (D107). */
+export function BoardCard({
   task,
   base,
   today,
   memberInitials,
   sortable,
+  handleLabel,
+  footer,
 }: {
   task: TaskRow;
   base: string;
   today: string;
   memberInitials: Record<string, StackPerson>;
   sortable: boolean;
+  /** What the drag handle says it does; reordering by default. */
+  handleLabel?: string;
+  footer?: ReactNode;
 }) {
   const t = useT();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -282,7 +288,7 @@ function Card({
             id={`card-${task.id}`}
             type="button"
             className="-ml-1 mt-0.5 inline-flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-ink-muted hover:bg-panel hover:text-ink active:cursor-grabbing"
-            aria-label={`Reorder “${task.title}”`}
+            aria-label={handleLabel ?? `Reorder “${task.title}”`}
             {...attributes}
             {...listeners}
           >
@@ -335,6 +341,7 @@ function Card({
               <ClaimButton task={task} />
             </span>
           </div>
+          {footer}
         </div>
       </div>
     </li>
