@@ -5,7 +5,7 @@
 -- old URL at once.
 begin;
 \ir fixtures.inc
-select plan(21);
+select plan(22);
 
 -- Org A also has Sam (staff, on A's program). Q is a second program Mia isn't on.
 insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
@@ -65,8 +65,8 @@ select is(
   current_date + 3,
   'work carries its due date'
 );
-select is((select count(*)::int from public.calendar_feed('not-a-real-token')), 0, 'a malformed token returns nothing');
-select is((select count(*)::int from public.calendar_feed(repeat('A', 43))), 0, 'an unknown token returns nothing');
+select throws_ok($$ select * from public.calendar_feed('not-a-real-token') $$, 'P0002', null, 'a malformed token is not found');
+select throws_ok($$ select * from public.calendar_feed(repeat('A', 43)) $$, 'P0002', null, 'an unknown token is not found');
 select throws_ok($$ select public.regenerate_calendar_feed() $$, '42501', null, 'feeds can''t be turned on without signing in');
 
 -- An owner's feed is still only their own work, though they can see more
@@ -99,7 +99,7 @@ select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 insert into feed_tokens values ('sam', public.regenerate_calendar_feed());
 insert into feed_tokens values ('sam-new', public.regenerate_calendar_feed());
 select tests.as_anon();
-select is((select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'sam'))), 0, 'making a new feed stops the old URL at once');
+select throws_ok($$ select * from public.calendar_feed((select token from feed_tokens where who = 'sam')) $$, 'P0002', null, 'making a new feed stops the old URL at once');
 select isnt((select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'sam-new'))), 0, 'and the new one works');
 select is(
   (select array_agg(title order by title) from public.calendar_feed((select token from feed_tokens where who = 'sam-new'))),
@@ -111,8 +111,14 @@ select tests.as_user('a0000000-0000-0000-0000-00000000000e');
 select lives_ok($$ select public.revoke_calendar_feed() $$, 'turning the feed off');
 select is((select calendar_feed_created_at from public.profiles where id = 'a0000000-0000-0000-0000-00000000000e'), null, 'shows it as off');
 select tests.as_anon();
-select is((select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'sam-new'))), 0, 'a revoked token returns nothing');
+select throws_ok($$ select * from public.calendar_feed((select token from feed_tokens where who = 'sam-new')) $$, 'P0002', null, 'a revoked token is not found');
 select throws_ok($$ select public.revoke_calendar_feed() $$, '42501', null, 'feeds can''t be turned off without signing in');
+
+-- an empty feed is still a feed
+select tests.as_user('c0000000-0000-0000-0000-00000000000c');
+insert into feed_tokens values ('oscar', public.regenerate_calendar_feed());
+select tests.as_anon();
+select is((select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'oscar'))), 0, 'a feed with nothing in it is found and empty');
 
 -- a feed answers as its owner only while gathering rows
 select tests.as_user('b0000000-0000-0000-0000-00000000000a');

@@ -70,8 +70,8 @@ grant execute on function public.revoke_calendar_feed() to authenticated;
 -- so it finds the person from the token's digest, then answers as them: the
 -- visibility helpers all read auth.uid(), which is set to that person while
 -- the rows are gathered and restored straight after. The lookup compares SHA-256 digests, so its
--- timing says nothing about the token. An unknown or revoked token returns
--- nothing.
+-- timing says nothing about the token. An unknown or revoked token raises
+-- no_data_found (P0002), which the route turns into a 404.
 create function public.calendar_feed(feed_token text)
 returns table (
   item_type text,
@@ -93,14 +93,13 @@ declare
   previous_sub text := current_setting('request.jwt.claim.sub', true);
   previous_claims text := current_setting('request.jwt.claims', true);
 begin
-  if feed_token is null or feed_token !~ '^[A-Za-z0-9_-]{43}$' then
-    return;
+  if feed_token is not null and feed_token ~ '^[A-Za-z0-9_-]{43}$' then
+    select p.id into uid
+    from public.profiles p
+    where p.calendar_feed_token_hash = encode(sha256(convert_to(feed_token, 'UTF8')), 'hex');
   end if;
-  select p.id into uid
-  from public.profiles p
-  where p.calendar_feed_token_hash = encode(sha256(convert_to(feed_token, 'UTF8')), 'hex');
   if uid is null then
-    return;
+    raise exception 'No such calendar feed' using errcode = 'P0002';
   end if;
 
   perform set_config('request.jwt.claim.sub', uid::text, true);

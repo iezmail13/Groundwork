@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { InviteForm, OrganizationForm, PresetForm, type PresetChoice } from "@/components/settings/forms";
 import { MembersTable, PendingInvites, TransferOwnership } from "@/components/settings/members";
 import { AppearanceForm, BrandingForm, LogoUploader } from "@/components/settings/branding";
+import { CalendarFeed } from "@/components/settings/calendar-feed";
 import { getBranding } from "@/lib/branding";
 import { DEFAULT_ACCENT } from "@/lib/theme/theme";
 import { getMembers, getOrgContext } from "@/lib/org";
@@ -111,21 +112,38 @@ async function BrandingPanel({ orgSlug }: { orgSlug: string }) {
 }
 
 async function ProfilePanel({ orgSlug }: { orgSlug: string }) {
-  const { org, userId } = await getOrgContext(orgSlug);
-  const branding = await getBranding(org, userId);
+  const { org, userId, tz, today } = await getOrgContext(orgSlug);
+  const supabase = await createClient();
+  const [branding, { data: profile }] = await Promise.all([
+    getBranding(org, userId),
+    supabase.from("profiles").select("calendar_feed_created_at").eq("id", userId).maybeSingle(),
+  ]);
+  const since = profile?.calendar_feed_created_at
+    ? formatRelativeDate(dateInZone(new Date(profile.calendar_feed_created_at), tz), today)
+    : null;
+  // "On since today", mid-sentence
+  const feedSince = since && /^(Today|Yesterday)$/.test(since) ? since.toLowerCase() : since;
   return (
-    <section aria-labelledby="profile-appearance" className="flex flex-col gap-3">
-      <h2 id="profile-appearance" className="text-xl font-bold">
-        How Groundwork looks for you
-      </h2>
-      <p className="max-w-2xl text-ink-muted">These choices change only your own screen.</p>
-      <AppearanceForm
-        themeMode={branding.themeMode}
-        personalAccent={branding.personalAccent}
-        orgAccent={org.accent ?? DEFAULT_ACCENT}
-        allowPersonalAccent={org.allow_personal_accent}
-      />
-    </section>
+    <div className="flex flex-col gap-10">
+      <section aria-labelledby="profile-appearance" className="flex flex-col gap-3">
+        <h2 id="profile-appearance" className="text-xl font-bold">
+          How Groundwork looks for you
+        </h2>
+        <p className="max-w-2xl text-ink-muted">These choices change only your own screen.</p>
+        <AppearanceForm
+          themeMode={branding.themeMode}
+          personalAccent={branding.personalAccent}
+          orgAccent={org.accent ?? DEFAULT_ACCENT}
+          allowPersonalAccent={org.allow_personal_accent}
+        />
+      </section>
+      <section aria-labelledby="profile-calendar" className="flex flex-col gap-3 border-t border-rule pt-8">
+        <h2 id="profile-calendar" className="text-xl font-bold">
+          Calendar feed
+        </h2>
+        <CalendarFeed onSince={feedSince} />
+      </section>
+    </div>
   );
 }
 

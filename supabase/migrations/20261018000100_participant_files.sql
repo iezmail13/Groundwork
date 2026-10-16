@@ -199,11 +199,13 @@ security definer
 set search_path = ''
 as $$
 declare
+  -- an upload made outside a session (the demo seed) is credited to its uploader
+  actor uuid := coalesce(auth.uid(), case when what = 'uploaded' then f.uploaded_by end);
   actor_name text;
   person_exists boolean := exists (select 1 from public.participants x where x.id = f.participant_id);
 begin
   select coalesce(nullif(btrim(p.full_name), ''), p.email) into actor_name
-  from public.profiles p where p.id = auth.uid();
+  from public.profiles p where p.id = actor;
   insert into public.participant_file_events (
     organization_id, project_id, file_id, participant_id, storage_path, file_name, file_kind, action, actor_id, actor_name
   )
@@ -217,7 +219,7 @@ begin
     case when person_exists then f.name end,
     f.kind,
     what,
-    auth.uid(),
+    actor,
     actor_name
   );
 end;

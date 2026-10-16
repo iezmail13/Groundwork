@@ -155,9 +155,17 @@ export async function deleteParticipant(_prev: ActionState, formData: FormData):
   if (parsed.data.confirm !== row.name.trim()) {
     return failure("Type their name exactly as shown to confirm.", { confirm: ["The name doesn't match."] });
   }
+  // their files go with them: the database deletes the rows (recording each
+  // deletion), which lets this caller remove the stored copies straight after
+  const { data: files } = await supabase.from("participant_files").select("storage_path").eq("participant_id", parsed.data.id);
   const { data, error } = await supabase.from("participants").delete().eq("id", parsed.data.id).select("id");
   if (error) return dbFailure(error);
   if (!data?.length) return failure("Your role can't delete someone permanently. Archive them instead.");
+  const paths = (files ?? []).map((f) => f.storage_path);
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from("participant-files").remove(paths);
+    if (storageError) console.error("Record deleted but some stored files could not be removed", parsed.data.id, storageError);
+  }
   revalidateAttendance();
   redirect(`/${parsed.data.orgSlug}/attendance?notice=deleted`);
 }
