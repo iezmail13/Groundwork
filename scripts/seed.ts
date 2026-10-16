@@ -65,6 +65,11 @@ async function ensureUsers() {
 async function removeExistingOrg() {
   const { data: org } = await db.from("organizations").select("id").eq("slug", DEMO_ORG.slug).maybeSingle();
   if (!org) return;
+  const { data: kept } = await db.from("participant_files").select("storage_path").eq("organization_id", org.id);
+  if (kept?.length) {
+    const { error } = await db.storage.from("participant-files").remove(kept.map((f) => f.storage_path));
+    if (error) throw new Error(`remove old participant files: ${error.message}`);
+  }
   const { data: objects } = await db.storage.from("documents").list(org.id, { limit: 1000 });
   if (objects?.length) {
     const { error } = await db.storage.from("documents").remove(objects.map((o) => `${org.id}/${o.name}`));
@@ -509,6 +514,49 @@ async function main() {
     "attendance",
   );
 
+  // Files kept about two of the students (D102): a signed waiver and a care plan.
+  const studentFiles = [
+    {
+      who: "Amara Okafor",
+      name: "Amara Okafor - signed waiver.txt",
+      kind: "waiver" as const,
+      body: Buffer.from(
+        "Homework Club participation waiver\n\nParticipant: Amara Okafor\nGuardian: Grace Okafor\nSigned: September 8, 2026\n",
+      ),
+    },
+    {
+      who: "Jonah Brooks",
+      name: "Jonah Brooks - allergy care plan.txt",
+      kind: "medical" as const,
+      body: Buffer.from(
+        "Allergy care plan\n\nParticipant: Jonah Brooks\nAllergy: peanuts\nEpinephrine auto-injector kept in the staff room first-aid kit.\n",
+      ),
+    },
+  ];
+  for (const f of studentFiles) {
+    const student = students.find((x) => x.name === f.who)!;
+    const path = `${org.id}/${HC}/${student.id}/${randomUUID()}`;
+    const up = await db.storage.from("participant-files").upload(path, f.body, { contentType: "text/plain", upsert: false });
+    if (up.error) throw new Error(`upload ${f.name}: ${up.error.message}`);
+    must(
+      await db
+        .from("participant_files")
+        .insert({
+          organization_id: org.id,
+          participant_id: student.id,
+          project_id: HC,
+          kind: f.kind,
+          name: f.name,
+          storage_path: path,
+          mime_type: "text/plain",
+          size_bytes: f.body.length,
+          uploaded_by: priya,
+        })
+        .select("id"),
+      `participant file ${f.name}`,
+    );
+  }
+
   // Two funds, split into parts; owners and managers see them under Funds.
   const funds = must(
     await db
@@ -627,6 +675,12 @@ async function main() {
     "invitee task",
   );
   must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
+
+  // work the seed marked done has no one who finished it: those notifications would only say "Someone"
+  must(
+    await db.from("notifications").delete().eq("organization_id", org.id).eq("type", "completed").is("actor_id", null).select("id"),
+    "seeded completion notifications",
+  );
 
   console.log(
     `Done: 4 people, ${projects.length} projects, ${tasks.length + more.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +

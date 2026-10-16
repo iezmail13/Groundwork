@@ -84,7 +84,7 @@ export async function getAssigneeNames(orgId: string): Promise<Map<string, strin
   ]);
 }
 
-export type AssigneeOption = { value: string; name: string };
+export type AssigneeOption = { value: string; name: string; /** Members only: for their online status. */ userId?: string };
 
 /**
  * Who each visible project's tasks can be assigned to: its members, the
@@ -110,16 +110,16 @@ export async function getAssigneeOptions(orgId: string): Promise<Record<string, 
   };
   for (const row of data ?? []) {
     const m = byId.get(row.membership_id);
-    if (m) add(row.project_id, { value: `m:${m.id}`, name: m.name });
+    if (m) add(row.project_id, { value: `m:${m.id}`, name: m.name, userId: m.userId });
   }
   for (const project of projects ?? []) {
     options[project.id] ??= [];
-    for (const o of owners) add(project.id, { value: `m:${o.id}`, name: o.name });
+    for (const o of owners) add(project.id, { value: `m:${o.id}`, name: o.name, userId: o.userId });
   }
   for (const i of invitees) for (const projectId of i.projectIds) add(projectId, { value: `i:${i.id}`, name: `${i.name} (pending)` });
   // work outside any project ("") can go to anyone in the organization
   options[""] = [];
-  for (const m of members) add("", { value: `m:${m.id}`, name: m.name });
+  for (const m of members) add("", { value: `m:${m.id}`, name: m.name, userId: m.userId });
   for (const i of invitees) add("", { value: `i:${i.id}`, name: `${i.name} (pending)` });
   for (const list of Object.values(options)) list.sort((a, b) => a.name.localeCompare(b.name));
   return options;

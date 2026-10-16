@@ -134,3 +134,53 @@ export async function getParticipantNames(orgId: string): Promise<Map<string, st
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
+
+// Participant files (D56, D102) ----------------------------------------------------------
+
+export type ParticipantFileKind = Database["public"]["Enums"]["participant_file_kind"];
+
+export type ParticipantFile = {
+  id: string;
+  project_id: string;
+  kind: ParticipantFileKind;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+  uploader: { full_name: string | null; email: string } | null;
+};
+
+/** A participant's files: visible to whoever sees the participant. */
+export async function getParticipantFiles(participantId: string): Promise<ParticipantFile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("participant_files")
+    .select("id, project_id, kind, name, mime_type, size_bytes, created_at, uploader:profiles(full_name, email)")
+    .eq("participant_id", participantId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ParticipantFile[];
+}
+
+export type ParticipantFileEvent = {
+  id: number;
+  project_id: string | null;
+  file_name: string | null;
+  file_kind: ParticipantFileKind;
+  action: Database["public"]["Enums"]["participant_file_action"];
+  actor_name: string | null;
+  created_at: string;
+};
+
+/** Who uploaded, opened, downloaded or deleted a participant's files: owners and the programs' leads only. */
+export async function getParticipantFileEvents(participantId: string): Promise<ParticipantFileEvent[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("participant_file_events")
+    .select("id, project_id, file_name, file_kind, action, actor_name, created_at")
+    .eq("participant_id", participantId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return data ?? [];
+}

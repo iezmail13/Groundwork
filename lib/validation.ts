@@ -215,6 +215,33 @@ export const documentInput = z.object({
 /** The user-entered part of an upload, checked in the browser before the file is sent. */
 export const documentMetaInput = documentInput.pick({ name: true, projectId: true, tags: true });
 
+// Participant files (D56, D102) ---------------------------------------------------------
+
+export const PARTICIPANT_FILE_KINDS = ["waiver", "medical", "consent", "id", "other"] as const;
+/** What each kind of participant file is called. */
+export const FILE_KIND_LABELS: Record<(typeof PARTICIPANT_FILE_KINDS)[number], string> = {
+  waiver: "Waiver",
+  medical: "Medical form",
+  consent: "Consent form",
+  id: "ID",
+  other: "Other",
+};
+export const participantFileKind = z.enum(PARTICIPANT_FILE_KINDS, { error: "Choose what kind of file this is." });
+
+export const participantUploadRequestInput = uploadRequestInput.extend({ projectId: id, participantId: id });
+
+export const participantFileInput = z.object({
+  organizationId: id,
+  projectId: id,
+  participantId: id,
+  storagePath: z.string().min(1).max(1024),
+  name: z.string({ error: "Add a name." }).trim().min(1, "Add a name.").max(255, "Use 255 characters or fewer."),
+  kind: participantFileKind,
+});
+
+/** The user-entered part of a participant file upload, checked before the file is sent. */
+export const participantFileMetaInput = participantFileInput.pick({ name: true, kind: true, projectId: true });
+
 export const documentUpdateInput = z.object({
   id,
   name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(255, "Use 255 characters or fewer."),
@@ -276,3 +303,31 @@ export const accentInput = z
   .optional()
   .transform((v) => (!v ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
   .refine((v) => v === null || /^#[0-9A-F]{6}$/.test(v), "Use a colour like #0006BF.");
+
+// Member profiles (D104) ------------------------------------------------------------------
+
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+export const photoUploadInput = z.object({
+  organizationId: id,
+  size: z.number().int().min(1, "Choose a photo.").max(MAX_PHOTO_BYTES, "Photos can be at most 5 MB."),
+  mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image." }),
+});
+
+export const profileInput = z.object({
+  fullName: z.string({ error: "Add your name." }).trim().min(1, "Add your name.").max(120, "Use 120 characters or fewer."),
+  title: z
+    .string()
+    .trim()
+    .max(120, "Use 120 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+  bio: z
+    .string()
+    .trim()
+    .max(1000, "Use 1,000 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+});
+
+export const PRESENCE_MODES = ["auto", "dnd", "invisible"] as const;

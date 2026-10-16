@@ -13,7 +13,6 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import {
-  Activity,
   CalendarDays,
   ChartNoAxesColumn,
   Check,
@@ -42,7 +41,6 @@ import {
   PinnedDocumentsWidget,
   ProjectProgressWidget,
   QuickAddWidget,
-  RecentActivityWidget,
   UpcomingEventsWidget,
   type DashboardData,
 } from "./widgets";
@@ -66,7 +64,6 @@ function useWidgetDefs(): Record<WidgetId, WidgetDef> {
       icon: icon(CalendarDays),
       render: (d) => <UpcomingEventsWidget data={d} />,
     },
-    recent_activity: { title: "Recent activity", icon: icon(Activity), render: (d) => <RecentActivityWidget data={d} /> },
     pinned_documents: {
       title: `Pinned ${lower(t("document", "other"))}`,
       icon: icon(Pin),

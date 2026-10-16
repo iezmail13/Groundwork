@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   FileText,
   FolderKanban,
+  History,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -168,6 +169,7 @@ function SidebarBody({
     { href: `${base}/tasks`, label: t("task", "other"), icon: ListChecks },
     { href: `${base}/calendar`, label: t("section.calendar"), icon: CalendarDays },
     { href: `${base}/documents`, label: t("document", "other"), icon: FileText },
+    { href: `${base}/activity`, label: "Activity", icon: History },
     ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
     ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
   ];

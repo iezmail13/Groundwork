@@ -120,7 +120,7 @@ test("an org accent applies to every member, and a personal accent overrides it 
     expect(await accentOf(staff)).toBe(teal);
 
     // the changes are in the activity log
-    await visit(owner, `${ORG}/dashboard`);
+    await visit(owner, `${ORG}/activity`);
     await expect(owner.getByText("set one accent colour for everyone").first()).toBeVisible();
   } finally {
     await restore();

@@ -220,7 +220,7 @@ The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behi
 - **Reports.** Rate = (present + late) ÷ (present + late + absent); excused is left out of both sides. Reports cover a date range and optionally one program, show a bar per participant, tables per program and per participant, and download as CSV (formula-safe: cells starting with =, +, - or @ are prefixed).
 - **Check-in** is one screen per session with four large choices per person, "Mark the rest present", optional notes and one Save, sized for a phone. It defaults to the latest session that has started by the end of today.
 - **Words.** New label keys: `participant` (Participant, Attendee in Business, Student in Tutoring, added to each preset without touching its other words), `section.attendance` and the four marks. `check:labels` now also rejects hard-coded participant, attendee, student and attendance words and the capitalised mark names.
-- **Not in this change:** participant files (the second storage bucket in D56) and the ICS feed.
+- **Not in this change:** participant files (the second storage bucket in D56) and the ICS feed. Both came later, in D102.
 
 ## Funds (owner's request)
 
@@ -339,3 +339,90 @@ The owner changed the standing rules in CLAUDE.md before the maintenance, websit
 - **One task form** at Tasks → New task, also used for editing on a task's page. It covers title, description, kind, program (or "No program"), priority, due date, the people on it (checkboxes, with pending invitees and an invite link), the claim limit for open tasks, "When it's done" (anyone's tick or everyone's) once two or more people are on it, "Hide from other collaborators" for those allowed, and "Share with specific people". The form mirrors the database's rules: staff choosing "No program" for shared work see why they can't and the submit button is disabled, and a personal task's kind is locked. Quick add on the board and list still makes a task in one line, now with a priority.
 - **Cards and rows** show the priority flag, the program (or "No program", or "Personal"), Hidden, the due badge, "n of m done" for everyone-finishes tasks, the people on it as stacked initials (three, then "+N"), and Claim (with open spots) or Unclaim.
 - **e2e** (`tests/e2e/tasks.spec.ts`): claiming up to a limit and unclaiming; appointed people locked on; any and all completion; hiding then sharing; a personal task hidden from a lower rank and visible to a higher one; an org-level task claimed by staff (with staff blocked from making one); a tick with Undo; and priority filter and sort. That a same-rank colleague can't see someone's personal task is covered by pgTAP (`17_task_model`) rather than e2e, because the seed has no two members of equal rank below owner on the same program.
+
+## Carry-overs, part 5: participant files and the calendar feed
+
+**D102. Participant files and the private calendar feed.** Both were deferred in D81 and wait on Part 4's visibility rules.
+
+Participant files:
+- **Where they live.** A second private bucket, `participant-files`, with the same 25 MB limit and allowed types as `documents` (copied from it in the migration, so the two can't drift). Paths are `{organization}/{program}/{participant}/{uuid}`, with no file name, so nothing personal sits in a storage path or in the record that names it. The name people see is kept on the row and used as the download name.
+- **What's kept.** `participant_files` rows record the participant, the program the file was added in, its kind (waiver, medical form, consent form, ID or other), name, size, type, uploader and date. A file is never edited; to change one, delete it and add another.
+- **Who sees them.** The same people who see the participant (D81): owners, plus the admins and leads of any program the participant is enrolled in. Adding a file needs the admin or lead role on an active program the participant is in. Deleting needs that role on the file's own program, or owner. Project staff, and managers who aren't on the program, see nothing.
+- **Every upload, view, download and deletion is recorded** in `participant_file_events`, which only owners and the leads of the file's program can read. Nobody can write, change or erase entries directly: database functions write them.
+- **Storage enforces the record.** Opening a file goes through `open_participant_file()`, which records the view or download and returns what's needed to sign a one-minute link. Storage serves an object only to someone who recorded a view or download of it in the last two minutes and can still see the participant. So even calling the storage API directly leaves an entry. The uploader can read their own object only until it's recorded as a file (to finish or abandon the upload). Deleting removes the row first, which records the deletion; that record lets the same person remove the stored copy in the next two minutes.
+- **Privacy deletion.** Permanently deleting a participant (D81) deletes their files: the rows cascade, each deletion is recorded, and the stored copies are removed straight after. Their entries in the access record keep the action, the person who did it and the date, but lose the file names and the link to the participant.
+- **Deleting a program** releases its participant files first (`release_program_files()`, which only the program's leads and owners can run), so the stored copies are removed before the program goes.
+- **Screens.** The participant's page has a Files table (name, kind, program, who added it and when, with Open, Download and Delete) and, for owners and the program's leads, a File access table.
+
+The calendar feed:
+- **One private feed per person**, turned on, replaced or turned off in Settings → Profile. Turning it on makes a 256-bit random token (43 characters, base64url). The link is shown once, with Copy and with links to add it to Apple Calendar, Google Calendar and Outlook. Only the token's SHA-256 digest is stored, on the person's profile, in a column nobody can read through the API, not even its owner. Profiles are the global per-user table, so no new global table was needed.
+- **Revoking is immediate.** Making a new link replaces the digest, and turning the feed off clears it. Either way the old link returns 404 on the next request. Responses are `Cache-Control: no-store` so no proxy keeps a copy.
+- **What's in it:** titles and dates only. It holds open work assigned to the person with a due date (shown as an all-day entry on that day, and only while their own part isn't ticked). It also holds calendar items on the programs they're on, from 90 days back to a year ahead. It never holds descriptions, locations, notes, people or anything about participants. Organization-wide items with no program aren't included, because the brief limits the feed to the person's programs. It covers every organization the person belongs to.
+- **Same visibility as the app.** `calendar_feed()` runs without a session, because calendar apps can't sign in. It finds the person from the token's digest, sets the request's identity to them while it gathers rows through `can_view_task()` and `can_view_project()`, then restores the caller's identity. An owner's feed is still only their own work and their own programs' items, not everything they can see.
+- **The token is a secret.** Lookup compares SHA-256 digests, so its timing reveals nothing about the token (the brief's constant-time requirement). The app never logs the token. The route doesn't send it to the sign-in page, because `/api/calendar/` is public in `proxy.ts`. Unknown, malformed and revoked tokens all get the same plain 404. Hosting request logs (Vercel) still record request paths, which is unavoidable for a subscription URL; anyone who suspects a link was seen can make a new one.
+- **Format.** iCalendar written by hand in `lib/ics.ts` (no package, per D57), with CRLF line endings, escaped text, lines folded at 75 octets without splitting characters, a stable UID per item, and an hourly refresh hint. Unit tests cover the format; pgTAP (`19_calendar_feed`) covers exactly what each person's feed holds, someone else's hidden or personal work never appearing, and new or revoked links stopping the old one.
+- **Tests.** pgTAP `18_participant_files` covers cross-organization isolation, project staff and outsiders getting nothing, storage policies matching the table policies, the access record and privacy deletion. e2e `tests/e2e/carry-overs.spec.ts` covers an upload and download being recorded, project staff blocked, the owner reading the record, a deletion recorded, the feed's contents, a new link replacing the old one, and a revoked link returning 404.
+
+## Notifications and the activity log, part 6
+
+**D103. In-app notifications, mutes, and the finished activity log.** In-app only, as the owner decided: no email, SMS or push.
+
+Notifications:
+- **What notifies.**
+  - Being given (appointed to) work.
+  - Someone claiming work you made.
+  - Work you made, or non-personal work on a program you lead, being finished. This goes to its creator and the program's leads, never to whoever finished it.
+  - Your work being due tomorrow or overdue: once per due date, never repeated.
+  - An invitation you sent being accepted.
+  - A participant's attendance in a program falling below the organization's low mark. This goes to owners and the program's admins and leads.
+  
+  Nothing else notifies: no edits, renames, uploads or other status changes. Nobody is told about their own actions.
+- **The low mark** is a new organization setting, `low_attendance_percent` (75% by default), under Settings → Organization. A rate needs at least three counted sessions (excused ones don't count, as in D81) before it can alert. Each spell below the mark alerts once: its key is released when the rate recovers, so falling again alerts again. Saving many marks at once can't send duplicates.
+- **Due and overdue work** is checked when the person opens the app (the org layout calls `queue_my_due_notifications()` with today's date where they are), not by a scheduled job. Notifications are in-app only, so they appear at the same moment a scheduler's would, with no extension (pg_cron) and no service-role job. Each one is keyed on the task and its due date, so it's sent once, and again only if the due date changes.
+- **The table.** `notifications` holds `organization_id`, `recipient_id`, `type`, `subject_type` (task, participant or invitation), `subject_id`, `actor_id`, `data`, `dedupe_key`, `read_at` and `created_at`.
+  - Recipients select and update only their own rows, and only `read_at` is granted.
+  - Clients can't insert or delete.
+  - Rows are written only by `notify()`, which is called from security-definer triggers and functions.
+- **Visibility first.** `notify()` checks, as the recipient, that they can see what it's about: `can_view_task()` for work and `can_view_participant()` for participants. It sets the request's identity to the recipient for that one check, then restores it. A creator who has since lost access to the program isn't told.
+- **Titles are read live.** Notifications store ids, never titles or names. The bell reads them through the viewer's own access, so something they can no longer see is described without naming it.
+- **One mute check.** `notification_muted(org, recipient, type, actor)` is the only place that decides. Today it reads per-type mutes (`notification_mutes`) set in Settings → Notifications, a switch per kind (all on by default). Parts 7 and 9 add per-person and per-channel mutes to the same function.
+- **Screens.**
+  - **Bell:** in the top bar on wide screens and in the small-screen bar on phones. It shows an unread count, as a number badge and in the button's name.
+  - **Panel:** a popover on wide screens, a full-height sheet on phones. It lists the latest 20, each with an icon, a sentence, a relative time and a link, plus Mark all read. Unread items are bold with a dot and an "Unread" label for screen readers. Following one marks it read.
+  - **Full Notifications page:** All and Unread views, and Mark read or Mark unread per item.
+  - **Freshness:** the count refreshes every minute while the page is open. Part 8 brings live updates.
+
+The activity log:
+- **Append-only, now enforced.** RLS used to let members insert entries attributed to themselves and let owners delete entries. Both are now refused. Entries are written only by the logging triggers, which are all security definer. pgTAP checks both.
+- **Recent activity has left the dashboard.** Saved layouts drop the widget automatically. The log has its own page, Activity, in the sidebar for everyone. Each entry shows who, what (with an icon for the kind of item), where (the item, linked, and its program) and when.
+- **Filters:** person, program, kind of change (created, uploaded, changed, moved, finished, archived, restored, pinned, unpinned, deleted) and a date range in the viewer's time zone. Filters live in the URL, and the page shows 100 entries at a time with "Show older".
+- **Export is owner-only.** CSV of the filtered entries (up to 10,000), formula-safe like the attendance export. Anyone else gets a 404, and the button only shows for owners.
+- **Visibility is unchanged:** the same RLS as before. Owners see everything; others see their programs' activity filtered by `can_view_task()`; fund entries are for owners and managers (D82); participant entries follow D81.
+
+Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a creator who lost access, personal work, due and overdue sent once, mutes (including not muting for someone else), low attendance (alert, once per spell, recovery, batches), recipients reading and marking only their own, organizations kept apart, and the append-only log. e2e `tests/e2e/notifications.spec.ts` covers the completion notification reaching the creator and lead but not the finisher, Mark all read, a mute stopping and resuming a kind, the activity filters, and owner-only export.
+
+## People, part 7: member profiles and online status
+
+**D104. Member profiles, photos, muting a person, and online status.**
+
+- **The name is the display name.** The brief asks for `profiles.display_name`. The existing `full_name` already is that: it's set from Google (`full_name` in the sign-in metadata) at sign-up, from the invite form at acceptance, and shown everywhere. Following "change what's there, don't build a parallel version", it stays as the one name column, labelled Name. `title` (up to 120 characters) and `bio` (up to 1,000) are new. People edit their own name, title and bio in Settings → Profile. Email comes from sign-in and is shown read-only (no column grant allows changing it). Roles still change only in Settings → Members.
+- **Photos belong to a membership**, not the global profile, because the brief stores them under the organization (`{organization_id}/profiles/{user_id}/…`) and only that organization's members should see them. A person in two organizations can have a different photo in each.
+  - Storage: the private `profile-photos` bucket (PNG, JPG or WebP, 5 MB; never SVG), read by the organization's members. Each person writes and deletes only in their own folder.
+  - Setting a photo: `memberships.photo_path` is set only through `set_my_photo()`, which checks the file was uploaded by the caller and hands back the photo it replaced. The app then deletes that file. A check constraint keeps the path inside the caller's own folder.
+  - Display: links are signed per request. Initials show when there's no photo.
+- **The profile page**, `/{org}/members/{userId}`, shows photo, name, title, email, org role, online status and bio. It also lists the programs they're on and their open work, both read through the viewer's own access (project membership RLS and `can_view_task()`), so two viewers of different rank can see different lists on the same profile. Profiles are linked from Settings → Members, the avatars on task cards, and the names on a task's page. Chat (Part 9) and the workload chart (Part 8) will link there too.
+- **Muting a person.** Someone else's profile has a "Mute notifications from [name]" switch that only the viewer sees. It adds a `notification_mutes` row naming the person, and only people in the same organization can be muted (RLS). `notification_muted()`, the one mute check from D103, now also returns true when the actor is muted or when the recipient has Do not disturb on. Part 9 adds channels.
+- **Online status** uses Supabase Realtime Presence on a private channel per organization, `org:{id}:presence`.
+  - Who can join: only that organization's members can listen or announce on it, through `can_use_realtime_topic()` in policies on `realtime.messages`. Realtime now runs locally and in CI, because Parts 8 and 9 need it too.
+  - States: Online while Groundwork is open, and Away after five minutes without input or while the tab is hidden. When someone has several tabs, the most active one counts. Offline when nothing is announced.
+  - Personal setting: Settings → Profile offers Automatic, Do not disturb (shown to others, and it mutes notifications) or Appear offline (announces nothing). It's stored as `profiles.presence_mode`, so the database can honour Do not disturb.
+  - Staying connected: each browser tab keeps one presence channel, and announces its status again after every reconnect. Its heartbeat runs in a small inline worker (`realtime: { worker: true }`), so background tabs aren't throttled into looking offline. The CSP gains `worker-src 'self' blob:` for that worker, and no other host.
+  - Where it shows: a dot plus a word, never colour alone (green Online, amber Away, red Do not disturb, outlined Offline), in Settings → Members, the task form's people picker, and profiles. Part 9 adds chat.
+- **Tests.** pgTAP `21_member_profiles` covers:
+  - editing only your own profile, email not editable, photos set only through `set_my_photo`;
+  - storage per folder and per organization;
+  - two viewers seeing different work and programs on one profile;
+  - person mutes (only within the organization, not yourself) and Do not disturb;
+  - presence topics limited to members.
+  
+  e2e `tests/e2e/people.spec.ts` covers editing your profile and uploading, refusing and removing a photo, the same profile showing a lead and a staff member different work, muting one person while another still notifies, and live status changes (online, Do not disturb, Appear offline, closing the app).

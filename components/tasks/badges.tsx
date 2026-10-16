@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { CalendarClock, Circle, CircleCheck, CircleDot, Clock, Flag, TriangleAlert, UserRoundX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/people/avatar";
 import { dueState, formatRelativeDate } from "@/lib/dates";
 import type { TaskPriority, TaskStatus } from "@/lib/queries";
 
@@ -99,22 +101,29 @@ export function PriorityFlag({ priority, label, compact = false }: { priority: T
 }
 
 /** Everyone on a task as small stacked initials, then "+N" after three. */
-export function AssigneeStack({ people }: { people: { initials: string; name: string }[] }) {
+export type StackPerson = { initials: string; name: string; photoUrl?: string | null; href?: string | null };
+
+/** Who's on a task: up to three photos or initials, then "+N". Each links to their profile (D104). */
+export function AssigneeStack({ people }: { people: StackPerson[] }) {
   if (people.length === 0) return null;
   const shown = people.slice(0, 3);
   const extra = people.length - shown.length;
   return (
     <span className="inline-flex items-center" title={people.map((p) => p.name).join(", ")}>
       <span className="sr-only">Assigned to {people.map((p) => p.name).join(", ")}</span>
-      {shown.map((p, i) => (
-        <span
-          key={`${p.name}-${i}`}
-          aria-hidden
-          className={`inline-flex size-6 items-center justify-center rounded-full border border-ink bg-canvas font-heading text-[0.6rem] font-bold ${i > 0 ? "-ml-1.5" : ""}`}
-        >
-          {p.initials}
-        </span>
-      ))}
+      {shown.map((p, i) => {
+        const face = <Avatar name={p.name} initials={p.initials} photoUrl={p.photoUrl ?? null} size="xs" />;
+        const cls = `relative inline-flex rounded-full ${i > 0 ? "-ml-1.5" : ""}`;
+        return p.href ? (
+          <Link key={`${p.name}-${i}`} href={p.href} aria-label={`${p.name}'s profile`} className={`${cls} hover:z-10 hover:-translate-y-0.5`}>
+            {face}
+          </Link>
+        ) : (
+          <span key={`${p.name}-${i}`} aria-hidden className={cls}>
+            {face}
+          </span>
+        );
+      })}
       {extra > 0 ? (
         <span aria-hidden className="-ml-1.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ink bg-panel px-1 font-heading text-[0.6rem] font-bold">
           +{extra}

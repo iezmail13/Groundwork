@@ -40,6 +40,8 @@ export function buildCsp({
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' blob: data:${supabase ? ` ${supabase}` : ""}`,
     "font-src 'self'",
+    // Realtime keeps its heartbeat in a small inline worker, so background tabs stay connected (D104)
+    "worker-src 'self' blob:",
     `connect-src ${connect}`,
     `frame-src ${STRIPE_JS} ${STRIPE_HOOKS}`,
     "object-src 'none'",

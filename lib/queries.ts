@@ -134,18 +134,6 @@ export type ActivityRow = {
   actor_membership_id: string | null;
 };
 
-export async function getActivity(orgId: string, limit = 12): Promise<ActivityRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("activity_log")
-    .select("id, entity_type, entity_id, action, metadata, created_at, actor_membership_id")
-    .eq("organization_id", orgId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []) as ActivityRow[];
-}
-
 /** Turns a free-text search into a prefix tsquery: "bud 26" -> "bud:* & 26:*". */
 export function toPrefixQuery(text: string): string | null {
   const terms = text

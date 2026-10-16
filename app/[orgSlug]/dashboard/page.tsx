@@ -4,12 +4,11 @@ import { BellRing } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import type { DashboardData, TaskLite } from "@/components/dashboard/widgets";
-import { getMembers, getOrgContext } from "@/lib/org";
-import { getActivity, getEvents, getProjectProgress, TASK_SELECT, type TaskRow } from "@/lib/queries";
+import { getOrgContext } from "@/lib/org";
+import { getEvents, getProjectProgress, TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, dueState, eventStartDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { normalizeLayout } from "@/lib/dashboard-layout";
-import { activityHref, describeActivity, timeAgo } from "@/lib/activity";
 import { byPriority, isAssignee, taskPart } from "@/lib/task-filters";
 import { lower } from "@/lib/terminology/t";
 import { getFunds } from "@/lib/funds";
@@ -27,14 +26,12 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
   const supabase = await createClient();
   const now = new Date();
 
-  const [{ data: openTasks, error }, { data: projects }, progress, events, activity, members, { data: pinned }, { data: layoutRow }, { data: profile }, funds] =
+  const [{ data: openTasks, error }, { data: projects }, progress, events, { data: pinned }, { data: layoutRow }, { data: profile }, funds] =
     await Promise.all([
       supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).neq("status", "done").order("due_date", { nullsFirst: false }).limit(1000),
       supabase.from("projects").select("id, name, color").eq("organization_id", org.id).eq("status", "active").order("name"),
       getProjectProgress(org.id),
       getEvents(org.id, now.toISOString(), new Date(now.getTime() + 14 * 86400000).toISOString()),
-      getActivity(org.id, 10),
-      getMembers(org.id),
       supabase.from("documents").select("id, name, mime_type, size_bytes").eq("organization_id", org.id).eq("pinned", true).order("name").limit(8),
       supabase.from("dashboard_layouts").select("layout").eq("membership_id", ctx.membershipId).maybeSingle(),
       supabase.from("profiles").select("full_name").eq("id", ctx.userId).maybeSingle(),
@@ -54,7 +51,6 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
     href: `${base}/tasks/${x.id}`,
   });
   const weekEnd = addDays(today, 7);
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
 
   const data: DashboardData = {
     organizationId: org.id,
@@ -74,15 +70,6 @@ export default async function DashboardPage({ params }: PageProps<"/[orgSlug]/da
       day: formatRelativeDate(eventStartDate(e.starts_at, e.all_day, tz), today),
       time: e.all_day ? "All day" : formatTime(e.starts_at, tz),
       location: e.location,
-    })),
-    activity: activity.map((a) => ({
-      id: a.id,
-      // a person who has since left keeps the name stored with the entry
-      actor: (a.actor_membership_id ? memberName.get(a.actor_membership_id) : undefined) ?? a.metadata.actor_name ?? "Someone",
-      sentence: describeActivity(a, t),
-      label: a.metadata.label ?? null,
-      href: activityHref(a, base),
-      ago: timeAgo(a.created_at, now.getTime()),
     })),
     pinned: (pinned ?? []).map((d) => ({ id: d.id, name: d.name, mime: d.mime_type, size: d.size_bytes })),
     projectOptions: (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
