@@ -8,7 +8,8 @@ export type TaskFilters = {
   /** Left out: open work only (finished work shows with status "done", the Completed filter). */
   status?: TaskStatus;
   priority?: TaskPriority;
-  due?: "overdue" | "today" | "week" | "later" | "none";
+  /** "soon" is due within three days, "ontrack" later than that (the dashboard's deadline buckets, D105). */
+  due?: "overdue" | "today" | "soon" | "week" | "ontrack" | "later" | "none";
 };
 
 export const PRIORITIES: TaskPriority[] = ["critical", "high", "medium", "low"];
@@ -24,11 +25,11 @@ export function readFilters(params: Record<string, string | string[] | undefined
   const due = get("due");
   const priority = get("priority");
   return {
-    project: project && UUID.test(project) ? project : undefined,
+    project: project && (project === "none" || UUID.test(project)) ? project : undefined,
     assignee: assignee && (assignee === "me" || assignee === "none" || UUID.test(assignee)) ? assignee : undefined,
     status: status === "todo" || status === "in_progress" || status === "done" ? status : undefined,
     priority: PRIORITIES.find((p) => p === priority),
-    due: due === "overdue" || due === "today" || due === "week" || due === "later" || due === "none" ? due : undefined,
+    due: (["overdue", "today", "soon", "week", "ontrack", "later", "none"] as const).find((d) => d === due),
   };
 }
 
@@ -58,7 +59,7 @@ export function isAssignee(task: Pick<TaskRow, "assignees">, membershipId: strin
 export function filterTasks(tasks: TaskRow[], f: TaskFilters, today: string, myMembershipId: string): TaskRow[] {
   const weekEnd = addDays(today, 7);
   return tasks.filter((task) => {
-    if (f.project && task.project_id !== f.project) return false;
+    if (f.project === "none" ? task.project_id !== null : f.project && task.project_id !== f.project) return false;
     if (f.assignee === "me" && !isAssignee(task, myMembershipId)) return false;
     if (f.assignee === "none" && task.assignees.length > 0) return false;
     if (f.assignee && f.assignee !== "me" && f.assignee !== "none" && !assigneeIds(task).includes(f.assignee)) return false;
@@ -70,8 +71,12 @@ export function filterTasks(tasks: TaskRow[], f: TaskFilters, today: string, myM
         return Boolean(due && due < today && task.status !== "done");
       case "today":
         return due === today;
+      case "soon":
+        return Boolean(due && due >= today && due <= addDays(today, 3));
       case "week":
         return Boolean(due && due >= today && due <= weekEnd);
+      case "ontrack":
+        return Boolean(due && due > addDays(today, 3));
       case "later":
         return Boolean(due && due > weekEnd);
       case "none":

@@ -65,8 +65,18 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
       lowAttendancePercent: z.coerce
         .number({ error: "Enter a percentage." })
         .int("Use a whole number.")
+        .min(0, "Use a number from 0 to 99.")
+        .max(99, "Use a number from 0 to 99."),
+      highAttendancePercent: z.coerce
+        .number({ error: "Enter a percentage." })
+        .int("Use a whole number.")
         .min(1, "Use a number from 1 to 100.")
         .max(100, "Use a number from 1 to 100."),
+    })
+    // the database checks this too
+    .refine((d) => d.lowAttendancePercent < d.highAttendancePercent, {
+      path: ["highAttendancePercent"],
+      message: "Make the high mark above the low one.",
     })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -74,7 +84,7 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
   if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase
     .from("organizations")
-    .update({ name: parsed.data.name, slug: parsed.data.slug, low_attendance_percent: parsed.data.lowAttendancePercent })
+    .update({ name: parsed.data.name, slug: parsed.data.slug, low_attendance_percent: parsed.data.lowAttendancePercent, high_attendance_percent: parsed.data.highAttendancePercent })
     .eq("id", parsed.data.organizationId);
   if (error?.code === "23505") return failure("That address is taken.", { slug: ["That address is taken."] });
   if (error) return dbFailure(error);

@@ -70,6 +70,7 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           name={org.name}
           slug={org.slug}
           lowAttendancePercent={org.low_attendance_percent}
+          highAttendancePercent={org.high_attendance_percent}
           disabled={!canManage}
         /> : null}
       {view === "branding" ? <BrandingPanel orgSlug={orgSlug} /> : null}

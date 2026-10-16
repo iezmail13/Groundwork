@@ -330,7 +330,7 @@ async function ReportsView({ ctx, programs, sp }: { ctx: OrgContext; programs: P
         </EmptyState>
       ) : (
         <>
-          <RateBars caption={`${t("section.attendance")} rate by ${lower(t("participant"))}`} rows={chartRows} />
+          <RateBars caption={`${t("section.attendance")} rate by ${lower(t("participant"))}`} rows={chartRows} marks={{ low: org.low_attendance_percent, high: org.high_attendance_percent }} />
           <ReportTable caption={`${t("section.attendance")} by ${lower(t("project"))}`} heading={t("project")} rows={byProgram} t={t} />
           <ReportTable caption={`${t("section.attendance")} by ${lower(t("participant"))}`} heading={t("participant")} rows={byParticipant} t={t} />
         </>

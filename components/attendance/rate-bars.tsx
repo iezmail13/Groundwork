@@ -7,7 +7,17 @@ export type RateBar = { key: string; label: string; rate: number | null; detail:
  * value as text, so the chart reads without seeing it; rows with no counted
  * sessions show a dash instead of a bar.
  */
-export function RateBars({ rows, caption }: { rows: RateBar[]; caption: string }) {
+export function RateBars({ rows, caption, marks }: { rows: RateBar[]; caption: string; marks?: { low: number; high: number } }) {
+  // the organization's marks (D105): red below low, amber below high, green at or above it, with a word
+  const band = (rate: number) => {
+    if (!marks) return { color: "var(--chart-1)", word: "" };
+    const pct = rate * 100;
+    return pct < marks.low
+      ? { color: "var(--bad)", word: "Poor" }
+      : pct < marks.high
+        ? { color: "var(--warn)", word: "Fair" }
+        : { color: "var(--good)", word: "Good" };
+  };
   return (
     <figure className="flex flex-col gap-2">
       <figcaption className="font-heading text-sm font-semibold">{caption}</figcaption>
@@ -19,11 +29,12 @@ export function RateBars({ rows, caption }: { rows: RateBar[]; caption: string }
             </span>
             <span className="relative h-4 rounded-sm border border-rule bg-panel" aria-hidden>
               {r.rate !== null ? (
-                <span className="absolute inset-y-0 left-0 rounded-sm bg-accent" style={{ width: `${Math.round(r.rate * 100)}%` }} />
+                <span className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${Math.round(r.rate * 100)}%`, background: band(r.rate).color }} />
               ) : null}
             </span>
             <span className="text-right font-heading font-bold tabular-nums">
               {formatRate(r.rate)}
+              {r.rate !== null && band(r.rate).word ? <span className="block font-sans text-xs font-normal text-ink-muted">{band(r.rate).word}</span> : null}
               <span className="sr-only">, {r.detail}</span>
             </span>
           </li>

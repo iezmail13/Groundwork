@@ -92,7 +92,9 @@ export function FilterBar({
         [
           { value: "overdue", label: "Overdue" },
           { value: "today", label: "Today" },
+          { value: "soon", label: "Within 3 days" },
           { value: "week", label: "Next 7 days" },
+          { value: "ontrack", label: "More than 3 days away" },
           { value: "later", label: "Later" },
           { value: "none", label: "No due date" },
         ],

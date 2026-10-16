@@ -71,12 +71,14 @@ export function OrganizationForm({
   name,
   slug,
   lowAttendancePercent,
+  highAttendancePercent,
   disabled,
 }: {
   organizationId: string;
   name: string;
   slug: string;
   lowAttendancePercent: number;
+  highAttendancePercent: number;
   disabled: boolean;
 }) {
   const t = useT();
@@ -109,28 +111,39 @@ export function OrganizationForm({
             />
           </div>
         </Field>
-        <Field
-          label={`Flag ${lower(t("section.attendance"))} below`}
-          htmlFor="org-low-attendance"
-          hint={`A ${lower(t("participant"))} whose rate falls below this percentage is flagged to ${lower(t("role.owner", "other"))} and the ${lower(t("project"))}'s ${lower(t("project_role.admin", "other"))} and ${lower(t("project_role.lead", "other"))}.`}
-          error={e.lowAttendancePercent}
-        >
-          <div className="flex items-center">
-            <Input
-              id="org-low-attendance"
-              name="lowAttendancePercent"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={100}
-              required
-              defaultValue={lowAttendancePercent}
-              className="w-24 rounded-r-none"
-              invalid={Boolean(e.lowAttendancePercent)}
-            />
-            <span className="rounded-r-md border border-l-0 border-rule bg-panel px-3 py-2 text-ink-muted">%</span>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-heading text-sm font-semibold">{t("section.attendance")} marks</legend>
+          <p className="text-sm text-ink-muted">
+            Rates below the low mark show red and alert {lower(t("role.owner", "other"))} and the {lower(t("project"))}&apos;s{" "}
+            {lower(t("project_role.admin", "other"))} and {lower(t("project_role.lead", "other"))}; below the high mark they show amber; at or above it, green.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {(
+              [
+                ["lowAttendancePercent", "Low mark", lowAttendancePercent, 0, 99],
+                ["highAttendancePercent", "High mark", highAttendancePercent, 1, 100],
+              ] as const
+            ).map(([name, label, value, min, max]) => (
+              <Field key={name} label={label} htmlFor={`org-${name}`} error={e[name]}>
+                <div className="flex items-center">
+                  <Input
+                    id={`org-${name}`}
+                    name={name}
+                    type="number"
+                    inputMode="numeric"
+                    min={min}
+                    max={max}
+                    required
+                    defaultValue={value}
+                    className="w-24 rounded-r-none"
+                    invalid={Boolean(e[name])}
+                  />
+                  <span className="rounded-r-md border border-l-0 border-rule bg-panel px-3 py-2 text-ink-muted">%</span>
+                </div>
+              </Field>
+            ))}
           </div>
-        </Field>
+        </fieldset>
       </fieldset>
       <FormMessage state={state} />
       {!disabled ? (

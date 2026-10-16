@@ -100,7 +100,7 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await page.getByLabel("New task title").fill("Draft the launch checklist");
   await page.getByLabel("Due date").fill("2026-11-02");
   await page.getByRole("button", { name: "Add task" }).click();
-  await expect(page.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="project-tasks"]').getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // quick-add starts fresh, so the next task doesn't inherit this one's due date
   await expect(page.getByLabel("New task title")).toHaveValue("");
   await expect(page.getByLabel("Due date")).toHaveValue("");
@@ -243,32 +243,33 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 8. Reorder a dashboard widget with the keyboard, reload, and confirm it persisted.
   await visit(page, `${base}/dashboard`);
-  await expect(page.getByRole("heading", { name: "Upcoming lessons" })).toBeVisible();
+  // the preset's words reach the dashboard too
+  await expect(page.getByRole("heading", { name: "Subject progress" })).toBeVisible();
   const before = await widgetOrder(page);
-  expect(before.slice(0, 2)).toEqual(["overdue", "due_soon"]);
+  expect(before.slice(0, 2)).toEqual(["tasks", "priority"]);
   await page.getByRole("button", { name: "Customize" }).click();
-  const moveHandle = page.getByRole("button", { name: "Move Overdue" });
+  const moveHandle = page.getByRole("button", { name: "Move My tasks" });
   await moveHandle.focus();
   await page.keyboard.press("Space");
   await expect(moveHandle).toHaveAttribute("aria-pressed", "true");
   // move only once the drop positions are measured, which the first "over" announcement shows
-  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 1" })).toHaveCount(1);
+  await expect(page.locator("[aria-live]").filter({ hasText: "My tasks is over position 1" })).toHaveCount(1);
   await page.keyboard.press("ArrowRight");
-  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 2" })).toHaveCount(1);
+  await expect(page.locator("[aria-live]").filter({ hasText: "My tasks is over position 2" })).toHaveCount(1);
   await page.keyboard.press("Space");
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   const after = await widgetOrder(page);
-  expect(after.slice(0, 2)).toEqual(["due_soon", "overdue"]);
+  expect(after.slice(0, 2)).toEqual(["priority", "tasks"]);
   // resize and hide too, so persistence covers every kind of change
   await page.getByRole("radio", { name: "Large" }).first().check({ force: true });
-  await page.getByRole("button", { name: "Hide Quick add" }).click();
+  await page.getByRole("button", { name: "Hide Coming up" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "quick_add"));
-  await expect(page.locator('li[data-widget="due_soon"]')).toHaveClass(/xl:col-span-12/);
-  await expect(page.getByRole("heading", { name: "Quick add" })).toHaveCount(0);
+  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "coming_up"));
+  await expect(page.locator('li[data-widget="priority"]')).toHaveClass(/xl:col-span-12/);
+  await expect(page.getByRole("heading", { name: "Coming up" })).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
@@ -528,13 +529,12 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
   await expect(page).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Upcoming sessions" })).toBeVisible();
-  const overdue = page.locator('li[data-widget="overdue"]');
-  await expect(overdue.getByText(/past due/)).toBeVisible();
-  await expect(overdue.locator(".sr-only").first()).toHaveText(/^[1-9]\d*$/);
+  const deadlines = page.locator('li[data-widget="deadlines"]');
+  await expect(deadlines.getByText("overdue", { exact: true })).toBeVisible();
+  await expect(deadlines.locator(".text-3xl").first()).toHaveText(/^[1-9]\d*$/);
   const nav = page.getByRole("navigation", { name: "Main" }).first();
   await expect(nav.getByRole("link", { name: "Programs" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recent programs" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program progress" })).toBeVisible();
   // tasks appear on the calendar by due date, and clicking one opens it
   await visit(page, "/northside-youth-collective/calendar");
   await expect(page.locator('td[aria-current="date"]')).toHaveCount(1);
@@ -828,11 +828,11 @@ test("funds: owners and managers split a fund, see it on its project and the das
   // the program shows its funding, and so does the dashboard
   await visit(page, "/northside-youth-collective/projects");
   await page.getByRole("link", { name: "Teen Mentorship Circle" }).first().click();
-  await expect(page.getByRole("heading", { level: 2, name: "Funding" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Funding" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Spring bake sale" })).toBeVisible();
   await visit(page, "/northside-youth-collective/dashboard");
   await expect(page.getByRole("heading", { name: "Funding" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Spring bake sale", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Spring bake sale: \d+% allocated, open the fund$/ })).toBeVisible();
   // and the change is in the activity log, for owners and managers
   await visit(page, "/northside-youth-collective/activity");
   await expect(page.getByRole("table", { name: "Activity, newest first" }).getByRole("link", { name: "Spring bake sale" }).first()).toBeVisible();
