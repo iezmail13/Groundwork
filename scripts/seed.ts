@@ -676,6 +676,12 @@ async function main() {
   );
   must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
 
+  // work the seed marked done has no one who finished it: those notifications would only say "Someone"
+  must(
+    await db.from("notifications").delete().eq("organization_id", org.id).eq("type", "completed").is("actor_id", null).select("id"),
+    "seeded completion notifications",
+  );
+
   console.log(
     `Done: 4 people, ${projects.length} projects, ${tasks.length + more.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
       `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,

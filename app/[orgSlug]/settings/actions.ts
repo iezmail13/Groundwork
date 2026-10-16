@@ -62,6 +62,11 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
       currentSlug: z.string(),
       name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(120, "Use 120 characters or fewer."),
       slug: slugInput,
+      lowAttendancePercent: z.coerce
+        .number({ error: "Enter a percentage." })
+        .int("Use a whole number.")
+        .min(1, "Use a number from 1 to 100.")
+        .max(100, "Use a number from 1 to 100."),
     })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -69,7 +74,7 @@ export async function updateOrganization(_prev: ActionState, formData: FormData)
   if (!allowed) return failure(NOT_ALLOWED);
   const { error } = await supabase
     .from("organizations")
-    .update({ name: parsed.data.name, slug: parsed.data.slug })
+    .update({ name: parsed.data.name, slug: parsed.data.slug, low_attendance_percent: parsed.data.lowAttendancePercent })
     .eq("id", parsed.data.organizationId);
   if (error?.code === "23505") return failure("That address is taken.", { slug: ["That address is taken."] });
   if (error) return dbFailure(error);

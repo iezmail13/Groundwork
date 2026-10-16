@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { CircleCheck, Lock } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -5,9 +6,13 @@ import { InviteForm, OrganizationForm, PresetForm, type PresetChoice } from "@/c
 import { MembersTable, PendingInvites, TransferOwnership } from "@/components/settings/members";
 import { AppearanceForm, BrandingForm, LogoUploader } from "@/components/settings/branding";
 import { CalendarFeed } from "@/components/settings/calendar-feed";
+import { PhotoUploader, PresenceModePicker, ProfileForm } from "@/components/people/profile-controls";
+import { NotificationSettings } from "@/components/settings/notification-settings";
+import { NOTIFICATION_TYPES, notificationTypeLabel } from "@/lib/notifications";
 import { getBranding } from "@/lib/branding";
 import { DEFAULT_ACCENT } from "@/lib/theme/theme";
-import { getMembers, getOrgContext } from "@/lib/org";
+import { getMembers, getOrgContext, initials } from "@/lib/org";
+import { getMemberPhotos } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
 import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
 import { grantableRoles } from "@/lib/roles";
@@ -15,7 +20,7 @@ import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
 import { getProjectOptions } from "@/lib/queries";
 
-const VIEWS = ["preset", "members", "organization", "branding", "profile"] as const;
+const VIEWS = ["preset", "members", "organization", "branding", "profile", "notifications"] as const;
 type View = (typeof VIEWS)[number];
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/settings">): Promise<Metadata> {
@@ -42,9 +47,10 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           tab("organization", "Organization"),
           tab("branding", "Branding"),
           tab("profile", "Profile"),
+          tab("notifications", "Notifications"),
         ]}
       />
-      {!canManage && view !== "profile" ? (
+      {!canManage && view !== "profile" && view !== "notifications" ? (
         <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
           <Lock aria-hidden className="size-4" />
           Only {lower(t("role.owner", "other"))} and {lower(t("role.manager", "other"))} can change settings. You can see them here.
@@ -59,9 +65,16 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           fromTask={typeof sp.task === "string" && UUID.test(sp.task) ? sp.task : null}
         />
       ) : null}
-      {view === "organization" ? <OrganizationForm organizationId={org.id} name={org.name} slug={org.slug} disabled={!canManage} /> : null}
+      {view === "organization" ? <OrganizationForm
+          organizationId={org.id}
+          name={org.name}
+          slug={org.slug}
+          lowAttendancePercent={org.low_attendance_percent}
+          disabled={!canManage}
+        /> : null}
       {view === "branding" ? <BrandingPanel orgSlug={orgSlug} /> : null}
       {view === "profile" ? <ProfilePanel orgSlug={orgSlug} /> : null}
+      {view === "notifications" ? <NotificationsPanel orgSlug={orgSlug} /> : null}
     </div>
   );
 }
@@ -112,12 +125,18 @@ async function BrandingPanel({ orgSlug }: { orgSlug: string }) {
 }
 
 async function ProfilePanel({ orgSlug }: { orgSlug: string }) {
-  const { org, userId, tz, today } = await getOrgContext(orgSlug);
+  const { org, userId, tz, today, base, userEmail } = await getOrgContext(orgSlug);
   const supabase = await createClient();
-  const [branding, { data: profile }] = await Promise.all([
+  const [branding, { data: profile }, photos] = await Promise.all([
     getBranding(org, userId),
-    supabase.from("profiles").select("calendar_feed_created_at").eq("id", userId).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("calendar_feed_created_at, full_name, email, title, bio, presence_mode")
+      .eq("id", userId)
+      .maybeSingle(),
+    getMemberPhotos(org.id),
   ]);
+  const name = profile?.full_name || profile?.email || userEmail;
   const since = profile?.calendar_feed_created_at
     ? formatRelativeDate(dateInZone(new Date(profile.calendar_feed_created_at), tz), today)
     : null;
@@ -125,7 +144,20 @@ async function ProfilePanel({ orgSlug }: { orgSlug: string }) {
   const feedSince = since && /^(Today|Yesterday)$/.test(since) ? since.toLowerCase() : since;
   return (
     <div className="flex flex-col gap-10">
-      <section aria-labelledby="profile-appearance" className="flex flex-col gap-3">
+      <section aria-labelledby="profile-you" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 id="profile-you" className="text-xl font-bold">
+            Your profile
+          </h2>
+          <Link href={`${base}/members/${userId}`} className="text-sm font-semibold text-accent underline underline-offset-4">
+            See your profile as others do
+          </Link>
+        </div>
+        <PhotoUploader organizationId={org.id} name={name} initials={initials(name)} photoUrl={photos.get(userId) ?? null} />
+        <ProfileForm fullName={profile?.full_name ?? ""} email={profile?.email ?? userEmail} title={profile?.title ?? null} bio={profile?.bio ?? null} />
+        <PresenceModePicker initial={profile?.presence_mode ?? "auto"} />
+      </section>
+      <section aria-labelledby="profile-appearance" className="flex flex-col gap-3 border-t border-rule pt-8">
         <h2 id="profile-appearance" className="text-xl font-bold">
           How Groundwork looks for you
         </h2>
@@ -144,6 +176,27 @@ async function ProfilePanel({ orgSlug }: { orgSlug: string }) {
         <CalendarFeed onSince={feedSince} />
       </section>
     </div>
+  );
+}
+
+async function NotificationsPanel({ orgSlug }: { orgSlug: string }) {
+  const { org, userId, t } = await getOrgContext(orgSlug);
+  const supabase = await createClient();
+  const { data: mutes } = await supabase.from("notification_mutes").select("type").eq("organization_id", org.id).eq("user_id", userId);
+  const muted = new Set((mutes ?? []).map((m) => m.type));
+  return (
+    <section aria-labelledby="notifications-heading" className="flex flex-col gap-3">
+      <h2 id="notifications-heading" className="text-xl font-bold">
+        Tell me when
+      </h2>
+      <p className="max-w-2xl text-ink-muted">
+        Notifications appear under the bell at the top of the page, for you alone. You&apos;re never told about your own actions.
+      </p>
+      <NotificationSettings
+        organizationId={org.id}
+        choices={NOTIFICATION_TYPES.map((type) => ({ type, label: notificationTypeLabel(type, t), on: !muted.has(type) }))}
+      />
+    </section>
   );
 }
 
@@ -181,9 +234,9 @@ async function MembersPanel({
   fromTask: string | null;
 }) {
   const ctx = await getOrgContext(orgSlug);
-  const { t, org, canManage, role, today, tz } = ctx;
+  const { t, org, canManage, role, today, tz, base } = ctx;
   const supabase = await createClient();
-  const [members, { data: invitations }, origin, projects, { data: ranks }, { data: task }] = await Promise.all([
+  const [members, { data: invitations }, origin, projects, { data: ranks }, { data: task }, photos] = await Promise.all([
     getMembers(org.id),
     canManage
       ? supabase
@@ -199,6 +252,7 @@ async function MembersPanel({
     fromTask && canManage
       ? supabase.from("tasks").select("id, title, project_id").eq("organization_id", org.id).eq("id", fromTask).maybeSingle()
       : Promise.resolve({ data: null }),
+    getMemberPhotos(org.id),
   ]);
   const rankOfProject = new Map((ranks ?? []).map((r) => [r.project_id, r.rank]));
   // granting a project needs project admin or lead there
@@ -235,7 +289,17 @@ async function MembersPanel({
         <MembersTable
           viewerRole={role}
           orgSlug={org.slug}
-          members={members.map((m) => ({ id: m.id, name: m.name, email: m.email, role: m.role, isYou: m.userId === ctx.userId }))}
+          members={members.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            role: m.role,
+            isYou: m.userId === ctx.userId,
+            initials: initials(m.name),
+            photoUrl: photos.get(m.userId) ?? null,
+            href: `${base}/members/${m.userId}`,
+          }))}
         />
       </section>
       {role === "owner" ? (

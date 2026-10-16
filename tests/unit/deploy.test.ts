@@ -219,6 +219,8 @@ describe("security headers", () => {
     expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic' https://js.stripe.com");
     expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co https://api.stripe.com");
     expect(csp).toContain("frame-ancestors 'none'");
+    // only the app itself and in-page blob workers (Realtime's heartbeat), never other hosts
+    expect(csp).toContain("worker-src 'self' blob:;");
     expect(csp).toContain("upgrade-insecure-requests");
     expect(csp).not.toContain("unsafe-eval");
   });

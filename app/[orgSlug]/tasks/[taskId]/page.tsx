@@ -12,6 +12,7 @@ import { getOrgContext } from "@/lib/org";
 import { getAssigneeNames } from "@/lib/projects";
 import { TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { assigneeIds, isAssignee } from "@/lib/task-filters";
+import { getAvatars } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
 import { formatTimestamp } from "@/lib/dates";
 import { lower } from "@/lib/terminology/t";
@@ -52,7 +53,8 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
     task.project && !form.projects.some((p) => p.id === task.project_id)
       ? [...form.projects, { id: task.project.id, name: task.project.name }]
       : form.projects;
-  const people = assigneeIds(task).map((id) => memberName.get(id) ?? "Someone");
+  const avatars = await getAvatars(org.id, base);
+  const people = assigneeIds(task).map((id) => ({ id, name: memberName.get(id) ?? "Someone", href: avatars[id]?.href ?? null }));
 
   // someone ranked above the viewer made it: read-only, though its assignee can still mark it done
   const locked = creatorLock(t, ctx, task.created_by, task.created_by_role);
@@ -96,7 +98,19 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
         <span className="text-sm">
           {people.length ? (
             <>
-              <span className="font-semibold">On it:</span> {people.join(", ")}
+              <span className="font-semibold">On it:</span>{" "}
+              {people.map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 ? ", " : ""}
+                  {p.href ? (
+                    <Link href={p.href} className="hover:underline">
+                      {p.name}
+                    </Link>
+                  ) : (
+                    p.name
+                  )}
+                </span>
+              ))}
               {task.completion === "all" && people.length > 1
                 ? ` (${task.assignees.filter((a) => a.done_at).length} of ${people.length} done)`
                 : ""}

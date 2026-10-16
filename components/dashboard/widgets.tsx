@@ -35,7 +35,6 @@ export type DashboardData = {
   myTasks: TaskLite[];
   projects: { id: string; name: string; color: string | null; done: number; total: number }[];
   events: { id: string; title: string; day: string; time: string; location: string | null }[];
-  activity: { id: string; actor: string; sentence: string; label: string | null; href: string | null; ago: string }[];
   pinned: { id: string; name: string; mime: string; size: number }[];
   projectOptions: ProjectOption[];
   /** Funds and their split, for owners and managers; null for everyone else. */
@@ -256,32 +255,6 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
         </Link>
       </li>
     </ul>
-  );
-}
-
-export function RecentActivityWidget({ data }: { data: DashboardData }) {
-  if (data.activity.length === 0) return <Empty>Changes your team makes show up here.</Empty>;
-  return (
-    <ol className="divide-y divide-rule">
-      {data.activity.map((a) => (
-        <li key={a.id} className="py-2 text-sm">
-          <span className="font-semibold">{a.actor}</span> {a.sentence}
-          {a.label ? (
-            <>
-              {" "}
-              {a.href ? (
-                <Link href={a.href} className="font-semibold underline-offset-4 hover:underline">
-                  “{a.label}”
-                </Link>
-              ) : (
-                <span className="font-semibold">“{a.label}”</span>
-              )}
-            </>
-          ) : null}
-          <span className="block text-ink-muted">{a.ago}</span>
-        </li>
-      ))}
-    </ol>
   );
 }
 
