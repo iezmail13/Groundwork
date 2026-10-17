@@ -505,3 +505,29 @@ The owner made communication the priority of the next three areas (communication
 - **Three mute layers.** All decided in `notification_muted()`: by kind (Settings), by person (their profile, D104), and by conversation (a Mute button in the channel header). Any "off" wins, and Do not disturb silences everything. Unread counts and dots keep working while muted; a muted conversation's count is outlined rather than filled and isn't added to the badge.
 - **Opening a chat notification** opens the panel on that conversation (`?chat=<id>` on any page). Opening a conversation marks it read and clears its waiting notification.
 - **Online status** (D104) shows in the direct-message list, the mention picker, a direct conversation's header and a channel's "People here" list.
+
+## D107. Kanban workflows: a program's own steps
+
+The owner asked for "workflows to manage work on a visual board through sequential steps", with custom steps per program (asked and answered in the session).
+
+- **Steps belong to a program.** A program can give its board its own ordered steps (2 to 12): Intake → Review → Approved, say. Each step is **open** or **done**, so everything built on a task's status (dashboards, notifications, the calendar, reports) keeps working.
+  - A program without steps keeps the standard board from D101.
+  - Three templates help people start: "Backlog, doing, review, finished", "Intake and approval", and "Planning a gathering". A workflow can also be built from scratch.
+  - "Use the standard board" turns the steps off. Every card keeps its status.
+- **Who.**
+  - The people who run a program (its admins and leads, owners, and managers on it, as `can_manage_project_content`) set its steps, all at once, through `save_workflow()`.
+  - Anyone who may tick work off may move its card through `move_task_to_step()`: someone who can edit it, or someone on it. The creator-rank rule (D80) still applies.
+  - A direct update of a task's step is refused for anyone else, by RLS and `guard_creator_rank`.
+- **Done follows the step, and the step follows done.**
+  - Moving a card into a done step finishes the work through `set_task_done()`, so "everyone ticks their own part" still holds. If that doesn't finish it, the card stays put.
+  - Moving it back to an open step reopens it.
+  - Ticking work off anywhere else moves its card to the first done step; reopening it moves it to the last open step.
+  - New work starts at the first open step.
+  - Removing a step moves its cards to the first remaining step of the same kind. Changing a step's kind changes its cards' status.
+- **Limits are marked, not enforced.** An open step may have a work-in-progress limit. Over it, the column gets an amber top rule and the words "Over its limit of N" (never colour alone), and its count reads "2 / 1". Cards can still be moved in, because blocking moves would stall real work.
+- **The board.**
+  - Filter the board to one program (`/tasks?project=<id>`, linked from the program's new Workflow section) and it shows that program's steps as columns, finished work included in the done steps (the latest 15, with a link to the rest).
+  - Cards move by dragging, by keyboard (Space, then Left/Right moves exactly one step and Up/Down reorders within a step), or with each card's Step menu.
+  - Moves are announced, and refused moves explain why.
+- **Notifications.** A card moving between open steps tells the task's people, through D106's "task changed" (once until read).
+- **Tests.** pgTAP `25_workflows` (33 tests) and e2e `workflows.spec.ts` (4 tests).

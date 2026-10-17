@@ -36,6 +36,8 @@ export type TaskRow = {
   assignees: TaskAssignee[];
   needs_assignee: boolean;
   completed_at: string | null;
+  /** Its step on the program's own workflow (D107), if the program has one. */
+  step_id: string | null;
   created_by: string | null;
   /** The org role its creator held when they made it (see guard_creator_rank). */
   created_by_role: Role | null;
@@ -43,7 +45,7 @@ export type TaskRow = {
 };
 
 export const TASK_SELECT =
-  "id, title, description, status, due_date, position, project_id, kind, priority, hidden, claim_limit, completion, needs_assignee, completed_at, created_by, created_by_role, project:projects(id, name, color, status), assignees:task_assignees(membership_id, invitation_id, kind, done_at)";
+  "id, title, description, status, due_date, position, project_id, kind, priority, hidden, claim_limit, completion, needs_assignee, completed_at, step_id, created_by, created_by_role, project:projects(id, name, color, status), assignees:task_assignees(membership_id, invitation_id, kind, done_at)";
 
 export type ProjectOption = { id: string; name: string };
 

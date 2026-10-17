@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CircleDot,
   ClipboardCheck,
+  Columns3,
   Clock,
   Download,
   FileText,
@@ -87,6 +88,8 @@ import { toEventFormValues } from "@/lib/event-values";
 import { creatorLock } from "@/lib/creator-lock";
 import { lower } from "@/lib/terminology/t";
 import { getDiscussions } from "@/lib/discussions";
+import { getWorkflow, WORKFLOW_TEMPLATES } from "@/lib/workflows";
+import { WorkflowEditor } from "@/components/projects/workflow-editor";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -163,9 +166,10 @@ export default async function ProjectPage({
   const tasks = (taskData ?? []) as TaskRow[];
   // the project dashboard reuses the tasks this page already loaded (D105)
   const detailKey = typeof sp.detail === "string" ? sp.detail : null;
-  const [pd, threads, { data: latest }] = await Promise.all([
+  const [pd, threads, steps, { data: latest }] = await Promise.all([
     buildProjectDashboard(ctx, project.id, project.name, tasks, detailKey),
     getDiscussions(ctx, { projectId: project.id, limit: 3 }),
+    getWorkflow(project.id),
     supabase
       .from("activity_log")
       .select(
@@ -700,6 +704,33 @@ export default async function ProjectPage({
           )}
         </section>
       </div>
+
+      <section id="workflow" aria-labelledby="project-workflow" className="flex scroll-mt-20 flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="project-workflow" className="flex items-center gap-2 font-heading text-xl font-bold">
+            <Columns3 aria-hidden className="size-5" />
+            Workflow
+          </h2>
+          <Link
+            href={`${base}/tasks?project=${project.id}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-rule px-3 py-1.5 font-heading text-sm font-semibold hover:bg-panel"
+          >
+            Open the board
+          </Link>
+        </div>
+        {steps.length > 0 ? (
+          <p className="text-sm">
+            <span className="sr-only">Steps: </span>
+            {steps.map((st) => st.name).join(" → ")}
+          </p>
+        ) : null}
+        {/* the people who run the program (D107) set its steps */}
+        {canManageItems ? (
+          <WorkflowEditor projectId={project.id} steps={steps} templates={WORKFLOW_TEMPLATES} />
+        ) : steps.length === 0 ? (
+          <p className="text-sm text-ink-muted">This board uses the standard columns.</p>
+        ) : null}
+      </section>
 
       <section aria-labelledby="project-discussions" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
