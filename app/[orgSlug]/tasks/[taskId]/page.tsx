@@ -57,7 +57,10 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
       ? [...form.projects, { id: task.project.id, name: task.project.name }]
       : form.projects;
   const [avatars, chatPeople, comments] = await Promise.all([getAvatars(org.id, base), getChatPeople(ctx), getTaskComments(ctx, task.id)]);
-  const people = assigneeIds(task).map((id) => ({ id, name: memberName.get(id) ?? "Someone", href: avatars[id]?.href ?? null }));
+  // by name, so the list reads the same however the database returns it
+  const people = assigneeIds(task)
+    .map((id) => ({ id, name: memberName.get(id) ?? "Someone", href: avatars[id]?.href ?? null }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // someone ranked above the viewer made it: read-only, though its assignee can still mark it done
   const locked = creatorLock(t, ctx, task.created_by, task.created_by_role);
