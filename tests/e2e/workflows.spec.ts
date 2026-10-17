@@ -29,6 +29,17 @@ async function openProgram(page: Page, name: string) {
 
 const column = (page: Page, step: string) => page.locator(`section[data-step="${step}"]`);
 
+// The board shows a move at once and saves it in the background. Wait for that
+// save (a server action) to finish before reloading, or the reload cancels it.
+// waitForLoadState("networkidle") can't do this: it returns at once on a page
+// that was already idle. Next answers an action only once it has run, so its
+// response (not the body it streams after) means the move is stored.
+async function saved(page: Page, act: () => Promise<unknown>) {
+  const response = page.waitForResponse((r) => r.request().method() === "POST" && r.request().headers()["next-action"] !== undefined);
+  await act();
+  await response;
+}
+
 test("a program's lead sets its steps from a template, and the board follows them", async ({ browser }) => {
   const marcus = await signIn(browser, "Marcus Chen");
   await openProgram(marcus, "Winter Coat Drive");
@@ -62,19 +73,17 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   await marcus.locator("html[data-hydrated]").waitFor({ state: "attached" });
 
   // with the step menu
-  await column(marcus, "Intake").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Being reviewed" });
+  await saved(marcus, () => column(marcus, "Intake").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Being reviewed" }));
   await expect(column(marcus, "Being reviewed").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
-  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await expect(column(marcus, "Being reviewed").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
 
   // a second card over the limit of 1 marks the column, without blocking it
-  await column(marcus, "Intake").getByLabel("Step for “Build the size and inventory spreadsheet”").selectOption({ label: "Being reviewed" });
+  await saved(marcus, () => column(marcus, "Intake").getByLabel("Step for “Build the size and inventory spreadsheet”").selectOption({ label: "Being reviewed" }));
   await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
   await expect(column(marcus, "Being reviewed").getByRole("heading")).toContainText("2 / 1");
 
   // with the keyboard: pick up, move right, drop (on a settled page, once the last move is saved)
-  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await marcus.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
@@ -86,14 +95,12 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   await expect(live.filter({ hasText: "“Build the size and inventory spreadsheet” is over Being reviewed" })).toHaveCount(1);
   await marcus.keyboard.press("ArrowRight");
   await expect(live.filter({ hasText: "is over Waiting on approval" })).toHaveCount(1);
-  await marcus.keyboard.press("Space");
+  await saved(marcus, () => marcus.keyboard.press("Space"));
   await expect(column(marcus, "Waiting on approval").getByRole("link", { name: "Build the size and inventory spreadsheet" })).toBeVisible();
 
   // into the done step: the work is finished
-  await column(marcus, "Being reviewed").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Approved" });
+  await saved(marcus, () => column(marcus, "Being reviewed").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Approved" }));
   await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
-  // the board shows a move at once and saves it in the background: check it was saved before leaving
-  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
   await marcus.goto(`${ORG}/tasks?view=list&status=done`);
@@ -124,9 +131,8 @@ test("staff on the program see its steps but can't change them, and can't move o
   await column(sofia, "Intake").getByLabel("New task title").fill("Sort the donated scarves");
   await column(sofia, "Intake").getByRole("button", { name: "Add task" }).click();
   await expect(column(sofia, "Intake").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
-  await column(sofia, "Intake").getByLabel("Step for “Sort the donated scarves”").selectOption({ label: "Being reviewed" });
+  await saved(sofia, () => column(sofia, "Intake").getByLabel("Step for “Sort the donated scarves”").selectOption({ label: "Being reviewed" }));
   await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
-  await sofia.waitForLoadState("networkidle");
   await sofia.reload();
   await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
   await sofia.context().close();
