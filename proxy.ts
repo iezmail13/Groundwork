@@ -11,7 +11,7 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/security", "/privacy", "/terms
 
 function isPublic(pathname: string) {
   // calendar apps can't sign in: the feed's secret URL is its key (D102)
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/") || pathname.startsWith("/api/calendar/");
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/invite/") || pathname.startsWith("/api/calendar/") || pathname.startsWith("/r/");
 }
 
 /**

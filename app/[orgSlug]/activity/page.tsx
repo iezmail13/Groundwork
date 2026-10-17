@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   Building2,
+  FileChartColumn,
   CalendarDays,
   Download,
   FileText,
@@ -38,6 +39,7 @@ const ICONS: Record<string, LucideIcon> = {
   participant: Users,
   fund: PiggyBank,
   organization: Building2,
+  report: FileChartColumn,
 };
 
 const ACTION_LABELS: Record<(typeof ACTIVITY_ACTIONS)[number], string> = {

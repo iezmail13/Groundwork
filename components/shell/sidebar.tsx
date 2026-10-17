@@ -14,6 +14,7 @@ import {
   History,
   MessageSquareText,
   Receipt,
+  FileChartColumn,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -77,7 +78,7 @@ export function Sidebar(props: Props) {
   return (
     <>
       {/* Small screens: top bar with a menu button that opens a slide-over */}
-      <div className="on-rail sticky top-0 z-30 flex items-center gap-3 bg-rail px-3 py-2 text-rail-ink min-[900px]:hidden">
+      <div className="on-rail sticky top-0 z-30 flex items-center gap-3 bg-rail px-3 py-2 text-rail-ink min-[900px]:hidden print:hidden">
         <button
           ref={menuButtonRef}
           type="button"
@@ -101,7 +102,7 @@ export function Sidebar(props: Props) {
 
       {/* Wide screens: persistent rail, expanded (260px) or collapsed (64px) */}
       <aside
-        className={`on-rail sticky top-0 hidden h-dvh shrink-0 flex-col bg-rail text-rail-ink transition-[width] duration-200 min-[900px]:flex ${
+        className={`on-rail sticky top-0 hidden h-dvh shrink-0 flex-col bg-rail text-rail-ink transition-[width] duration-200 min-[900px]:flex print:hidden ${
           collapsed ? "w-16" : "w-[260px]"
         }`}
         aria-label="Sidebar"
@@ -176,6 +177,7 @@ function SidebarBody({
     ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
     ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
     { href: `${base}/spending`, label: "Spending", icon: Receipt },
+    { href: `${base}/reports`, label: "Reports", icon: FileChartColumn },
   ];
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
