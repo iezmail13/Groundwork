@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarX, CircleCheck, Download, Lock, Search, UsersRound } from "lucide-react";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -124,12 +125,17 @@ async function ParticipantsView({ ctx, programs, sp }: { ctx: OrgContext; progra
           </label>
           <input id="participant-search" name="q" type="search" defaultValue={q} className={`${inputClass} py-1.5`} />
         </div>
-        <div className="flex min-w-48 flex-1 flex-col gap-1">
-          <label htmlFor="participant-program-filter" className="font-heading text-xs font-semibold text-ink-muted">
-            {t("project")}
-          </label>
-          <ProgramSelect id="participant-program-filter" programs={programs} value={program} allLabel={`All ${lower(t("project", "other"))}`} />
-        </div>
+        <FilterMenu count={program ? 1 : 0}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="participant-program-filter" className="font-heading text-xs font-semibold text-ink-muted">
+              {t("project")}
+            </label>
+            <ProgramSelect id="participant-program-filter" programs={programs} value={program} allLabel={`All ${lower(t("project", "other"))}`} />
+          </div>
+          <button type="submit" className={buttonClass("primary", "md")}>
+            Apply
+          </button>
+        </FilterMenu>
         <button type="submit" className={buttonClass("secondary", "md")}>
           <Search aria-hidden className="size-4" />
           Search

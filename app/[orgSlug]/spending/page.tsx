@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CircleCheck, Clock, ExternalLink, XCircle } from "lucide-react";
+import { CircleCheck, Clock, XCircle } from "lucide-react";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { DecisionButtons, ReceiptButton, SpendingForm, WithdrawButton } from "@/components/spending/spending-form";
 import { BudgetBars } from "@/components/spending/budget-bars";
@@ -47,12 +48,11 @@ export default async function SpendingPage({ params, searchParams }: PageProps<"
   const statusFilter = (["pending", "approved", "rejected"] as const).find((s) => s === sp.status);
   const fundFilter = typeof sp.fund === "string" && /^[0-9a-f-]{36}$/.test(sp.fund) ? sp.fund : undefined;
 
-  const [{ data: myPrograms }, entries, budgets, members, { data: orgRow }] = await Promise.all([
+  const [{ data: myPrograms }, entries, budgets, members] = await Promise.all([
     supabase.rpc("my_projects_with_funds", { org: org.id }),
     getSpending(ctx, { status: statusFilter, fundId: fundFilter }),
     manager ? getBudgets(ctx) : Promise.resolve([]),
     getMembers(org.id),
-    supabase.from("organizations").select("accounting_name, accounting_url").eq("id", org.id).maybeSingle(),
   ]);
   const nameOf = new Map(members.map((m) => [m.userId, m.name]));
   const rankOfUser = new Map(members.map((m) => [m.userId, rankOf(m.role)]));
@@ -74,20 +74,6 @@ export default async function SpendingPage({ params, searchParams }: PageProps<"
           manager
             ? "Your official books stay in your accounting software. This page tracks budgets and grant spending."
             : `Submit what you spent for a ${program.toLowerCase()}. ${t("role.owner", "other")} and ${lower(t("role.manager", "other"))} approve it.`
-        }
-        actions={
-          manager && orgRow?.accounting_url ? (
-            <a
-              href={orgRow.accounting_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md border border-rule px-3 py-2 font-heading text-sm font-semibold hover:bg-panel"
-            >
-              Open {orgRow.accounting_name && orgRow.accounting_name !== "Other" ? orgRow.accounting_name : "your accounting software"}
-              <ExternalLink aria-hidden className="size-4" />
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          ) : undefined
         }
       />
 
@@ -137,30 +123,37 @@ export default async function SpendingPage({ params, searchParams }: PageProps<"
           {manager ? "All spending" : "Your spending"}
         </h2>
         {manager ? (
-          <form className="flex flex-wrap items-end gap-3" method="get">
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Fund
-              <select name="fund" defaultValue={fundFilter ?? ""} className={inputClass}>
-                <option value="">All funds</option>
-                {budgets.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Status
-              <select name="status" defaultValue={statusFilter ?? ""} className={inputClass}>
-                <option value="">Any</option>
-                <option value="pending">Waiting</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </label>
-            <button type="submit" className="rounded-md border border-rule px-3 py-2 font-heading text-sm font-semibold hover:bg-panel">
-              Show
-            </button>
+          <form className="flex flex-wrap items-center gap-2" method="get" aria-label="Filter spending">
+            <FilterMenu count={(fundFilter ? 1 : 0) + (statusFilter ? 1 : 0)}>
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                Fund
+                <select name="fund" defaultValue={fundFilter ?? ""} className={inputClass}>
+                  <option value="">All funds</option>
+                  {budgets.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                Status
+                <select name="status" defaultValue={statusFilter ?? ""} className={inputClass}>
+                  <option value="">Any</option>
+                  <option value="pending">Waiting</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <button type="submit" className="rounded-md bg-accent px-4 py-2 font-heading text-sm font-semibold text-on-accent">
+                Show
+              </button>
+            </FilterMenu>
+            {fundFilter || statusFilter ? (
+              <Link href={`${base}/spending`} className="rounded-md px-3 py-2 font-heading text-sm font-semibold hover:bg-panel">
+                Clear
+              </Link>
+            ) : null}
           </form>
         ) : null}
         {entries.length === 0 ? (

@@ -587,3 +587,26 @@ The owner asked for reporting "on time, costs and resources to oversee progress,
 - **Attendance reports are never shared by link**, because they hold participant details (D81). The database refuses it. They can be printed or downloaded.
 - **Recorded.** Generating, printing, downloading and sharing reports, and revoking links, go into the activity log as "report" entries, with the template and dates but never the contents. Only owners and managers can read those entries.
 - **Tests.** pgTAP `27_reports` (22 tests: snapshots, expiry limit, no attendance or staff costs sharing, nobody sharing in someone else's name, anonymous opening, revoking, isolation, activity visibility). Unit tests for the CSV layout and formula safety. e2e `reports.spec.ts` (3 tests).
+
+## D110. The shell after the owner's review: accent sidebar, Finances group, Activity menu, filter menus, no accounting link
+
+After using Parts 8–11, the owner asked for five changes to the shell.
+
+- **A chosen accent colours the sidebar, in both modes.** Before this, an org's or person's accent changed only buttons, links and the current sidebar item's icon, and the sidebar stayed navy.
+  - `deriveRail()` in `lib/theme/theme.ts` takes the chosen colour and only lowers its lightness, never its hue, until the sidebar's text and secondary text reach 4.5:1 on it, its hover state does too, and the current item's accent icon reaches 3:1.
+  - In dark mode it starts no lighter than 30%, so the sidebar stays a deep version of the colour beside the dark canvas.
+  - A colour that can't pass at any lightness keeps the default sidebar.
+  - The default accent (#0006BF) keeps the navy sidebar from the brand sheet, so an organization that never picks a colour looks as before. Picking the Navy or Slate preset gives a navy or slate sidebar.
+  - The sidebar tokens join the accent's per-organization style sheet (light and dark). The unit tests run every preset and some awkward colours through the contrast checks in both modes. Settings → Branding's preview now shows a strip of the sidebar.
+  - This widens D83 ("navy for the sidebar"); large surfaces still stay calm because the sidebar is always a deep version of the colour.
+- **Finances.** Funds (owners and managers) and Spending (everyone) sit under one "Finances" heading in the sidebar.
+  - It is a button that opens and closes them (`aria-expanded`), and it opens by itself when one of its pages is current.
+  - On the narrow (collapsed) sidebar there's no room for a heading, so its pages show as icons.
+- **Activity moved to the top bar.** It is a menu beside the notifications bell, in the same kind of panel: it shows the latest 10 changes the viewer can see and links to the full log, which keeps its filters and owner export. The bell and the menu share `components/shell/top-bar-panel.tsx`.
+- **Filters behind one button.** Tasks (and each program's task list), Activity, Documents, Attendance and Spending put their filters in a "Filters" dropdown (`components/ui/filter-menu.tsx`).
+  - The button shows how many filters are on. The task lists also show them in words beside it, with Clear filters.
+  - Search boxes stay out on the page.
+  - The panel stays in the page while closed, so a search still sends the chosen filters.
+- **No accounting software link for now.** The Settings → Finance section and the "Open QuickBooks/Xero…" button on Spending are removed.
+  - The `organizations.accounting_name` and `accounting_url` columns and their owner-only guard (D108) stay in the database, unused. Dropping them would delete what an owner may already have saved in production, and the owner may want the link back later.
+  - Their pgTAP tests still hold.

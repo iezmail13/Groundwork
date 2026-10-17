@@ -1,8 +1,9 @@
 import { contrastRatio, isHex, mix, normalizeHex, toHsl, withLightness } from "./color";
 
-// Semantic colour tokens (D83–D85, D99). Navy #163260 is the text and sidebar
-// colour; white/bone is the background; the accent (#0006BF unless an org or
-// person picks another) is for buttons, links, active states and focus.
+// Semantic colour tokens (D83–D85, D99, D110). Navy #163260 is the text
+// colour and the default sidebar; white/bone is the background; the accent
+// (#0006BF unless an org or person picks another) is for buttons, links,
+// active states and focus, and a chosen accent also colours the sidebar.
 // Status and priority colours are fixed for everyone. Every token has a light
 // and a dark value: app/globals.css holds them as custom properties, and a
 // unit test keeps the two in step and checks contrast in both modes.
@@ -173,6 +174,59 @@ export function deriveAccent(choice: string = DEFAULT_ACCENT, mode: Mode = "ligh
   return { accent, onAccent: pickOn(accent, mode), accentTint: mix(accent, canvas, 0.12) };
 }
 
+type RailTokens = Pick<ThemeTokens, "rail" | "railInk" | "railInkMuted" | "railHover" | "railActive" | "railActiveInk">;
+
+/**
+ * The sidebar for an accent choice (D110). The default accent keeps the navy
+ * sidebar; any other accent colours it, in both modes: the chosen colour, with
+ * its lightness lowered until the sidebar's text, secondary text and hover
+ * state read at 4.5:1 and the current item's accent icon at 3:1. Dark mode
+ * starts no lighter than 30%, so the sidebar stays a deep version of it.
+ */
+export function deriveRail(choice: string = DEFAULT_ACCENT, mode: Mode = "light"): RailTokens {
+  const base = isHex(choice) ? normalizeHex(choice) : DEFAULT_ACCENT;
+  const s = surfaces(mode);
+  if (base === DEFAULT_ACCENT) {
+    const { rail, railInk, railInkMuted, railHover, railActive, railActiveInk } = s;
+    return { rail, railInk, railInkMuted, railHover, railActive, railActiveInk };
+  }
+  const on = mode === "light" ? BONE_50 : s.ink;
+  const tokens = (rail: string): RailTokens =>
+    mode === "light"
+      ? {
+          rail,
+          railInk: on,
+          railInkMuted: mix(on, rail, 0.78),
+          railHover: mix(on, rail, 0.12),
+          railActive: on,
+          railActiveInk: NAVY_900,
+        }
+      : {
+          rail,
+          railInk: on,
+          railInkMuted: mix(on, rail, 0.74),
+          railHover: mix(on, rail, 0.08),
+          railActive: mix(on, rail, 0.16),
+          railActiveInk: on,
+        };
+  const accent = deriveAccent(base, mode).accent;
+  const passes = (t: RailTokens) =>
+    contrastRatio(t.railInk, t.rail) >= MIN_CONTRAST &&
+    contrastRatio(t.railInkMuted, t.rail) >= MIN_CONTRAST &&
+    contrastRatio(t.railInk, t.railHover) >= MIN_CONTRAST &&
+    contrastRatio(t.railActiveInk, t.railActive) >= MIN_CONTRAST &&
+    contrastRatio(accent, t.railActive) >= MIN_MARK_CONTRAST;
+  let l = toHsl(base).l;
+  if (mode === "dark") l = Math.min(l, 0.3);
+  let t = tokens(withLightness(base, l));
+  for (let i = 0; i < 100 && !passes(t) && l > 0; i++) {
+    l = Math.max(0, l - 0.01);
+    t = tokens(withLightness(base, l));
+  }
+  // a colour that can't pass at any lightness keeps the default sidebar
+  return passes(t) ? t : deriveRail(DEFAULT_ACCENT, mode);
+}
+
 /** White on dark accents, the dark canvas on light ones: whichever reads better. */
 function pickOn(accent: string, mode: Mode): string {
   const dark = surfaces("dark").canvas;
@@ -196,7 +250,7 @@ function chartSeries(accent: string, mode: Mode): string[] {
 export function deriveTokens(mode: Mode = "light", accentChoice: string = DEFAULT_ACCENT): ThemeTokens {
   const accent = deriveAccent(accentChoice, mode);
   const [chart1, chart2, chart3, chart4, chart5] = chartSeries(accent.accent, mode) as [string, string, string, string, string];
-  return { ...surfaces(mode), ...accent, ...FIXED[mode], chart1, chart2, chart3, chart4, chart5 };
+  return { ...surfaces(mode), ...deriveRail(accentChoice, mode), ...accent, ...FIXED[mode], chart1, chart2, chart3, chart4, chart5 };
 }
 
 /** The accent in force (D84): personal (if the org allows it) → org → #0006BF. */
@@ -310,7 +364,22 @@ export const CSS_NAMES: Record<Key, string> = {
 /** The accent-dependent declarations for one mode, e.g. for an org's or person's accent. */
 export function accentDeclarations(choice: string, mode: Mode): string {
   const t = deriveTokens(mode, choice);
-  const keys: Key[] = ["accent", "onAccent", "accentTint", "chart1", "chart2", "chart3", "chart4", "chart5"];
+  const keys: Key[] = [
+    "accent",
+    "onAccent",
+    "accentTint",
+    "chart1",
+    "chart2",
+    "chart3",
+    "chart4",
+    "chart5",
+    "rail",
+    "railInk",
+    "railInkMuted",
+    "railHover",
+    "railActive",
+    "railActiveInk",
+  ];
   return keys.map((k) => `--${CSS_NAMES[k]}:${t[k]};`).join("");
 }
 

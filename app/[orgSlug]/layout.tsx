@@ -14,6 +14,7 @@ import { getBranding } from "@/lib/branding";
 import { UndoToastProvider } from "@/components/ui/undo-toast";
 import { canManageOrg, rankOf } from "@/lib/roles";
 import { NotificationBell } from "@/components/shell/notification-bell";
+import { ActivityMenu } from "@/components/shell/activity-menu";
 import { PresenceProvider } from "@/components/people/presence";
 import { getUnreadCount, queueDueNotifications } from "@/lib/notifications";
 import { ChatButton, ChatProvider } from "@/components/chat/chat";
@@ -55,6 +56,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   const actions = (
     <>
       <ChatButton />
+      <ActivityMenu orgSlug={ctx.org.slug} />
       <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} />
       <ThemeToggle initial={branding.themeMode} />
     </>
@@ -83,6 +85,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             mobileActions={
               <>
                 <ChatButton onRail />
+                <ActivityMenu orgSlug={ctx.org.slug} onRail />
                 <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} onRail />
                 <ThemeToggle initial={branding.themeMode} onRail />
               </>

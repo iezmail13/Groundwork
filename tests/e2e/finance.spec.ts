@@ -2,8 +2,8 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 
 // Finance (D108): anyone on a program submits spending with a receipt and
 // sees only their own; owners and managers see budget against actual and
-// decide; nobody approves their own; the approved list exports to CSV;
-// Settings → Finance holds the link to the accounting software. Seeded
+// decide; nobody approves their own; the approved list exports to CSV; there
+// is no accounting software link for now (D110). Seeded
 // Northside: Marcus is on Homework Club (paid for by the Fall community
 // grant); Sofia isn't; Priya is a manager; Jordan owns the organization.
 
@@ -98,22 +98,18 @@ test("a manager sees budgets and decides, but never on their own spending", asyn
   for (const p of [priya, jordan]) await p.context().close();
 });
 
-test("staff can't export spending, and only owners set the accounting link", async ({ browser }) => {
+test("staff can't export spending, and there's no accounting software link", async ({ browser }) => {
   const marcus = await signIn(browser, "Marcus Chen");
   const res = await marcus.request.get(`${ORG}/spending/export?fund=00000000-0000-4000-8000-000000000000`);
   expect(res.status()).toBe(404);
   await marcus.context().close();
 
+  // the owner's Settings has no Finance section, and Spending links nowhere outside (D110)
   const jordan = await signIn(browser, "Jordan Ellis");
-  await jordan.goto(`${ORG}/settings?view=finance`);
-  await jordan.getByLabel("Accounting software").selectOption("Xero");
-  await jordan.getByLabel("Link").fill("http://example.org");
-  await jordan.getByRole("button", { name: "Save" }).click();
-  await expect(jordan.getByText("Use an https:// address.")).toBeVisible();
-  await jordan.getByLabel("Link").fill("https://go.xero.com");
-  await jordan.getByRole("button", { name: "Save" }).click();
-  await expect(jordan.getByText("Saved.")).toBeVisible();
+  await jordan.goto(`${ORG}/settings`);
+  await expect(jordan.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Finance" })).toHaveCount(0);
   await spending(jordan);
-  await expect(jordan.getByRole("link", { name: /Open Xero/ })).toHaveAttribute("href", "https://go.xero.com");
+  await expect(jordan.getByRole("heading", { name: "Budget against actual" })).toBeVisible();
+  await expect(jordan.locator('main a[target="_blank"]')).toHaveCount(0);
   await jordan.context().close();
 });

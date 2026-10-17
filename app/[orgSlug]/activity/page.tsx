@@ -1,18 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Building2,
-  FileChartColumn,
-  CalendarDays,
-  Download,
-  FileText,
-  FolderKanban,
-  ListChecks,
-  PiggyBank,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Download } from "lucide-react";
+import { activityIcon } from "@/components/activity/activity-icons";
 import { PageHeader } from "@/components/ui/page-header";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { buttonClass } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { getMembers, getOrgContext } from "@/lib/org";
@@ -30,17 +21,6 @@ import { formatTimestamp } from "@/lib/dates";
 export const metadata: Metadata = { title: "Activity" };
 
 const PAGE = 100;
-
-const ICONS: Record<string, LucideIcon> = {
-  project: FolderKanban,
-  task: ListChecks,
-  event: CalendarDays,
-  document: FileText,
-  participant: Users,
-  fund: PiggyBank,
-  organization: Building2,
-  report: FileChartColumn,
-};
 
 const ACTION_LABELS: Record<(typeof ACTIVITY_ACTIONS)[number], string> = {
   created: "Created",
@@ -104,9 +84,10 @@ export default async function ActivityPage({
 
       <form
         method="get"
-        className="grid gap-3 border-b border-rule pb-4 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]"
+        className="flex flex-wrap items-center gap-2 border-b border-rule pb-4"
         aria-label="Filter activity"
       >
+        <FilterMenu count={Object.values(filters).filter(Boolean).length}>
         <div className="flex flex-col gap-1">
           <label
             htmlFor="activity-person"
@@ -200,16 +181,15 @@ export default async function ActivityPage({
             className={inputClass}
           />
         </div>
-        <div className="flex items-end gap-2">
           <button type="submit" className={buttonClass("primary")}>
             Apply
           </button>
-          {filtered ? (
-            <Link href={`${base}/activity`} className={buttonClass("ghost")}>
-              Clear
-            </Link>
-          ) : null}
-        </div>
+        </FilterMenu>
+        {filtered ? (
+          <Link href={`${base}/activity`} className={buttonClass("ghost")}>
+            Clear
+          </Link>
+        ) : null}
       </form>
 
       {shown.length === 0 ? (
@@ -238,7 +218,7 @@ export default async function ActivityPage({
             </thead>
             <tbody>
               {shown.map((a) => {
-                const Icon = ICONS[a.entity_type] ?? ListChecks;
+                const Icon = activityIcon(a.entity_type);
                 const who =
                   (a.actor_membership_id &&
                     nameOf.get(a.actor_membership_id)) ||

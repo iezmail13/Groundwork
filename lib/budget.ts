@@ -50,5 +50,3 @@ export function budgetStatus({
   return "on_pace";
 }
 
-/** The accounting software an owner can link to from Settings → Finance (a plain link, D108). */
-export const ACCOUNTING_NAMES = ["QuickBooks", "Xero", "Wave", "Sage", "Other"] as const;

@@ -10,6 +10,7 @@ import {
   accentStyleSheet,
   checkContrast,
   deriveAccent,
+  deriveRail,
   deriveTokens,
   resolveAccent,
   type Mode,
@@ -81,6 +82,23 @@ describe("tokens", () => {
     }
   });
 
+  it("colours the sidebar with a chosen accent in both modes, keeping navy for the default (D110)", () => {
+    expect(deriveRail(DEFAULT_ACCENT, "light").rail).toBe(NAVY_900);
+    for (const mode of modes) {
+      const teal = deriveRail("#0F7B6C", mode);
+      expect(teal.rail).not.toBe(deriveRail(DEFAULT_ACCENT, mode).rail);
+      expect(Math.abs(toHsl(teal.rail).h - toHsl("#0F7B6C").h)).toBeLessThan(2);
+      expect(deriveTokens(mode, "#0F7B6C").rail).toBe(teal.rail);
+    }
+    // dark mode keeps it deep; light mode keeps the colour as chosen when its text already reads
+    expect(toHsl(deriveRail("#0F7B6C", "dark").rail).l).toBeLessThanOrEqual(0.3);
+    expect(deriveRail("#334155", "light").rail).toBe("#334155");
+    // a light choice is deepened until the sidebar's text reads on it
+    const yellow = deriveRail("#FFFF00", "light");
+    expect(contrastRatio(yellow.railInk, yellow.rail)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(yellow.railInkMuted, yellow.rail)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("only changes an accent's lightness, never its hue", () => {
     const yellow = deriveAccent("#FFD000", "light").accent;
     expect(contrastRatio(yellow, BONE_50)).toBeGreaterThanOrEqual(4.5);
@@ -111,6 +129,8 @@ describe("accent resolution", () => {
     expect(css).toContain(`--accent:${deriveTokens("light", "#0F766E").accent};`);
     expect(css).toContain(`:root[data-theme="dark"]{--accent:${deriveTokens("dark", "#0F766E").accent};`);
     expect(css).toContain("prefers-color-scheme: dark");
+    expect(css).toContain(`--rail:${deriveTokens("light", "#0F766E").rail};`);
+    expect(css).toContain(`--rail:${deriveTokens("dark", "#0F766E").rail};`);
   });
 });
 
