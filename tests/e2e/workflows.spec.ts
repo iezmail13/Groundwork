@@ -64,6 +64,7 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   // with the step menu
   await column(marcus, "Intake").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Being reviewed" });
   await expect(column(marcus, "Being reviewed").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
+  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await expect(column(marcus, "Being reviewed").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
 
@@ -72,7 +73,8 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
   await expect(column(marcus, "Being reviewed").getByRole("heading")).toContainText("2 / 1");
 
-  // with the keyboard: pick up, move right, drop (on a settled page)
+  // with the keyboard: pick up, move right, drop (on a settled page, once the last move is saved)
+  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await marcus.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(column(marcus, "Being reviewed").getByText("Over its limit of 1")).toBeVisible();
@@ -91,6 +93,7 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   await column(marcus, "Being reviewed").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Approved" });
   await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
   // the board shows a move at once and saves it in the background: check it was saved before leaving
+  await marcus.waitForLoadState("networkidle");
   await marcus.reload();
   await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
   await marcus.goto(`${ORG}/tasks?view=list&status=done`);
@@ -123,6 +126,7 @@ test("staff on the program see its steps but can't change them, and can't move o
   await expect(column(sofia, "Intake").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
   await column(sofia, "Intake").getByLabel("Step for “Sort the donated scarves”").selectOption({ label: "Being reviewed" });
   await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
+  await sofia.waitForLoadState("networkidle");
   await sofia.reload();
   await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
   await sofia.context().close();
