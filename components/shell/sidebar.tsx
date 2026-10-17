@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Check,
   ClipboardCheck,
   PiggyBank,
+  ChevronDown,
   ChevronsUpDown,
   FileText,
   FolderKanban,
-  History,
   MessageSquareText,
   Receipt,
   FileChartColumn,
@@ -23,7 +23,9 @@ import {
   PanelLeftOpen,
   Plus,
   Settings,
+  Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Logo, Wordmark } from "@/components/logo";
 import { Menu, menuItemClass } from "@/components/ui/menu";
@@ -116,7 +118,7 @@ export function Sidebar(props: Props) {
 function HomeLink({ org, logo, collapsed }: { org: ShellOrg; logo: OrgLogo | null; collapsed: boolean }) {
   const href = `/${org.slug}/dashboard`;
   if (logo) {
-    // the rail is navy in both modes: the dark version if there is one, else the logo on a light backing
+    // the rail is dark in both modes (navy, or a deep accent, D110): the dark version if there is one, else the logo on a light backing
     return (
       <Link href={href} className="flex min-w-0 items-center rounded-md" aria-label={`${org.name} home`}>
         <span
@@ -166,17 +168,23 @@ function SidebarBody({
 }: Props & { collapsed: boolean; pathname: string; onToggle?: () => void; onClose?: () => void }) {
   const t = useT();
   const base = `/${org.slug}`;
-  const nav = [
+  // Activity lives in the top bar (D110); Funds and Spending sit under Finances
+  const nav: NavEntry[] = [
     { href: `${base}/dashboard`, label: t("section.dashboard"), icon: LayoutDashboard },
     { href: `${base}/projects`, label: t("project", "other"), icon: FolderKanban },
     { href: `${base}/tasks`, label: t("task", "other"), icon: ListChecks },
     { href: `${base}/calendar`, label: t("section.calendar"), icon: CalendarDays },
     { href: `${base}/documents`, label: t("document", "other"), icon: FileText },
     { href: `${base}/discussions`, label: "Discussions", icon: MessageSquareText },
-    { href: `${base}/activity`, label: "Activity", icon: History },
     ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
-    ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
-    { href: `${base}/spending`, label: "Spending", icon: Receipt },
+    {
+      label: "Finances",
+      icon: Wallet,
+      items: [
+        ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
+        { href: `${base}/spending`, label: "Spending", icon: Receipt },
+      ],
+    },
     { href: `${base}/reports`, label: "Reports", icon: FileChartColumn },
   ];
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -211,13 +219,30 @@ function SidebarBody({
 
       <nav aria-label="Main" className="px-2">
         <ul className="flex flex-col gap-0.5">
-          {nav.map((item) => (
-            <li key={item.href}>
-              <NavLink href={item.href} label={item.label} active={isActive(item.href)} collapsed={collapsed}>
-                <item.icon aria-hidden className="size-5 shrink-0" />
-              </NavLink>
-            </li>
-          ))}
+          {nav.map((entry) =>
+            "items" in entry ? (
+              // the narrow rail has no room for a heading: its pages show as icons
+              collapsed ? (
+                entry.items.map((item) => (
+                  <li key={item.href}>
+                    <NavLink href={item.href} label={item.label} active={isActive(item.href)} collapsed>
+                      <item.icon aria-hidden className="size-5 shrink-0" />
+                    </NavLink>
+                  </li>
+                ))
+              ) : (
+                <li key={entry.label}>
+                  <NavGroup group={entry} isActive={isActive} />
+                </li>
+              )
+            ) : (
+              <li key={entry.href}>
+                <NavLink href={entry.href} label={entry.label} active={isActive(entry.href)} collapsed={collapsed}>
+                  <entry.icon aria-hidden className="size-5 shrink-0" />
+                </NavLink>
+              </li>
+            ),
+          )}
         </ul>
       </nav>
 
@@ -343,6 +368,60 @@ function SidebarBody({
         {logo ? <PoweredBy collapsed={collapsed} /> : null}
       </div>
     </div>
+  );
+}
+
+type NavItem = { href: string; label: string; icon: LucideIcon };
+type NavEntry = NavItem | { label: string; icon: LucideIcon; items: NavItem[] };
+
+/**
+ * A heading that opens and closes its pages (D110). It opens by itself on
+ * one of its pages, and shows the accent while one of them is current.
+ */
+function NavGroup({
+  group,
+  isActive,
+}: {
+  group: { label: string; icon: LucideIcon; items: NavItem[] };
+  isActive: (href: string) => boolean;
+}) {
+  const listId = useId();
+  const current = group.items.some((item) => isActive(item.href));
+  const [open, setOpen] = useState(current);
+  // arriving on one of its pages opens it
+  const [wasCurrent, setWasCurrent] = useState(current);
+  if (current !== wasCurrent) {
+    setWasCurrent(current);
+    if (current) setOpen(true);
+  }
+  const Icon = group.icon;
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen(!open)}
+        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-heading text-[0.95rem] font-semibold transition-colors hover:bg-rail-hover ${
+          current && !open ? "bg-rail-hover" : ""
+        }`}
+      >
+        <span className={`inline-flex ${current ? "text-rail-ink" : "text-rail-ink-muted"}`}>
+          <Icon aria-hidden className="size-5 shrink-0" />
+        </span>
+        <span className="min-w-0 flex-1 truncate">{group.label}</span>
+        <ChevronDown aria-hidden className={`size-4 shrink-0 text-rail-ink-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <ul id={listId} hidden={!open} className="mt-0.5 flex flex-col gap-0.5 pl-5">
+        {group.items.map((item) => (
+          <li key={item.href}>
+            <NavLink href={item.href} label={item.label} active={isActive(item.href)} collapsed={false}>
+              <item.icon aria-hidden className="size-5 shrink-0" />
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

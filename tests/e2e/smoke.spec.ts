@@ -140,7 +140,11 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  // filters sit behind one button (D110)
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await page.getByLabel("Status").selectOption("done");
+  await expect(page.getByRole("button", { name: "Filters, 1 on" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Filters on" })).toContainText("Status: Completed");
   const done = page.locator('section[data-column="done"]');
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // open the task and edit it on its own page
@@ -224,11 +228,12 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people, the organization, its branding, its finance
-  // link (D108), your own profile and your notifications; words aren't editable one by one
+  // settings are the preset, the people, the organization, its branding, your own
+  // profile and your notifications (no accounting link for now, D110); words aren't
+  // editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(7);
-  await expect(sections.getByRole("link", { name: "Finance" })).toHaveCount(1);
+  await expect(sections.getByRole("link")).toHaveCount(6);
+  await expect(sections.getByRole("link", { name: "Finance" })).toHaveCount(0);
   await expect(sections.getByRole("link", { name: "Notifications" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
@@ -803,6 +808,9 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
   await expect(page).toHaveURL(/dashboard$/);
+  // Funds sits under Finances in the sidebar (D110)
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "Finances" }).click();
   await page.getByRole("link", { name: "Funds", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Funds" })).toBeVisible();
   await expect(page.getByRole("table").getByRole("link", { name: "Fall community grant", exact: true })).toBeVisible();

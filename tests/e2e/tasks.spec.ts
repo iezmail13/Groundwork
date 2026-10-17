@@ -196,6 +196,7 @@ test("ticking a task done in the list hides it, and Undo brings it back", async 
 test("filtering and sorting by priority", async ({ browser }) => {
   const priya = await signIn(browser, "Priya Shah");
   await visit(priya, `${ORG}/tasks`);
+  await priya.getByRole("button", { name: /^Filters/ }).click();
   await priya.getByLabel("Priority", { exact: true }).selectOption({ label: "Critical" });
   await expect(priya).toHaveURL(/priority=critical/);
   await expect(priya.getByRole("link", { name: "Review volunteer police checks" })).toBeVisible();

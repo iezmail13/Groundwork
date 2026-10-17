@@ -18,10 +18,9 @@ import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
 import { grantableRoles } from "@/lib/roles";
 import { dateInZone, formatRelativeDate } from "@/lib/dates";
 import { siteOrigin } from "@/lib/urls";
-import { FinanceSettings } from "@/components/settings/finance-settings";
 import { getProjectOptions } from "@/lib/queries";
 
-const VIEWS = ["preset", "members", "organization", "branding", "finance", "profile", "notifications"] as const;
+const VIEWS = ["preset", "members", "organization", "branding", "profile", "notifications"] as const;
 type View = (typeof VIEWS)[number];
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/settings">): Promise<Metadata> {
@@ -47,7 +46,6 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           tab("members", t("member", "other")),
           tab("organization", "Organization"),
           tab("branding", "Branding"),
-          ...(canManage ? [tab("finance", "Finance")] : []),
           tab("profile", "Profile"),
           tab("notifications", "Notifications"),
         ]}
@@ -76,7 +74,6 @@ export default async function SettingsPage({ params, searchParams }: PageProps<"
           disabled={!canManage}
         /> : null}
       {view === "branding" ? <BrandingPanel orgSlug={orgSlug} /> : null}
-      {view === "finance" && canManage ? <FinancePanel orgSlug={orgSlug} /> : null}
       {view === "profile" ? <ProfilePanel orgSlug={orgSlug} /> : null}
       {view === "notifications" ? <NotificationsPanel orgSlug={orgSlug} /> : null}
     </div>
@@ -93,7 +90,7 @@ async function BrandingPanel({ orgSlug }: { orgSlug: string }) {
           Colour and artwork
         </h2>
         <p className="max-w-2xl text-ink-muted">
-          The accent colours buttons, links and the current page for everyone in {org.name}. Status colours (done, due soon,
+          The accent colours the sidebar, buttons, links and the current page for everyone in {org.name}. Status colours (done, due soon,
           overdue) stay the same everywhere, so they always mean the same thing.
         </p>
         <BrandingForm
@@ -354,20 +351,5 @@ async function MembersPanel({
         </>
       ) : null}
     </div>
-  );
-}
-
-/** Settings → Finance (D108): the accounting software link, for owners to set. */
-async function FinancePanel({ orgSlug }: { orgSlug: string }) {
-  const ctx = await getOrgContext(orgSlug);
-  const supabase = await createClient();
-  const { data } = await supabase.from("organizations").select("accounting_name, accounting_url").eq("id", ctx.org.id).maybeSingle();
-  return (
-    <FinanceSettings
-      organizationId={ctx.org.id}
-      name={data?.accounting_name ?? null}
-      url={data?.accounting_url ?? null}
-      canEdit={ctx.role === "owner"}
-    />
   );
 }

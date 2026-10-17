@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -19,7 +19,6 @@ import {
   TrendingDown,
   TriangleAlert,
   UserPlus,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -29,6 +28,7 @@ import {
   unreadCount,
 } from "@/app/[orgSlug]/notifications/actions";
 import type { NotificationItem, NotificationType } from "@/lib/notifications";
+import { TopBarPanel } from "@/components/shell/top-bar-panel";
 
 export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   assigned: UserPlus,
@@ -60,15 +60,10 @@ export const NOTIFICATION_TONE: Partial<Record<NotificationType, string>> = {
  * small ones), Mark all read, and a link to the full page.
  */
 export function NotificationBell({ orgSlug, initialUnread, onRail = false }: { orgSlug: string; initialUnread: number; onRail?: boolean }) {
-  const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(initialUnread);
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [loading, startLoading] = useTransition();
   const router = useRouter();
-  const panelId = useId();
-  const headingId = useId();
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(
     () =>
@@ -92,33 +87,6 @@ export function NotificationBell({ orgSlug, initialUnread, onRail = false }: { o
     return () => window.clearInterval(timer);
   }, [orgSlug]);
 
-  useEffect(() => {
-    if (!open) return;
-    panelRef.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    };
-    const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (!panelRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (next) refresh();
-  };
-
   const markAll = () =>
     startLoading(async () => {
       await markAllNotificationsRead({ orgSlug });
@@ -127,101 +95,66 @@ export function NotificationBell({ orgSlug, initialUnread, onRail = false }: { o
       router.refresh();
     });
 
-  const follow = async (n: NotificationItem) => {
+  const follow = async (n: NotificationItem, close: () => void) => {
     if (n.unread) {
       setUnread((c) => Math.max(0, c - 1));
       setItems((list) => list?.map((x) => (x.id === n.id ? { ...x, unread: false } : x)) ?? null);
       await markNotification({ id: n.id, read: true });
     }
-    setOpen(false);
+    close();
   };
 
-  const label = unread ? `Notifications, ${unread} unread` : "Notifications";
-
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-label={label}
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={toggle}
-        className={`relative inline-flex size-9 items-center justify-center rounded-md border border-transparent ${
-          onRail ? "hover:bg-rail-hover" : "text-ink hover:border-rule hover:bg-panel"
-        }`}
-      >
-        <Bell aria-hidden className="size-5" />
-        {unread > 0 ? (
+    <TopBarPanel
+      label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+      icon={<Bell aria-hidden className="size-5" />}
+      badge={
+        unread > 0 ? (
           <span
             aria-hidden
             className="absolute -top-1 -right-1 inline-flex min-w-5 items-center justify-center rounded-full border-2 border-canvas bg-bad px-1 font-heading text-[11px] leading-4 font-bold text-canvas"
           >
             {unread > 99 ? "99+" : unread}
           </span>
-        ) : null}
-      </button>
-
-      {open ? (
-        <div
-          ref={panelRef}
-          id={panelId}
-          role="dialog"
-          aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex flex-col bg-canvas text-ink min-[900px]:absolute min-[900px]:inset-auto min-[900px]:top-full min-[900px]:right-0 min-[900px]:mt-2 min-[900px]:max-h-[70vh] min-[900px]:w-[24rem] min-[900px]:rounded-lg min-[900px]:border min-[900px]:border-rule"
+        ) : null
+      }
+      heading="Notifications"
+      onOpen={refresh}
+      busy={loading}
+      onRail={onRail}
+      actions={
+        <button
+          type="button"
+          onClick={markAll}
+          disabled={loading || unread === 0}
+          className="inline-flex items-center gap-1 rounded px-2 py-1 font-heading text-sm font-semibold text-accent hover:underline disabled:text-ink-muted disabled:no-underline"
         >
-          <div className="flex items-center gap-2 border-b border-rule px-4 py-3">
-            <h2 id={headingId} tabIndex={-1} data-autofocus className="font-heading text-base font-bold focus:outline-none">
-              Notifications
-            </h2>
-            <button
-              type="button"
-              onClick={markAll}
-              disabled={loading || unread === 0}
-              className="ml-auto inline-flex items-center gap-1 rounded px-2 py-1 font-heading text-sm font-semibold text-accent hover:underline disabled:text-ink-muted disabled:no-underline"
-            >
-              <CheckCheck aria-hidden className="size-4" />
-              Mark all read
-            </button>
-            <button
-              type="button"
-              aria-label="Close notifications"
-              onClick={() => {
-                setOpen(false);
-                buttonRef.current?.focus();
-              }}
-              className="inline-flex size-8 items-center justify-center rounded hover:bg-panel"
-            >
-              <X aria-hidden className="size-4" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto" aria-busy={loading}>
-            {items === null ? (
-              <p className="px-4 py-6 text-sm text-ink-muted">Loading…</p>
-            ) : items.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-ink-muted">Nothing yet. You&apos;ll hear here when someone gives you work or something you care about changes.</p>
-            ) : (
-              <ul className="divide-y divide-rule">
-                {items.map((n) => (
-                  <li key={n.id}>
-                    <NotificationRow item={n} onFollow={() => follow(n)} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="border-t border-rule px-4 py-3">
-            <Link
-              href={`/${orgSlug}/notifications`}
-              onClick={() => setOpen(false)}
-              className="font-heading text-sm font-semibold text-accent hover:underline"
-            >
-              See all notifications
-            </Link>
-          </div>
-        </div>
-      ) : null}
-    </div>
+          <CheckCheck aria-hidden className="size-4" />
+          Mark all read
+        </button>
+      }
+      footer={(close) => (
+        <Link href={`/${orgSlug}/notifications`} onClick={close} className="font-heading text-sm font-semibold text-accent hover:underline">
+          See all notifications
+        </Link>
+      )}
+    >
+      {(close) =>
+        items === null ? (
+          <p className="px-4 py-6 text-sm text-ink-muted">Loading…</p>
+        ) : items.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-ink-muted">Nothing yet. You&apos;ll hear here when someone gives you work or something you care about changes.</p>
+        ) : (
+          <ul className="divide-y divide-rule">
+            {items.map((n) => (
+              <li key={n.id}>
+                <NotificationRow item={n} onFollow={() => follow(n, close)} />
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </TopBarPanel>
   );
 }
 

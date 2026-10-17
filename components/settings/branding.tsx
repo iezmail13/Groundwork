@@ -35,6 +35,7 @@ function tokenStyle(tokens: ThemeTokens): CSSProperties {
 
 /** A small piece of the app drawn with the chosen accent, in light and dark mode. */
 export function AccentPreview({ accent }: { accent: string }) {
+  const t = useT();
   const modes: Mode[] = ["light", "dark"];
   return (
     <div className="grid gap-3 sm:grid-cols-2" aria-label="Preview of the chosen colour" role="group">
@@ -42,25 +43,36 @@ export function AccentPreview({ accent }: { accent: string }) {
         <div
           key={mode}
           style={tokenStyle(deriveTokens(mode, accent))}
-          className="flex flex-col gap-3 rounded-lg border border-rule bg-canvas p-4 text-ink"
+          className="flex overflow-hidden rounded-lg border border-rule bg-canvas text-ink"
         >
-          <p className="flex items-center gap-1.5 font-heading text-xs font-bold tracking-wider text-ink-muted uppercase">
-            {mode === "light" ? <Sun aria-hidden className="size-3.5" /> : <Moon aria-hidden className="size-3.5" />}
-            {mode === "light" ? "Light mode" : "Dark mode"}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex h-9 items-center rounded-md bg-accent px-3 font-heading text-sm font-semibold text-on-accent">
-              Save
+          {/* the sidebar takes a chosen accent too (D110) */}
+          <div aria-hidden className="flex w-28 shrink-0 flex-col gap-1 bg-rail p-2 text-rail-ink">
+            <span className="flex items-center gap-1.5 rounded bg-rail-active px-2 py-1 font-heading text-xs font-semibold text-rail-active-ink">
+              <span className="size-2 rounded-full bg-accent" />
+              {t("section.dashboard")}
             </span>
-            <span className="text-sm font-semibold text-accent underline underline-offset-4">A link</span>
-            <span className="rounded-full border border-accent bg-accent-tint px-2 py-0.5 font-heading text-xs font-semibold text-accent">
-              Selected
-            </span>
+            <span className="px-2 py-1 font-heading text-xs font-semibold">{t("section.calendar")}</span>
+            <span className="px-2 py-1 text-xs text-rail-ink-muted">Reports</span>
           </div>
-          <div aria-hidden className="flex h-3 overflow-hidden rounded-sm border border-rule">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <span key={n} className="flex-1" style={{ background: `var(--chart-${n})` }} />
-            ))}
+          <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+            <p className="flex items-center gap-1.5 font-heading text-xs font-bold tracking-wider text-ink-muted uppercase">
+              {mode === "light" ? <Sun aria-hidden className="size-3.5" /> : <Moon aria-hidden className="size-3.5" />}
+              {mode === "light" ? "Light mode" : "Dark mode"}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex h-9 items-center rounded-md bg-accent px-3 font-heading text-sm font-semibold text-on-accent">
+                Save
+              </span>
+              <span className="text-sm font-semibold text-accent underline underline-offset-4">A link</span>
+              <span className="rounded-full border border-accent bg-accent-tint px-2 py-0.5 font-heading text-xs font-semibold text-accent">
+                Selected
+              </span>
+            </div>
+            <div aria-hidden className="flex h-3 overflow-hidden rounded-sm border border-rule">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <span key={n} className="flex-1" style={{ background: `var(--chart-${n})` }} />
+              ))}
+            </div>
           </div>
         </div>
       ))}

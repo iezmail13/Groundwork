@@ -115,6 +115,7 @@ test("the activity log filters by person, program, change and date", async ({ br
   await expect(jordan.getByRole("heading", { name: "Recent activity" })).toHaveCount(0);
 
   await visit(jordan, `${ORG}/activity`);
+  await jordan.getByRole("button", { name: /^Filters/ }).click();
   await jordan.getByLabel("Person").selectOption({ label: "Sofia Alvarez" });
   await jordan.getByRole("button", { name: "Apply" }).click();
   await expect(jordan).toHaveURL(/person=/);
@@ -131,6 +132,7 @@ test("the activity log filters by person, program, change and date", async ({ br
   await jordan.getByRole("checkbox", { name: new RegExp(`${finished}`) }).first().click();
   await expect(jordan.getByRole("status").filter({ hasText: `“${finished}” is done.` })).toBeVisible();
   await visit(jordan, `${ORG}/activity`);
+  await jordan.getByRole("button", { name: /^Filters/ }).click();
   await jordan.getByLabel("Person").selectOption({ label: "Jordan Ellis" });
   await jordan.getByLabel("Change").selectOption({ label: "Finished" });
   await jordan.getByRole("button", { name: "Apply" }).click();
@@ -139,6 +141,7 @@ test("the activity log filters by person, program, change and date", async ({ br
   expect(what.every((w) => w.startsWith("completed"))).toBe(true);
 
   await visit(jordan, `${ORG}/activity`);
+  await jordan.getByRole("button", { name: /^Filters/ }).click();
   await jordan.getByLabel("Program", { exact: true }).selectOption({ label: "Winter Coat Drive" });
   await jordan.getByRole("button", { name: "Apply" }).click();
   const where = await table.locator("tbody tr td:nth-child(4)").allInnerTexts();

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Download, FileText, Lock, Pin, PinOff, Search, SearchX, X } from "lucide-react";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -76,19 +77,22 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
           </label>
           <input id="doc-search" name="q" type="search" defaultValue={q} placeholder="e.g. consent, budget" className={`${inputClass} py-1.5`} />
         </div>
-        <div className="flex min-w-48 flex-1 flex-col gap-1">
-          <label htmlFor="doc-project-filter" className="font-heading text-xs font-semibold text-ink-muted">
-            {t("project")}
-          </label>
-          <select id="doc-project-filter" name="project" defaultValue={project} className={`${inputClass} py-1.5`}>
-            <option value="">All</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FilterMenu count={project ? 1 : 0}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="doc-project-filter" className="font-heading text-xs font-semibold text-ink-muted">
+              {t("project")}
+            </label>
+            <select id="doc-project-filter" name="project" defaultValue={project} className={`${inputClass} py-1.5`}>
+              <option value="">All</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SubmitButton size="md">Apply</SubmitButton>
+        </FilterMenu>
         {tag ? <input type="hidden" name="tag" value={tag} /> : null}
         <SubmitButton variant="secondary" size="md">
           <Search aria-hidden className="size-4" />

@@ -27,6 +27,12 @@ async function visit(page: Page, path: string) {
 
 const accentOf = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim().toUpperCase());
+// the sidebar's colour as drawn
+const railOf = (page: Page) =>
+  page.evaluate(() => {
+    const [r, g, b] = getComputedStyle(document.querySelector('aside[aria-label="Sidebar"]')!).backgroundColor.match(/\d+/g)!.map(Number);
+    return `#${[r, g, b].map((n) => n!.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+  });
 
 async function chooseAppearance(page: Page, option: "Light" | "Dark" | "Match my device") {
   await page.getByRole("button", { name: /^Appearance:/ }).click();
@@ -90,9 +96,16 @@ test("an org accent applies to every member, and a personal accent overrides it 
   await restore();
   try {
     expect(await accentOf(staff)).toBe("#0006BF");
+    // the default accent keeps the navy sidebar
+    expect(await railOf(staff)).toBe("#163260");
 
     await saveBranding(manager, "Teal");
     expect(await accentOf(manager)).toBe(teal);
+    // a chosen accent colours the sidebar too, with its own deep version for dark mode (D110)
+    expect(await railOf(manager)).toBe(deriveTokens("light", "#0F766E").rail);
+    const sheets = await manager.evaluate(() => Array.from(document.querySelectorAll("style"), (el) => el.textContent ?? "").join("\n"));
+    expect(sheets).toContain(`:root[data-theme="dark"]{`);
+    expect(sheets).toContain(`--rail:${deriveTokens("dark", "#0F766E").rail};`);
     await visit(staff, `${ORG}/dashboard`);
     expect(await accentOf(staff)).toBe(teal);
     // the Branding tab is read-only for staff

@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 /**
  * The bar across the top of the work area on wide screens. Its right side
- * holds the viewer's controls (the theme toggle now; notifications and chat
- * join it later), and anything passed as `notice` sits full-width beneath,
+ * holds the viewer's controls (chat, activity, notifications and the theme
+ * toggle), and anything passed as `notice` sits full-width beneath,
  * like the scheduled-maintenance banner. Small screens show the same
  * controls in the sidebar's top bar instead.
  */
