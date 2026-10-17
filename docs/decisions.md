@@ -531,3 +531,31 @@ The owner asked for "workflows to manage work on a visual board through sequenti
   - Moves are announced, and refused moves explain why.
 - **Notifications.** A card moving between open steps tells the task's people, through D106's "task changed" (once until read).
 - **Tests.** pgTAP `25_workflows` (33 tests) and e2e `workflows.spec.ts` (4 tests).
+
+## D108. Finance: spending against budgets, with approval (Part 10)
+
+Tracking, not accounting (D82, D91): no bank feeds, tax, payroll, invoices, double-entry or sync. "Your official books stay in your accounting software. This page tracks budgets and grant spending."
+
+- **Placement.** A new **Spending** page (sidebar, for everyone), beside Funds. Funds stays for owners and managers and now opens with **Budget against actual**. Each fund's page lists its spending.
+- **Budgets build on funds.** A fund's total is its budget. A new optional **spend-by date** marks time-limited money. The programs it pays for are the fund's own program plus its allocations' programs (`fund_pays_for`).
+- **Spending entries.**
+  - Each entry has an amount in whole cents, a category (suggestions offered, free text allowed), the date it was spent, a note and an optional receipt (photo or PDF, up to 10 MB). It's recorded against a fund and a program.
+  - Each entry records who submitted it, its status (waiting, approved or rejected), who decided, when, and an optional note.
+- **Who sees and does what.**
+  - Anyone on a program can submit spending for it, against a fund that pays for it. They see the fund names they can choose from (`spendable_funds`) and only their own entries, never budgets, totals or anyone else's spending.
+  - People correct or withdraw their own entry while it waits; a decided entry is fixed.
+  - Owners and managers see every entry and decide through `decide_spending()`. Nobody decides on their own entry, and the approver must rank above the submitter. Owners, whom nobody outranks, are decided by another owner.
+  - Only approved spending counts as spent.
+- **Receipts.** A private `receipts` bucket at `{org}/{uploader}/{uuid}.{ext}`. People upload into their own folder. The uploader and owners and managers can read, through short-lived signed links.
+- **Budget against actual** (`lib/budget.ts`, unit-tested). It has fixed status colours, always with a word and an icon:
+  - **On pace**: green.
+  - **Near the limit**: amber, at 85% spent.
+  - **Deadline soon**: amber, within 30 days of spend-by with a little left.
+  - **Over budget**: red.
+  - **At risk of going unspent**: red, within 30 days of spend-by (or past it) with more than a quarter left.
+  
+  Approved spending fills the bar; waiting spending is hatched after it. It shows on Funds, on each fund's page and in the dashboard's Funding widget.
+- **CSV export.** Approved entries for one fund and date range, with a total. Owners and managers only, and formula-safe like the attendance export.
+- **Bookkeeping work** stays ordinary work. Tasks gain an optional **link** (http or https, up to 500 characters), shown as "Open the link for this work".
+- **Settings → Finance** (owners and managers see it; only owners change it, enforced by a database guard). Pick QuickBooks, Xero, Wave, Sage or Other and an https link. Owners and managers then get an "Open …" button on the Spending page. It's a plain link: no OAuth, credentials or API calls.
+- **Tests.** pgTAP `26_spending` (38 tests: isolation, staff seeing only their own, self-approval refused, rank checks, receipts, the owner-only link). e2e `finance.spec.ts` (3 tests). Unit tests for budget status.

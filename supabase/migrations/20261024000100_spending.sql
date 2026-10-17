@@ -94,7 +94,8 @@ as $$
   select exists (select 1 from public.funds f where f.id = fund and f.project_id = project)
     or exists (select 1 from public.fund_allocations a where a.fund_id = fund and a.project_id = project);
 $$;
-revoke execute on function public.fund_pays_for(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.fund_pays_for(uuid, uuid) from public, anon;
+grant execute on function public.fund_pays_for(uuid, uuid) to authenticated;
 
 -- The funds someone on a program can spend against: names only, never amounts.
 create function public.spendable_funds(project uuid)
@@ -202,7 +203,7 @@ begin
   if e.submitted_by = auth.uid() then
     raise exception 'Nobody approves their own spending' using errcode = '42501', hint = 'own_entry';
   end if;
-  if char_length(coalesce(note, '')) > 500 then
+  if char_length(coalesce(decide_spending.note, '')) > 500 then
     raise exception 'Keep the note under 500 characters' using errcode = '22023';
   end if;
   select public.role_rank(m.role) into my_rank from public.memberships m where m.organization_id = e.organization_id and m.user_id = auth.uid();
@@ -212,7 +213,7 @@ begin
     raise exception 'Only someone ranked above them can decide on this' using errcode = '42501', hint = 'rank';
   end if;
   update public.spending_entries s
-  set status = result, decided_by = auth.uid(), decided_at = now(), decision_note = nullif(btrim(note), '')
+  set status = result, decided_by = auth.uid(), decided_at = now(), decision_note = nullif(btrim(decide_spending.note), '')
   where s.id = entry;
   return result;
 end;

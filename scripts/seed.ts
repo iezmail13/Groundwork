@@ -604,7 +604,7 @@ async function main() {
       .insert([
         { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 32000, category: "Venue", spent_on: day(-9), note: "Church hall for sorting day", submitted_by: marcus, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
         { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 18650, category: "Printing", spent_on: day(-6), note: "Flyers and bin signs", submitted_by: sofia, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
-        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 5420, category: "Transport", spent_on: day(-2), note: "Gas for the van run", submitted_by: sofia },
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 5420, category: "Transport", spent_on: day(-2), note: "Gas for the van run", submitted_by: sofia, status: "pending", decided_by: null, decided_at: null },
       ])
       .select("id"),
     "spending",

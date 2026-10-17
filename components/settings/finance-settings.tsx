@@ -5,8 +5,11 @@ import { Field, Input, inputClass } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { idle } from "@/lib/action-state";
+import { keepValues } from "@/lib/forms";
 import { saveAccountingLink } from "@/app/[orgSlug]/settings/finance-actions";
 import { ACCOUNTING_NAMES } from "@/lib/budget";
+import { useT } from "@/lib/terminology/context";
+import { lower } from "@/lib/terminology/t";
 
 /** Settings → Finance (D108): the link to the accounting software, for owners. */
 export function FinanceSettings({
@@ -20,12 +23,13 @@ export function FinanceSettings({
   url: string | null;
   canEdit: boolean;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState(saveAccountingLink, idle);
   return (
-    <form action={action} className="flex max-w-xl flex-col gap-4">
+    <form action={action} onSubmit={keepValues(action)} className="flex max-w-xl flex-col gap-4">
       <p className="text-sm text-ink-muted">
-        Your official books stay in your accounting software. Add a link to it here and owners and managers get an &quot;Open&quot; button on the
-        Spending page. It&apos;s only a link: Groundwork never signs in to it or reads from it.
+        Your official books stay in your accounting software. Add a link to it here and the people who approve spending get an
+        &quot;Open&quot; button on the Spending page. It&apos;s only a link: Groundwork never signs in to it or reads from it.
       </p>
       <input type="hidden" name="organizationId" value={organizationId} />
       <fieldset disabled={!canEdit} className="flex flex-col gap-4">
@@ -49,7 +53,7 @@ export function FinanceSettings({
           Save
         </SubmitButton>
       ) : (
-        <p className="text-sm text-ink-muted">Only owners change this link.</p>
+        <p className="text-sm text-ink-muted">Only {lower(t("role.owner", "other"))} change this link.</p>
       )}
     </form>
   );

@@ -8,6 +8,8 @@ import { FundButton } from "@/components/funds/fund-forms";
 import { SplitBar } from "@/components/funds/split-bar";
 import { getOrgContext } from "@/lib/org";
 import { allocatedCents, getFunds } from "@/lib/funds";
+import { getBudgets } from "@/lib/spending";
+import { BudgetBars } from "@/components/spending/budget-bars";
 import { getProjectOptions } from "@/lib/queries";
 import { canManageOrg } from "@/lib/roles";
 import { formatMoney, formatShare } from "@/lib/money";
@@ -24,7 +26,7 @@ export default async function FundsPage({ params }: PageProps<"/[orgSlug]/funds"
   // owners and managers only (RLS returns nothing to anyone else)
   if (!canManageOrg(ctx.role)) notFound();
   const { t, org, base } = ctx;
-  const [funds, projects] = await Promise.all([getFunds(org.id), getProjectOptions(org.id)]);
+  const [funds, projects, budgets] = await Promise.all([getFunds(org.id), getProjectOptions(org.id), getBudgets(ctx)]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,6 +41,16 @@ export default async function FundsPage({ params }: PageProps<"/[orgSlug]/funds"
           of it, to the {lower(t("project"))} it supports.
         </EmptyState>
       ) : (
+        <>
+        <section aria-labelledby="budget-actual" className="flex flex-col gap-3">
+          <h2 id="budget-actual" className="font-heading text-xl font-bold">
+            Budget against actual
+          </h2>
+          <BudgetBars budgets={budgets} base={base} caption="Approved spending against each fund's total" />
+          <Link href={`${base}/spending`} className="self-start text-sm font-semibold text-accent hover:underline">
+            See and approve spending
+          </Link>
+        </section>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left">
             <caption className="sr-only">Funds and how much of each is allocated</caption>
@@ -96,6 +108,7 @@ export default async function FundsPage({ params }: PageProps<"/[orgSlug]/funds"
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

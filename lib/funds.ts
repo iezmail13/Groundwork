@@ -20,13 +20,15 @@ export type Fund = {
   total_cents: number;
   currency: string;
   project_id: string | null;
+  /** When time-limited money must be spent by (D108). */
+  spend_by: string | null;
   created_at: string;
   project: { id: string; name: string } | null;
   allocations: Allocation[];
 };
 
 const FUND_SELECT =
-  "id, name, description, total_cents, currency, project_id, created_at, project:projects(id, name), allocations:fund_allocations(id, label, amount_cents, project_id, position, project:projects(id, name))";
+  "id, name, description, total_cents, currency, project_id, spend_by, created_at, project:projects(id, name), allocations:fund_allocations(id, label, amount_cents, project_id, position, project:projects(id, name))";
 
 function tidy(fund: Fund): Fund {
   return { ...fund, allocations: [...fund.allocations].sort((a, b) => a.position - b.position) };

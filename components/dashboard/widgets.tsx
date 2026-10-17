@@ -6,6 +6,8 @@ import { formatMoney, formatShare } from "@/lib/money";
 import type { Translate } from "@/lib/terminology/t";
 import { lower } from "@/lib/terminology/t";
 import type { DashboardModel, Detail, ProjectDashboardModel } from "@/lib/dashboard-data";
+import type { BudgetStatus } from "@/lib/budget";
+import { BudgetBadge } from "@/components/spending/budget-bars";
 import { DueBadge, TaskStatusBadge } from "@/components/tasks/badges";
 
 // Dashboard widgets (D105): read-only summaries, rendered on the server from
@@ -18,6 +20,9 @@ export type FundSummary = {
   currency: string;
   totalCents: number;
   parts: { key: string; label: string; cents: number }[];
+  /** Approved spending, and how it stands against the total (D108). */
+  spentCents: number;
+  status: BudgetStatus;
 };
 
 function Empty({ children }: { children: React.ReactNode }) {
@@ -225,6 +230,12 @@ export function FundingWidget({ funds, base }: { funds: FundSummary[]; base: str
                 </span>
               </p>
               <SplitBar size="sm" legend={false} caption={f.name} currency={f.currency} totalCents={f.totalCents} parts={f.parts} />
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                <span>
+                  <span className="font-heading font-bold tabular-nums">{formatMoney(f.spentCents, f.currency, true)}</span> spent
+                </span>
+                <BudgetBadge status={f.status} />
+              </p>
             </li>
           );
         })}

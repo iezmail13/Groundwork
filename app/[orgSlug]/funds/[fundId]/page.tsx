@@ -13,6 +13,9 @@ import { canManageOrg } from "@/lib/roles";
 import { formatMoney, formatShare } from "@/lib/money";
 import { lower } from "@/lib/terminology/t";
 import { deleteAllocation } from "../actions";
+import { getBudgets, getSpending } from "@/lib/spending";
+import { BudgetBars } from "@/components/spending/budget-bars";
+import { getMembers } from "@/lib/org";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -33,7 +36,14 @@ export default async function FundPage({ params }: PageProps<"/[orgSlug]/funds/[
   const { ctx, fund } = await load(orgSlug, fundId);
   if (!fund) notFound();
   const { t, org, base } = ctx;
-  const projects = await getProjectOptions(org.id);
+  const [projects, budgets, spending, members] = await Promise.all([
+    getProjectOptions(org.id),
+    getBudgets(ctx),
+    getSpending(ctx, { fundId: fund.id, limit: 50 }),
+    getMembers(org.id),
+  ]);
+  const budget = budgets.filter((b) => b.id === fund.id);
+  const nameOf = new Map(members.map((m) => [m.userId, m.name]));
   // a linked project that has since been archived still shows as the current choice
   const projectChoices = [
     ...projects,
@@ -145,6 +155,45 @@ export default async function FundPage({ params }: PageProps<"/[orgSlug]/funds/[
         <p className="text-sm text-ink-muted">
           Link a part to a {lower(t("project"))} and it shows on that {lower(t("project"))}&apos;s page.
         </p>
+      </section>
+
+      <section aria-labelledby="fund-spending" className="flex flex-col gap-3">
+        <h2 id="fund-spending" className="font-heading text-xl font-bold">
+          Spending
+        </h2>
+        <BudgetBars budgets={budget} base={base} caption={`Approved spending against ${fund.name}'s total`} />
+        {spending.length === 0 ? (
+          <p className="text-sm text-ink-muted">Nothing spent against this fund yet.</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Latest spending against {fund.name}</caption>
+            <thead>
+              <tr className="border-b border-ink font-heading">
+                <th scope="col" className="py-2 pr-3">Date</th>
+                <th scope="col" className="py-2 pr-3">What</th>
+                <th scope="col" className="py-2 pr-3">{t("project")}</th>
+                <th scope="col" className="py-2 pr-3">Submitted by</th>
+                <th scope="col" className="py-2 pr-3 text-right">Amount</th>
+                <th scope="col" className="py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spending.map((e) => (
+                <tr key={e.id} className="border-b border-rule">
+                  <td className="py-2 pr-3 tabular-nums">{e.spentOn}</td>
+                  <td className="py-2 pr-3">{e.category}</td>
+                  <td className="py-2 pr-3">{e.projectName ?? ""}</td>
+                  <td className="py-2 pr-3">{nameOf.get(e.submittedBy ?? "") ?? "Someone who left"}</td>
+                  <td className="py-2 pr-3 text-right font-heading font-bold tabular-nums">{money(e.amountCents)}</td>
+                  <td className="py-2">{{ pending: "Waiting", approved: "Approved", rejected: "Rejected" }[e.status]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <Link href={`${base}/spending?fund=${fund.id}`} className="self-start text-sm font-semibold text-accent hover:underline">
+          Review and approve on the Spending page
+        </Link>
       </section>
     </div>
   );

@@ -128,6 +128,14 @@ export function TaskForm({
             defaultValue={task?.description ?? ""}
           />
         </Field>
+        <Field
+          label="Link (optional)"
+          htmlFor={`task-link-${id}`}
+          hint="A page this work needs, like your accounting software for a bookkeeping task."
+          error={e.linkUrl}
+        >
+          <Input id={`task-link-${id}`} name="linkUrl" type="url" maxLength={500} placeholder="https://" defaultValue={task?.link_url ?? ""} />
+        </Field>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 font-heading text-sm font-semibold">

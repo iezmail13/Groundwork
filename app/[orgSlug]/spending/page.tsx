@@ -11,6 +11,7 @@ import { canManageOrg, rankOf } from "@/lib/roles";
 import { formatMoney } from "@/lib/money";
 import { addDays } from "@/lib/dates";
 import { inputClass } from "@/components/ui/field";
+import { lower } from "@/lib/terminology/t";
 
 export const metadata: Metadata = { title: "Spending" };
 
@@ -72,7 +73,7 @@ export default async function SpendingPage({ params, searchParams }: PageProps<"
         description={
           manager
             ? "Your official books stay in your accounting software. This page tracks budgets and grant spending."
-            : `Submit what you spent for a ${program.toLowerCase()}. Owners and managers approve it.`
+            : `Submit what you spent for a ${program.toLowerCase()}. ${t("role.owner", "other")} and ${lower(t("role.manager", "other"))} approve it.`
         }
         actions={
           manager && orgRow?.accounting_url ? (

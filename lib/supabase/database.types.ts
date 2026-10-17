@@ -377,14 +377,14 @@ isOneToOne: false
                   ]
                 },"funds": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"currency": string,"description": string | null,"id": string,"name": string,"organization_id": string,"project_id": string | null,"total_cents": number,"updated_at": string
+                    "created_at": string,"created_by": string | null,"currency": string,"description": string | null,"id": string,"name": string,"organization_id": string,"project_id": string | null,"spend_by": string | null,"total_cents": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id"?: string | null,"total_cents": number,"updated_at"?: string
+                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id"?: string | null,"spend_by"?: string | null,"total_cents": number,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string | null,"total_cents"?: number,"updated_at"?: string
+                    "created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string | null,"spend_by"?: string | null,"total_cents"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -563,14 +563,14 @@ isOneToOne: false
                   ]
                 },"organizations": {
                   Row: {
-                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"high_attendance_percent": number,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "accent": string | null,"accounting_name": string | null,"accounting_url": string | null,"allow_personal_accent": boolean,"created_at": string,"high_attendance_percent": number,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Update: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -833,6 +833,50 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"spending_entries": {
+                  Row: {
+                    "amount_cents": number,"category": string,"created_at": string,"decided_at": string | null,"decided_by": string | null,"decision_note": string | null,"fund_id": string,"id": string,"note": string | null,"organization_id": string,"project_id": string,"receipt_path": string | null,"spent_on": string,"status": Database["public"]['Enums']["spending_status"],"submitted_by": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_cents": number,"category": string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"fund_id": string,"id"?: string,"note"?: string | null,"organization_id": string,"project_id": string,"receipt_path"?: string | null,"spent_on": string,"status"?: Database["public"]['Enums']["spending_status"],"submitted_by"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount_cents"?: number,"category"?: string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"fund_id"?: string,"id"?: string,"note"?: string | null,"organization_id"?: string,"project_id"?: string,"receipt_path"?: string | null,"spent_on"?: string,"status"?: Database["public"]['Enums']["spending_status"],"submitted_by"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "spending_entries_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "spending_entries_fund_id_organization_id_fkey"
+      columns: ["fund_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "funds"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "spending_entries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "spending_entries_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "spending_entries_submitted_by_fkey"
+      columns: ["submitted_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"task_assignees": {
                   Row: {
                     "added_by": string | null,"created_at": string,"done_at": string | null,"id": string,"invitation_id": string | null,"kind": Database["public"]['Enums']["task_assignee_kind"],"membership_id": string | null,"organization_id": string,"task_id": string
@@ -949,14 +993,14 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "claim_limit": number | null,"completed_at": string | null,"completion": Database["public"]['Enums']["task_completion"],"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"hidden": boolean,"id": string,"kind": Database["public"]['Enums']["task_kind"],"needs_assignee": boolean,"organization_id": string,"position": number,"priority": Database["public"]['Enums']["task_priority"],"project_id": string | null,"status": Database["public"]['Enums']["task_status"],"step_id": string | null,"title": string,"updated_at": string
+                    "claim_limit": number | null,"completed_at": string | null,"completion": Database["public"]['Enums']["task_completion"],"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"due_date": string | null,"hidden": boolean,"id": string,"kind": Database["public"]['Enums']["task_kind"],"link_url": string | null,"needs_assignee": boolean,"organization_id": string,"position": number,"priority": Database["public"]['Enums']["task_priority"],"project_id": string | null,"status": Database["public"]['Enums']["task_status"],"step_id": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title": string,"updated_at"?: string
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"link_url"?: string | null,"needs_assignee"?: boolean,"organization_id": string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title"?: string,"updated_at"?: string
+                    "claim_limit"?: number | null,"completed_at"?: string | null,"completion"?: Database["public"]['Enums']["task_completion"],"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"due_date"?: string | null,"hidden"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["task_kind"],"link_url"?: string | null,"needs_assignee"?: boolean,"organization_id"?: string,"position"?: number,"priority"?: Database["public"]['Enums']["task_priority"],"project_id"?: string | null,"status"?: Database["public"]['Enums']["task_status"],"step_id"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1078,6 +1122,9 @@ isOneToOne: false
 "can_read_participant_object":
 { Args: { "object_name": string,"object_owner": string,"purpose": string }; Returns: boolean
                            },
+"can_read_receipt":
+{ Args: { "name": string }; Returns: boolean
+                           },
 "can_record_attendance":
 { Args: { "event_id": string,"participant_id": string }; Returns: boolean
                            },
@@ -1128,6 +1175,8 @@ isOneToOne: false
 "create_organization":
 { Args: { "name": string,"preset_key": string }; Returns: {
               "accent": string | null,
+"accounting_name": string | null,
+"accounting_url": string | null,
 "allow_personal_accent": boolean,
 "created_at": string,
 "high_attendance_percent": number,
@@ -1148,6 +1197,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"decide_spending":
+{ Args: { "approve": boolean,"entry": string,"note"?: string }; Returns: Database["public"]['Enums']["spending_status"]
+                           },
 "decline_invitation":
 { Args: { "token": string }; Returns: undefined
                            },
@@ -1158,6 +1210,14 @@ isOneToOne: false
                            },
 "first_step":
 { Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string
+                           },
+"fund_pays_for":
+{ Args: { "fund": string,"project": string }; Returns: boolean
+                           },
+"fund_spending":
+{ Args: { "org": string }; Returns: {
+              "approved_cents": number,"fund_id": string,"last_spent_on": string,"pending_cents": number
+            }[]
                            },
 "get_invitation":
 { Args: { "token": string }; Returns: {
@@ -1207,6 +1267,11 @@ isOneToOne: false
 "my_project_ranks":
 { Args: { "org_id": string }; Returns: {
               "project_id": string,"rank": number
+            }[]
+                           },
+"my_projects_with_funds":
+{ Args: { "org": string }; Returns: {
+              "id": string,"name": string
             }[]
                            },
 "my_rank":
@@ -1299,6 +1364,11 @@ isOneToOne: false
 "slugify":
 { Args: { "value": string }; Returns: string
                            },
+"spendable_funds":
+{ Args: { "project": string }; Returns: {
+              "currency": string,"id": string,"name": string
+            }[]
+                           },
 "storage_org_id":
 { Args: { "object_name": string }; Returns: string
                            },
@@ -1336,7 +1406,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","step_kind": "open"|"done","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","spending_status": "pending"|"approved"|"rejected","step_kind": "open"|"done","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1456,7 +1526,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"step_kind": ["open", "done"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"spending_status": ["pending", "approved", "rejected"],"step_kind": ["open", "done"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const

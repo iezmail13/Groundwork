@@ -33,7 +33,7 @@ export async function saveAccountingLink(_prev: ActionState, formData: FormData)
     .update({ accounting_name: accountingName || null, accounting_url: accountingUrl || null })
     .eq("id", organizationId)
     .select("id");
-  if (error || !data?.length) return failure(error?.code === "42501" ? "Only owners set this link." : "Couldn't save. Try again.");
+  if (error || !data?.length) return failure(error?.code === "42501" ? "Only the organization's top role can set this link." : "Couldn't save. Try again.");
   revalidatePath("/[orgSlug]", "layout");
   return success("Saved.");
 }

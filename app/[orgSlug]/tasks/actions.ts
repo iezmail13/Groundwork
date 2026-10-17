@@ -63,6 +63,7 @@ export async function saveTask(_prev: ActionState, formData: FormData): Promise<
     project_id: d.projectId ?? null,
     title: d.title,
     description: d.description ?? null,
+    link_url: d.linkUrl || null,
     kind: d.kind,
     priority: d.priority,
     hidden: d.hidden,

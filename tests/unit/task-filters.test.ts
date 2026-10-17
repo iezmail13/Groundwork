@@ -28,6 +28,7 @@ function task(id: string, patch: Partial<TaskRow>): TaskRow {
     needs_assignee: false,
     completed_at: null,
     step_id: null,
+    link_url: null,
     created_by: null,
     created_by_role: null,
     project: { id: P1, name: "Alpha", color: null, status: "active" },

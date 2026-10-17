@@ -99,7 +99,7 @@ export async function submitSpending(_prev: ActionState, formData: FormData): Pr
   });
   if (error) {
     if (receipt) await supabase.storage.from(BUCKET).remove([receipt]);
-    return failure("Couldn't submit that. Check that the fund pays for that program and that you're still on it.");
+    return failure("Couldn't submit that. Check that the fund pays for that work and that you can still see it.");
   }
   revalidate();
   return success("Submitted. It's waiting for approval.");
@@ -120,7 +120,7 @@ export async function withdrawSpending(input: { entryId: string }): Promise<{ ok
 const DECISION_MESSAGES: Record<string, string> = {
   own_entry: "Nobody approves their own spending.",
   rank: "Only someone ranked above them can decide on this.",
-  not_approver: "Only owners and managers approve spending.",
+  not_approver: "Only the people who approve spending can do that.",
 };
 
 export async function decideSpending(input: { entryId: string; approve: boolean; note?: string }): Promise<{ ok: true } | { ok: false; message: string }> {

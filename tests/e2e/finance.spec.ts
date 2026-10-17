@@ -78,7 +78,7 @@ test("a manager sees budgets and decides, but never on their own spending", asyn
   await priya.getByLabel("Note (optional)").fill("Juice boxes");
   await priya.getByRole("button", { name: "Submit for approval" }).click();
   await expect(priya.getByText("Submitted. It's waiting for approval.")).toBeVisible();
-  await expect(priya.getByRole("table", { name: "Spending waiting for your decision" })).toHaveCount(0);
+  await expect(priya.getByRole("table", { name: "Spending waiting for your decision" }).getByText("Juice boxes")).toHaveCount(0);
 
   // Jordan, who outranks her, decides it
   const jordan = await signIn(browser, "Jordan Ellis");

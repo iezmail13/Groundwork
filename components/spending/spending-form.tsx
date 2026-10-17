@@ -7,6 +7,7 @@ import { Field, Input, Textarea, inputClass } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { idle } from "@/lib/action-state";
+import { keepValues } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/client";
 import { decideSpending, fundsFor, receiptLink, requestReceiptUpload, submitSpending, withdrawSpending } from "@/app/[orgSlug]/spending/actions";
 
@@ -78,7 +79,7 @@ export function SpendingForm({
   }
 
   return (
-    <form ref={formRef} action={action} className="grid gap-4 md:grid-cols-2">
+    <form ref={formRef} action={action} onSubmit={keepValues(action)} className="grid gap-4 md:grid-cols-2">
       <input type="hidden" name="orgSlug" value={orgSlug} />
       <input type="hidden" name="receiptPath" value={receipt?.path ?? ""} />
       <Field label={programLabel} htmlFor="spend-project" error={state.fieldErrors?.projectId}>
@@ -94,7 +95,7 @@ export function SpendingForm({
         label="Fund"
         htmlFor="spend-fund"
         error={state.fieldErrors?.fundId}
-        hint={funds && funds.length === 0 ? "No fund pays for this yet. Ask an owner or manager to link one." : undefined}
+        hint={funds && funds.length === 0 ? "No fund pays for this yet. Ask whoever runs your funds to link one." : undefined}
       >
         <select id="spend-fund" name="fundId" required className={inputClass} disabled={!funds || funds.length === 0}>
           {(funds ?? []).map((f) => (
