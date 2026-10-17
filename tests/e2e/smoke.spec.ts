@@ -805,7 +805,7 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await expect(page).toHaveURL(/dashboard$/);
   await page.getByRole("link", { name: "Funds", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Funds" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Fall community grant" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("link", { name: "Fall community grant", exact: true })).toBeVisible();
 
   // a new fund for a program, split in two
   await page.getByRole("button", { name: "New fund" }).click();
