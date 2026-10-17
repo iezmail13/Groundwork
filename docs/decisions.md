@@ -610,3 +610,13 @@ After using Parts 8–11, the owner asked for five changes to the shell.
 - **No accounting software link for now.** The Settings → Finance section and the "Open QuickBooks/Xero…" button on Spending are removed.
   - The `organizations.accounting_name` and `accounting_url` columns and their owner-only guard (D108) stay in the database, unused. Dropping them would delete what an owner may already have saved in production, and the owner may want the link back later.
   - Their pgTAP tests still hold.
+
+## D111. Programs open to list each program in the sidebar
+
+The owner asked that, when there are several programs, the sidebar's Programs item become a heading that opens to list them, like Finances (D110).
+
+- With two or more active programs the viewer can see, "Programs" (or the org's word for them) is a heading that opens and closes. It lists "All programs" (the overview page) and then each active program, A to Z. With none or one, it stays a plain link to the overview.
+- The list comes from the same query as every other program picker (`getProjectOptions`), so RLS keeps it to the programs the viewer can see. Archived programs aren't listed; they stay on the overview's Archived tab.
+- It opens by itself on the overview or on a program's page, and marks the current one. The overview link matches only its own page, not the programs under it. On the narrow (collapsed) sidebar it is the Programs icon, linking to the overview.
+- The separate "Recent programs" list under the menu is gone: it would have repeated the same names just above it. The `recent_projects` database function stays, unused by the sidebar.
+- The menu area scrolls when the list is long.

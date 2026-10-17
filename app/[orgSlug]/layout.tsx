@@ -8,6 +8,7 @@ import { getOrgContext, initials, requireUser } from "@/lib/org";
 import { getAttendancePrograms } from "@/lib/participants";
 import { getMaintenance } from "@/lib/maintenance-request";
 import { ScheduledMaintenanceBanner } from "@/components/maintenance/notices";
+import { getProjectOptions } from "@/lib/queries";
 import { TopBar } from "@/components/shell/top-bar";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { getBranding } from "@/lib/branding";
@@ -33,14 +34,15 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
   // work due tomorrow or overdue becomes a notification when they next open the app (D103)
   await queueDueNotifications(ctx.org.id, ctx.today);
 
-  const [{ data: memberships }, { data: profile }, { data: recent }, cookieStore, attendancePrograms, maintenance, branding] = await Promise.all([
+  const [{ data: memberships }, { data: profile }, programs, cookieStore, attendancePrograms, maintenance, branding] = await Promise.all([
     supabase
       .from("memberships")
       .select("organization:organizations(name, slug)")
       .eq("user_id", ctx.userId)
       .order("created_at"),
     supabase.from("profiles").select("full_name, email, presence_mode").eq("id", ctx.userId).maybeSingle(),
-    supabase.rpc("recent_projects", { org_id: ctx.org.id, max_rows: 5 }),
+    // the active programs the viewer can see (RLS), for the sidebar
+    getProjectOptions(ctx.org.id),
     cookies(),
     getAttendancePrograms(ctx.org.id),
     getMaintenance(),
@@ -92,7 +94,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             }
             orgs={orgs}
             user={{ name, email: profile?.email ?? ctx.userEmail, initials: initials(name) }}
-            recent={(recent ?? []).map((p) => ({ id: p.id, name: p.name }))}
+            programs={programs}
             showAttendance={attendancePrograms.length > 0 || rankOf(ctx.role) >= rankOf("manager")}
             showFunds={canManageOrg(ctx.role)}
             initialCollapsed={cookieStore.get("sidebar")?.value === "collapsed"}

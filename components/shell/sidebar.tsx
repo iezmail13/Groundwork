@@ -30,11 +30,12 @@ import {
 import { Logo, Wordmark } from "@/components/logo";
 import { Menu, menuItemClass } from "@/components/ui/menu";
 import { useT } from "@/lib/terminology/context";
+import { lower } from "@/lib/terminology/t";
 
 export type ShellOrg = { name: string; slug: string };
 /** An organization's uploaded logo (D86): signed links to it and its optional dark-mode version. */
 export type OrgLogo = { url: string; darkUrl: string | null };
-export type RecentProject = { id: string; name: string };
+export type SidebarProgram = { id: string; name: string };
 
 type Props = {
   org: ShellOrg;
@@ -43,7 +44,8 @@ type Props = {
   mobileActions: ReactNode;
   orgs: ShellOrg[];
   user: { name: string; email: string; initials: string };
-  recent: RecentProject[];
+  /** The active programs the viewer can see, A to Z. */
+  programs: SidebarProgram[];
   /** The viewer manages a participant roster somewhere (or could, as owner or manager). */
   showAttendance: boolean;
   /** Owners and managers see Funds. */
@@ -158,7 +160,7 @@ function SidebarBody({
   logo,
   orgs,
   user,
-  recent,
+  programs,
   showAttendance,
   showFunds,
   collapsed,
@@ -171,7 +173,18 @@ function SidebarBody({
   // Activity lives in the top bar (D110); Funds and Spending sit under Finances
   const nav: NavEntry[] = [
     { href: `${base}/dashboard`, label: t("section.dashboard"), icon: LayoutDashboard },
-    { href: `${base}/projects`, label: t("project", "other"), icon: FolderKanban },
+    // with two or more programs, Programs opens to list them (D111)
+    programs.length > 1
+      ? {
+          label: t("project", "other"),
+          icon: FolderKanban,
+          href: `${base}/projects`,
+          items: [
+            { href: `${base}/projects`, label: `All ${lower(t("project", "other"))}`, exact: true },
+            ...programs.map((p) => ({ href: `${base}/projects/${p.id}`, label: p.name })),
+          ],
+        }
+      : { href: `${base}/projects`, label: t("project", "other"), icon: FolderKanban },
     { href: `${base}/tasks`, label: t("task", "other"), icon: ListChecks },
     { href: `${base}/calendar`, label: t("section.calendar"), icon: CalendarDays },
     { href: `${base}/documents`, label: t("document", "other"), icon: FileText },
@@ -187,7 +200,7 @@ function SidebarBody({
     },
     { href: `${base}/reports`, label: "Reports", icon: FileChartColumn },
   ];
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string, exact = false) => pathname === href || (!exact && pathname.startsWith(`${href}/`));
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -217,19 +230,27 @@ function SidebarBody({
         ) : null}
       </div>
 
-      <nav aria-label="Main" className="px-2">
+      <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         <ul className="flex flex-col gap-0.5">
           {nav.map((entry) =>
             "items" in entry ? (
-              // the narrow rail has no room for a heading: its pages show as icons
+              // the narrow rail has no room for a heading: it shows the group's own page, or its pages as icons
               collapsed ? (
-                entry.items.map((item) => (
-                  <li key={item.href}>
-                    <NavLink href={item.href} label={item.label} active={isActive(item.href)} collapsed>
-                      <item.icon aria-hidden className="size-5 shrink-0" />
+                entry.href ? (
+                  <li key={entry.href}>
+                    <NavLink href={entry.href} label={entry.label} active={isActive(entry.href)} collapsed>
+                      <entry.icon aria-hidden className="size-5 shrink-0" />
                     </NavLink>
                   </li>
-                ))
+                ) : (
+                  entry.items.map((item) => (
+                    <li key={item.href}>
+                      <NavLink href={item.href} label={item.label} active={isActive(item.href, item.exact)} collapsed>
+                        <NavIcon icon={item.icon} />
+                      </NavLink>
+                    </li>
+                  ))
+                )
               ) : (
                 <li key={entry.label}>
                   <NavGroup group={entry} isActive={isActive} />
@@ -245,38 +266,6 @@ function SidebarBody({
           )}
         </ul>
       </nav>
-
-      {!collapsed ? (
-        <section aria-labelledby="recent-heading" className="mt-6 min-h-0 flex-1 overflow-y-auto px-2">
-          <h2 id="recent-heading" className="px-3 pb-1 font-heading text-xs font-bold tracking-wider text-rail-ink-muted uppercase">
-            Recent {t("project", "other").toLocaleLowerCase()}
-          </h2>
-          {recent.length > 0 ? (
-            <ul className="flex flex-col gap-0.5">
-              {recent.map((p) => {
-                const href = `${base}/projects/${p.id}`;
-                return (
-                  <li key={p.id}>
-                    <Link
-                      href={href}
-                      aria-current={pathname === href ? "page" : undefined}
-                      className={`block truncate rounded-md px-3 py-1.5 text-[0.95rem] ${
-                        pathname === href ? "bg-rail-active text-rail-active-ink font-semibold" : "text-rail-ink hover:bg-rail-hover"
-                      }`}
-                    >
-                      {p.name}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="px-3 text-sm text-rail-ink-muted">Nothing yet. Activity shows up here.</p>
-          )}
-        </section>
-      ) : (
-        <div className="flex-1" />
-      )}
 
       <div className="mt-2 flex flex-col gap-0.5 border-t border-rail-hover px-2 pt-2 pb-3">
         <NavLink
@@ -372,21 +361,35 @@ function SidebarBody({
 }
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
-type NavEntry = NavItem | { label: string; icon: LucideIcon; items: NavItem[] };
+/** A page under a heading: an icon is optional, and `exact` keeps an overview page from matching the pages under it. */
+type SubItem = { href: string; label: string; icon?: LucideIcon; exact?: boolean };
+type NavGroupEntry = { label: string; icon: LucideIcon; href?: string; items: SubItem[] };
+type NavEntry = NavItem | NavGroupEntry;
+
+/** A sub-item's icon, or a small dot for pages that are just names (like each program). */
+function NavIcon({ icon: Icon }: { icon?: LucideIcon }) {
+  return Icon ? (
+    <Icon aria-hidden className="size-5 shrink-0" />
+  ) : (
+    <span aria-hidden className="inline-flex size-5 shrink-0 items-center justify-center">
+      <span className="size-1.5 rounded-full bg-current" />
+    </span>
+  );
+}
 
 /**
- * A heading that opens and closes its pages (D110). It opens by itself on
- * one of its pages, and shows the accent while one of them is current.
+ * A heading that opens and closes its pages: Finances (D110), and Programs
+ * once there are two or more (D111). It opens by itself on one of its pages.
  */
 function NavGroup({
   group,
   isActive,
 }: {
-  group: { label: string; icon: LucideIcon; items: NavItem[] };
-  isActive: (href: string) => boolean;
+  group: NavGroupEntry;
+  isActive: (href: string, exact?: boolean) => boolean;
 }) {
   const listId = useId();
-  const current = group.items.some((item) => isActive(item.href));
+  const current = group.items.some((item) => isActive(item.href, item.exact));
   const [open, setOpen] = useState(current);
   // arriving on one of its pages opens it
   const [wasCurrent, setWasCurrent] = useState(current);
@@ -415,8 +418,8 @@ function NavGroup({
       <ul id={listId} hidden={!open} className="mt-0.5 flex flex-col gap-0.5 pl-5">
         {group.items.map((item) => (
           <li key={item.href}>
-            <NavLink href={item.href} label={item.label} active={isActive(item.href)} collapsed={false}>
-              <item.icon aria-hidden className="size-5 shrink-0" />
+            <NavLink href={item.href} label={item.label} active={isActive(item.href, item.exact)} collapsed={false}>
+              <NavIcon icon={item.icon} />
             </NavLink>
           </li>
         ))}
