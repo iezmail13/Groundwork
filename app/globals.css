@@ -525,8 +525,15 @@ dialog.gw-drawer[open] {
 /* Printing (D109): reports print as plain documents, dark text on white,
    whatever theme is on screen. */
 @media print {
-  :root {
+  /* Printing is always dark on white, whichever mode is on screen. */
+  :root,
+  :root[data-theme] {
     color-scheme: light;
+    --canvas: #fff !important;
+    --panel: #fff !important;
+    --ink: #163260 !important;
+    --ink-muted: #445a7e !important;
+    --rule: #ddd6c8 !important;
   }
   html,
   body {

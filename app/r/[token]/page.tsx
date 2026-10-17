@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ReportView } from "@/components/reports/report-view";
-import { Logo } from "@/components/logo";
+import { Brand } from "@/components/logo";
 import type { Report } from "@/lib/report-model";
 
 // A shared report (D109): the read-only snapshot its author made, while the
@@ -24,7 +24,7 @@ export default async function SharedReportPage({ params }: PageProps<"/r/[token]
       <header className="border-b border-rule px-4 py-4 sm:px-8 print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <Link href="/" aria-label="Groundwork home">
-            <Logo />
+            <Brand size={32} />
           </Link>
           <p className="text-sm text-ink-muted">Read-only report · link expires {share.expires_at.slice(0, 10)}</p>
         </div>
