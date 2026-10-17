@@ -1,75 +1,226 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Archive, ArrowLeft, CalendarDays, Download, FileText, ListChecks } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  CalendarDays,
+  CircleDot,
+  ClipboardCheck,
+  Columns3,
+  Clock,
+  Download,
+  FileText,
+  Flag,
+  History,
+  ListChecks,
+  Lock,
+  MessageSquareText,
+  PiggyBank,
+  Plus,
+  Users,
+} from "lucide-react";
+import {
+  AttendanceWidget,
+  DashboardCard,
+  DeadlineBuckets,
+  DetailPanel,
+  PriorityWidget,
+  TasksWidget,
+} from "@/components/dashboard/widgets";
+import { LiveRefresh } from "@/components/dashboard/live-refresh";
+import { buildProjectDashboard } from "@/lib/dashboard-data";
+import { activityHref, describeActivity, timeAgo } from "@/lib/activity";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ProjectDot } from "@/components/tasks/badges";
 import { ProgressBar } from "@/components/projects/progress";
-import { ArchiveProjectButton, DeleteProjectButton, EditProjectButton } from "@/components/projects/project-dialogs";
+import {
+  ArchiveProjectButton,
+  DeleteProjectButton,
+  EditProjectButton,
+} from "@/components/projects/project-dialogs";
 import { TaskTable } from "@/components/tasks/task-table";
 import { QuickAddTask } from "@/components/tasks/quick-add";
-import { NewEventButton, EventRowButton } from "@/components/calendar/event-buttons";
+import {
+  NewEventButton,
+  EventRowButton,
+} from "@/components/calendar/event-buttons";
 import { UploadButton } from "@/components/documents/upload-form";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
 import { getMembers, getOrgContext } from "@/lib/org";
-import { DOCUMENT_SELECT, EVENT_SELECT, getProjectOptions, TASK_SELECT, type DocumentRow, type EventRow, type TaskRow } from "@/lib/queries";
-import { sortTasks } from "@/lib/task-filters";
+import {
+  getAssigneeNames,
+  getMyProjectRank,
+  getProjectRoster,
+} from "@/lib/projects";
+import { ProjectPeople } from "@/components/projects/people";
+import { canManageOrg, rankOf } from "@/lib/roles";
+import { allocatedCents, getProjectFunding } from "@/lib/funds";
+import { formatMoney, formatShare } from "@/lib/money";
+import { SplitBar } from "@/components/funds/split-bar";
+import {
+  DOCUMENT_SELECT,
+  EVENT_SELECT,
+  getProjectOptions,
+  TASK_SELECT,
+  type ActivityRow,
+  type DocumentRow,
+  type EventRow,
+  type TaskRow,
+} from "@/lib/queries";
+import {
+  filterTasks,
+  forStatusView,
+  readFilters,
+  readSort,
+  sortTasks,
+} from "@/lib/task-filters";
+import { FilterBar } from "@/components/tasks/filter-bar";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatTime, eventStartDate, formatRelativeDate } from "@/lib/dates";
+import {
+  formatDate,
+  formatTime,
+  eventStartDate,
+  formatRelativeDate,
+} from "@/lib/dates";
 import { toEventFormValues } from "@/lib/event-values";
+import { creatorLock } from "@/lib/creator-lock";
 import { lower } from "@/lib/terminology/t";
+import { getDiscussions } from "@/lib/discussions";
+import { getWorkflow, WORKFLOW_TEMPLATES } from "@/lib/workflows";
+import { WorkflowEditor } from "@/components/projects/workflow-editor";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function loadProject(orgId: string, projectId: string) {
   if (!UUID.test(projectId)) return null;
   const supabase = await createClient();
-  const { data } = await supabase.from("projects").select("*").eq("organization_id", orgId).eq("id", projectId).maybeSingle();
+  const { data } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("organization_id", orgId)
+    .eq("id", projectId)
+    .maybeSingle();
   return data;
 }
 
-export async function generateMetadata({ params }: PageProps<"/[orgSlug]/projects/[projectId]">): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<"/[orgSlug]/projects/[projectId]">): Promise<Metadata> {
   const { orgSlug, projectId } = await params;
   const ctx = await getOrgContext(orgSlug);
   const project = await loadProject(ctx.org.id, projectId);
   return { title: project?.name ?? ctx.t("project") };
 }
 
-export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/projects/[projectId]">) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: PageProps<"/[orgSlug]/projects/[projectId]">) {
   const { orgSlug, projectId } = await params;
+  const sp = await searchParams;
   const ctx = await getOrgContext(orgSlug);
   const { t, org, base, today, tz } = ctx;
   const project = await loadProject(org.id, projectId);
   if (!project) notFound();
 
   const supabase = await createClient();
-  const [{ data: taskData }, { data: eventData }, { data: docData }, members, projects] = await Promise.all([
-    supabase.from("tasks").select(TASK_SELECT).eq("project_id", project.id).order("position"),
-    supabase.from("events").select(EVENT_SELECT).eq("project_id", project.id).order("starts_at"),
-    supabase.from("documents").select(DOCUMENT_SELECT).eq("project_id", project.id).order("pinned", { ascending: false }).order("created_at", { ascending: false }),
+  const [
+    { data: taskData },
+    { data: eventData },
+    { data: docData },
+    members,
+    projects,
+    roster,
+    myRank,
+    assigneeNames,
+    funding,
+  ] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select(TASK_SELECT)
+      .eq("project_id", project.id)
+      .order("position"),
+    supabase
+      .from("events")
+      .select(EVENT_SELECT)
+      .eq("project_id", project.id)
+      .order("starts_at"),
+    supabase
+      .from("documents")
+      .select(DOCUMENT_SELECT)
+      .eq("project_id", project.id)
+      .order("pinned", { ascending: false })
+      .order("created_at", { ascending: false }),
     getMembers(org.id),
     getProjectOptions(org.id),
+    getProjectRoster(org.id, project.id),
+    getMyProjectRank(project.id),
+    getAssigneeNames(org.id),
+    // funding is for owners and managers only
+    canManageOrg(ctx.role)
+      ? getProjectFunding(org.id, project.id)
+      : Promise.resolve([]),
   ]);
   const tasks = (taskData ?? []) as TaskRow[];
+  // the project dashboard reuses the tasks this page already loaded (D105)
+  const detailKey = typeof sp.detail === "string" ? sp.detail : null;
+  const [pd, threads, steps, { data: latest }] = await Promise.all([
+    buildProjectDashboard(ctx, project.id, project.name, tasks, detailKey),
+    getDiscussions(ctx, { projectId: project.id, limit: 3 }),
+    getWorkflow(project.id),
+    supabase
+      .from("activity_log")
+      .select(
+        "id, entity_type, entity_id, action, metadata, created_at, actor_membership_id",
+      )
+      .eq("organization_id", org.id)
+      .or(
+        `metadata->>project_id.eq.${project.id},and(entity_type.eq.project,entity_id.eq.${project.id})`,
+      )
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+  const memberName = new Map(members.map((m) => [m.id, m.name]));
   const events = (eventData ?? []) as EventRow[];
   const docs = (docData ?? []) as DocumentRow[];
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
   const done = tasks.filter((x) => x.status === "done").length;
   const archived = project.status === "archived";
-  const canDelete = ctx.isAdmin || project.created_by === ctx.userId;
+  // project admins and leads edit it; leads (and owners) delete it; unless
+  // someone ranked above them made it
+  const projectLock = creatorLock(
+    t,
+    ctx,
+    project.created_by,
+    project.created_by_role,
+  );
+  const canEdit = myRank >= 2 && !projectLock;
+  const canDelete = myRank >= 3 && !projectLock;
+  // anyone's items: project admins and leads, owners, and org managers on the project
+  const canManageItems =
+    !archived && (myRank >= 2 || (myRank >= 1 && rankOf(ctx.role) >= 3));
+  const onProject = new Set(roster.map((r) => r.membershipId));
+  const leads = roster.filter((r) => r.role === "lead").map((r) => r.name);
   const nowIso = new Date().toISOString();
   const upcoming = events.filter((e) => e.ends_at >= nowIso);
-  const past = events.filter((e) => e.ends_at < nowIso).reverse().slice(0, 5);
-  const memberOptions = members.map((m) => ({ id: m.id, name: m.name }));
-  const projectsForForms = archived ? [...projects, { id: project.id, name: project.name }] : projects;
+  const past = events
+    .filter((e) => e.ends_at < nowIso)
+    .reverse()
+    .slice(0, 5);
+  const projectsForForms = archived
+    ? [...projects, { id: project.id, name: project.name }]
+    : projects;
 
   const eventWhen = (e: EventRow) =>
     `${formatRelativeDate(eventStartDate(e.starts_at, e.all_day, tz), today)}${e.all_day ? ", all day" : `, ${formatTime(e.starts_at, tz)}`}`;
 
   return (
     <div className="flex flex-col gap-8">
-      <Link href={`${base}/projects`} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+      <Link
+        href={`${base}/projects`}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+      >
         <ArrowLeft aria-hidden className="size-4" />
         All {lower(t("project", "other"))}
       </Link>
@@ -85,17 +236,45 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
             {project.description ? <span>{project.description}</span> : null}
             <span className="flex flex-wrap items-center gap-3 text-sm">
               {archived ? (
-                <Badge variant="filled" icon={<Archive aria-hidden className="size-3.5" />}>
+                <Badge
+                  variant="filled"
+                  icon={<Archive aria-hidden className="size-3.5" />}
+                >
                   {t("status.archived")}
                 </Badge>
               ) : (
-                <Badge variant="outline">{t("status.active")}</Badge>
+                <Badge
+                  variant="good"
+                  icon={<CircleDot aria-hidden className="size-3.5" />}
+                >
+                  {t("status.active")}
+                </Badge>
               )}
-              {project.owner_membership_id ? <span>Owner: {memberName.get(project.owner_membership_id)}</span> : null}
+              {project.tracks_participants && myRank >= 2 ? (
+                <Link
+                  href={`${base}/attendance?program=${project.id}`}
+                  className="font-semibold hover:underline"
+                >
+                  {t("participant", "other")} and{" "}
+                  {lower(t("section.attendance"))}
+                </Link>
+              ) : null}
+              {leads.length ? (
+                <span>
+                  {t("project_role.lead", leads.length === 1 ? "one" : "other")}
+                  : {leads.join(", ")}
+                </span>
+              ) : null}
               {project.start_date || project.end_date ? (
                 <span>
                   {project.start_date ? formatDate(project.start_date) : "—"} to{" "}
-                  {project.end_date ? formatDate(project.end_date, { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  {project.end_date
+                    ? formatDate(project.end_date, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"}
                 </span>
               ) : null}
             </span>
@@ -103,43 +282,275 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
         }
         actions={
           <>
-            <EditProjectButton
-              organizationId={org.id}
-              members={memberOptions}
-              project={{
-                id: project.id,
-                name: project.name,
-                description: project.description,
-                color: project.color,
-                owner_membership_id: project.owner_membership_id,
-                start_date: project.start_date,
-                end_date: project.end_date,
-              }}
-            />
-            <ArchiveProjectButton id={project.id} archived={archived} />
-            {canDelete ? <DeleteProjectButton id={project.id} orgSlug={org.slug} name={project.name} /> : null}
+            {canEdit && !archived ? (
+              <EditProjectButton
+                organizationId={org.id}
+                project={{
+                  id: project.id,
+                  name: project.name,
+                  description: project.description,
+                  color: project.color,
+                  start_date: project.start_date,
+                  end_date: project.end_date,
+                  tracks_participants: project.tracks_participants,
+                }}
+              />
+            ) : null}
+            {canEdit ? (
+              <ArchiveProjectButton id={project.id} archived={archived} />
+            ) : null}
+            {canDelete ? (
+              <DeleteProjectButton
+                id={project.id}
+                orgSlug={org.slug}
+                name={project.name}
+              />
+            ) : null}
           </>
         }
       />
 
+      {projectLock && myRank >= 2 ? (
+        <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
+          <Lock aria-hidden className="size-4" />
+          {projectLock}
+        </p>
+      ) : null}
+      {archived ? (
+        <p className="flex items-center gap-2 border-l-4 border-ink pl-3 text-sm">
+          <Lock aria-hidden className="size-4" />
+          This {lower(t("project"))} is {lower(t("status.archived"))}, so
+          everything in it is read-only.
+          {canEdit ? " Restore it to make changes." : ""}
+        </p>
+      ) : null}
+
+      <section
+        aria-labelledby="project-dashboard"
+        className="flex flex-col gap-4"
+      >
+        <h2 id="project-dashboard" className="text-xl font-bold">
+          At a glance
+        </h2>
+        {pd.detail ? (
+          <DetailPanel
+            detail={pd.detail}
+            closeHref={`${base}/projects/${project.id}`}
+            today={today}
+            t={t}
+          />
+        ) : null}
+        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <DashboardCard
+            title={t("task", "other")}
+            icon={<ListChecks aria-hidden className="size-4" />}
+          >
+            <TasksWidget model={pd.tasks} t={t} />
+          </DashboardCard>
+          <DashboardCard
+            title="Priority"
+            icon={<Flag aria-hidden className="size-4" />}
+          >
+            <PriorityWidget model={pd.priority} t={t} />
+          </DashboardCard>
+          <DashboardCard
+            title="Deadlines"
+            icon={<Clock aria-hidden className="size-4" />}
+          >
+            <DeadlineBuckets model={pd.deadlines} />
+          </DashboardCard>
+          {pd.attendance ? (
+            <DashboardCard
+              title={t("section.attendance")}
+              icon={<ClipboardCheck aria-hidden className="size-4" />}
+              className="md:col-span-2 xl:col-span-1"
+            >
+              <AttendanceWidget model={pd.attendance} t={t} />
+            </DashboardCard>
+          ) : null}
+          {funding.length ? (
+            <DashboardCard
+              title="Funding"
+              icon={<PiggyBank aria-hidden className="size-4" />}
+              className="md:col-span-2"
+            >
+              <ul className="flex flex-col gap-5">
+                {funding.map((f) => {
+                  const whole = f.project_id === project.id;
+                  const forThis = whole
+                    ? f.total_cents
+                    : f.allocations
+                        .filter((a) => a.project_id === project.id)
+                        .reduce((s, a) => s + a.amount_cents, 0);
+                  return (
+                    <li
+                      key={f.id}
+                      className="flex flex-col gap-2 border-b border-rule pb-4"
+                    >
+                      <p className="flex flex-wrap items-baseline justify-between gap-x-4">
+                        <Link
+                          href={`${base}/funds/${f.id}`}
+                          className="font-heading font-semibold hover:underline"
+                        >
+                          {f.name}
+                        </Link>
+                        <span className="text-sm">
+                          {whole
+                            ? `${formatMoney(f.total_cents, f.currency)} for this ${lower(t("project"))} · ${formatShare(allocatedCents(f), f.total_cents)} allocated`
+                            : `${formatMoney(forThis, f.currency)} of ${formatMoney(f.total_cents, f.currency)} for this ${lower(t("project"))}`}
+                        </span>
+                      </p>
+                      <SplitBar
+                        size="sm"
+                        legend={false}
+                        caption={f.name}
+                        currency={f.currency}
+                        totalCents={f.total_cents}
+                        parts={f.allocations.map((a) => ({
+                          key: a.id,
+                          label: a.label,
+                          cents: a.amount_cents,
+                        }))}
+                      />
+                      <p className="text-sm text-ink-muted">
+                        {f.allocations
+                          .filter((a) => whole || a.project_id === project.id)
+                          .map(
+                            (a) =>
+                              `${a.label} ${formatMoney(a.amount_cents, f.currency, true)}`,
+                          )
+                          .join(" · ") || "Nothing allocated yet."}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </DashboardCard>
+          ) : null}
+          <DashboardCard
+            title={`Latest on this ${lower(t("project"))}`}
+            icon={<History aria-hidden className="size-4" />}
+            className="md:col-span-2 xl:col-span-3"
+          >
+            {latest?.length ? (
+              <ol className="flex flex-col gap-1">
+                {(latest as ActivityRow[]).map((a) => {
+                  const href = activityHref(a, base);
+                  return (
+                    <li
+                      key={a.id}
+                      className="flex flex-wrap items-baseline gap-x-2 text-sm"
+                    >
+                      <span className="font-semibold">
+                        {(a.actor_membership_id &&
+                          memberName.get(a.actor_membership_id)) ||
+                          a.metadata.actor_name ||
+                          "Someone"}
+                      </span>
+                      <span>{describeActivity(a, t)}</span>
+                      {a.metadata.label ? (
+                        href ? (
+                          <Link
+                            href={href}
+                            className="font-semibold text-accent hover:underline"
+                          >
+                            {a.metadata.label}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold">
+                            {a.metadata.label}
+                          </span>
+                        )
+                      ) : null}
+                      <span className="text-ink-muted">
+                        · {timeAgo(a.created_at)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="text-sm text-ink-muted">Nothing yet.</p>
+            )}
+            <Link
+              href={`${base}/activity?project=${project.id}`}
+              className="mt-2 inline-block text-sm font-semibold text-accent underline underline-offset-4"
+            >
+              All activity on this {lower(t("project"))}
+            </Link>
+          </DashboardCard>
+        </ul>
+        <LiveRefresh topics={[`project:${project.id}:changes`]} />
+      </section>
+
       <section aria-labelledby="project-tasks" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="project-tasks" className="flex items-center gap-2 text-xl font-bold">
+          <h2
+            id="project-tasks"
+            className="flex items-center gap-2 text-xl font-bold"
+          >
             <ListChecks aria-hidden className="size-5" />
             {t("task", "other")}
           </h2>
           <div className="w-56">
-            <ProgressBar done={done} total={tasks.length} label={`${project.name} progress`} />
+            <ProgressBar
+              done={done}
+              total={tasks.length}
+              label={`${project.name} progress`}
+            />
           </div>
         </div>
-        <QuickAddTask organizationId={org.id} projectId={project.id} idSuffix="project" />
+        {archived ? null : (
+          <QuickAddTask
+            organizationId={org.id}
+            projectId={project.id}
+            idSuffix="project"
+          />
+        )}
+        {tasks.length ? (
+          <FilterBar
+            showProject={false}
+            projects={[]}
+            members={members.map((m) => ({ value: m.id, label: m.name }))}
+          />
+        ) : null}
         {tasks.length ? (
           <TaskTable
-            tasks={sortTasks(tasks, { key: "status", dir: "asc" }, memberName)}
+            tasks={sortTasks(
+              // finished work shows under the Completed filter (D101)
+              forStatusView(
+                filterTasks(tasks, readFilters(sp), today, ctx.membershipId),
+                readFilters(sp).status,
+              ),
+              typeof sp.sort === "string"
+                ? readSort(sp)
+                : { key: "priority", dir: "asc" },
+              assigneeNames,
+            )}
             base={base}
             today={today}
             t={t}
-            memberName={memberName}
+            memberName={assigneeNames}
+            sort={
+              typeof sp.sort === "string"
+                ? readSort(sp)
+                : { key: "priority", dir: "asc" }
+            }
+            sortHref={(key) => {
+              const next = new URLSearchParams();
+              for (const [k, v] of Object.entries(sp))
+                if (typeof v === "string") next.set(k, v);
+              const current =
+                typeof sp.sort === "string"
+                  ? readSort(sp)
+                  : { key: "priority", dir: "asc" };
+              next.set("sort", key);
+              next.set(
+                "dir",
+                current.key === key && current.dir === "asc" ? "desc" : "asc",
+              );
+              return `${base}/projects/${project.id}?${next.toString()}#project-tasks`;
+            }}
             showProject={false}
             caption={`${t("task", "other")} in ${project.name}`}
           />
@@ -151,13 +562,26 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
       </section>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <section aria-labelledby="project-events" className="flex flex-col gap-3">
+        <section
+          aria-labelledby="project-events"
+          className="flex flex-col gap-3"
+        >
           <div className="flex items-center justify-between gap-3">
-            <h2 id="project-events" className="flex items-center gap-2 text-xl font-bold">
+            <h2
+              id="project-events"
+              className="flex items-center gap-2 text-xl font-bold"
+            >
               <CalendarDays aria-hidden className="size-5" />
               {t("event", "other")}
             </h2>
-            <NewEventButton organizationId={org.id} projects={projectsForForms} date={today} projectId={project.id} />
+            {archived ? null : (
+              <NewEventButton
+                organizationId={org.id}
+                projects={projectsForForms}
+                date={today}
+                projectId={project.id}
+              />
+            )}
           </div>
           {upcoming.length === 0 && past.length === 0 ? (
             <p className="border-y border-dashed border-rule py-6 text-center text-ink-muted">
@@ -165,7 +589,9 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
             </p>
           ) : (
             <>
-              <h3 className="font-heading text-sm font-bold text-ink-muted">Upcoming</h3>
+              <h3 className="font-heading text-sm font-bold text-ink-muted">
+                Upcoming
+              </h3>
               {upcoming.length ? (
                 <ul className="divide-y divide-rule border-y border-rule">
                   {upcoming.map((e) => (
@@ -173,7 +599,13 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                       <EventRowButton
                         organizationId={org.id}
                         projects={projectsForForms}
-                        values={toEventFormValues(e, tz, ctx.isAdmin || e.created_by === ctx.userId)}
+                        values={toEventFormValues(
+                          e,
+                          tz,
+                          canManageItems ||
+                            (!archived && e.created_by === ctx.userId),
+                          creatorLock(t, ctx, e.created_by, e.created_by_role),
+                        )}
                         when={eventWhen(e)}
                         location={e.location}
                       />
@@ -185,14 +617,27 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
               )}
               {past.length ? (
                 <>
-                  <h3 className="font-heading text-sm font-bold text-ink-muted">Recent</h3>
+                  <h3 className="font-heading text-sm font-bold text-ink-muted">
+                    Recent
+                  </h3>
                   <ul className="divide-y divide-rule border-y border-rule">
                     {past.map((e) => (
                       <li key={e.id}>
                         <EventRowButton
                           organizationId={org.id}
                           projects={projectsForForms}
-                          values={toEventFormValues(e, tz, ctx.isAdmin || e.created_by === ctx.userId)}
+                          values={toEventFormValues(
+                            e,
+                            tz,
+                            canManageItems ||
+                              (!archived && e.created_by === ctx.userId),
+                            creatorLock(
+                              t,
+                              ctx,
+                              e.created_by,
+                              e.created_by_role,
+                            ),
+                          )}
                           when={eventWhen(e)}
                           location={e.location}
                         />
@@ -207,11 +652,21 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
 
         <section aria-labelledby="project-docs" className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="project-docs" className="flex items-center gap-2 text-xl font-bold">
+            <h2
+              id="project-docs"
+              className="flex items-center gap-2 text-xl font-bold"
+            >
               <FileText aria-hidden className="size-5" />
               {t("document", "other")}
             </h2>
-            <UploadButton organizationId={org.id} projects={projectsForForms} projectId={project.id} variant="secondary" />
+            {archived ? null : (
+              <UploadButton
+                organizationId={org.id}
+                projects={projectsForForms}
+                projectId={project.id}
+                variant="secondary"
+              />
+            )}
           </div>
           {docs.length ? (
             <ul className="divide-y divide-rule border-y border-rule">
@@ -219,15 +674,24 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
                 <li key={d.id} className="flex items-center gap-3 py-2">
                   <FileIcon mime={d.mime_type} />
                   <div className="min-w-0 flex-1">
-                    <a href={`${base}/documents/${d.id}/download`} className="font-semibold break-all hover:underline">
+                    <a
+                      href={`${base}/documents/${d.id}/download`}
+                      className="font-semibold break-all hover:underline"
+                    >
                       {d.name}
                     </a>
                     <p className="text-sm text-ink-muted">
                       {formatBytes(d.size_bytes)}
-                      {d.tags.length ? ` · ${d.tags.map((x) => `#${x}`).join(" ")}` : ""}
+                      {d.tags.length
+                        ? ` · ${d.tags.map((x) => `#${x}`).join(" ")}`
+                        : ""}
                     </p>
                   </div>
-                  <a href={`${base}/documents/${d.id}/download`} aria-label={`Download ${d.name}`} className="rounded p-1.5 hover:bg-panel">
+                  <a
+                    href={`${base}/documents/${d.id}/download`}
+                    aria-label={`Download ${d.name}`}
+                    className="rounded p-1.5 hover:bg-panel"
+                  >
                     <Download aria-hidden className="size-4" />
                   </a>
                 </li>
@@ -240,6 +704,99 @@ export default async function ProjectPage({ params }: PageProps<"/[orgSlug]/proj
           )}
         </section>
       </div>
+
+      <section id="workflow" aria-labelledby="project-workflow" className="flex scroll-mt-20 flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="project-workflow" className="flex items-center gap-2 font-heading text-xl font-bold">
+            <Columns3 aria-hidden className="size-5" />
+            Workflow
+          </h2>
+          <Link
+            href={`${base}/tasks?project=${project.id}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-rule px-3 py-1.5 font-heading text-sm font-semibold hover:bg-panel"
+          >
+            Open the board
+          </Link>
+        </div>
+        {steps.length > 0 ? (
+          <p className="text-sm">
+            <span className="sr-only">Steps: </span>
+            {steps.map((st) => st.name).join(" → ")}
+          </p>
+        ) : null}
+        {/* the people who run the program (D107) set its steps */}
+        {canManageItems ? (
+          <WorkflowEditor projectId={project.id} steps={steps} templates={WORKFLOW_TEMPLATES} />
+        ) : steps.length === 0 ? (
+          <p className="text-sm text-ink-muted">This board uses the standard columns.</p>
+        ) : null}
+      </section>
+
+      <section aria-labelledby="project-discussions" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="project-discussions" className="flex items-center gap-2 font-heading text-xl font-bold">
+            <MessageSquareText aria-hidden className="size-5" />
+            Discussions
+          </h2>
+          <Link
+            href={`${base}/discussions?board=${project.id}&new=1`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-rule px-3 py-1.5 font-heading text-sm font-semibold hover:bg-panel"
+          >
+            <Plus aria-hidden className="size-4" />
+            Start a discussion
+          </Link>
+        </div>
+        {threads.length === 0 ? (
+          <p className="text-sm text-ink-muted">No discussions on this {lower(t("project"))} yet.</p>
+        ) : (
+          <ul className="divide-y divide-rule border-y border-rule">
+            {threads.map((d) => (
+              <li key={d.id} className="flex items-baseline gap-3 py-2.5">
+                <Link href={`${base}/discussions/${d.id}`} className="min-w-0 flex-1 truncate font-semibold hover:underline">
+                  {d.title}
+                </Link>
+                <span className="text-sm text-ink-muted">
+                  {d.replies} {d.replies === 1 ? "reply" : "replies"} · <time dateTime={d.lastActivityAt}>{d.lastActivity}</time>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href={`${base}/discussions?board=${project.id}`} className="self-start text-sm font-semibold text-accent hover:underline">
+          All discussions on this board
+        </Link>
+      </section>
+
+      <section aria-labelledby="project-people" className="flex flex-col gap-3">
+        <h2
+          id="project-people"
+          className="flex items-center gap-2 text-xl font-bold"
+        >
+          <Users aria-hidden className="size-5" />
+          People
+        </h2>
+        <ProjectPeople
+          organizationId={org.id}
+          projectId={project.id}
+          orgSlug={org.slug}
+          myRank={myRank}
+          myMembershipId={ctx.membershipId}
+          roster={roster}
+          candidates={members
+            .filter((m) => m.role !== "owner" && !onProject.has(m.id))
+            .map((m) => ({
+              membershipId: m.id,
+              name: m.name,
+              orgRole: m.role,
+            }))}
+          owners={members.filter((m) => m.role === "owner").map((m) => m.name)}
+          adminsToAdd={
+            members.filter((m) => m.role === "admin" && !onProject.has(m.id))
+              .length
+          }
+          archived={archived}
+        />
+      </section>
     </div>
   );
 }

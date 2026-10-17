@@ -25,9 +25,31 @@ export function invalid(error: z.ZodError): ActionState {
   return failure(formErrors[0] ?? "Check the highlighted fields.", fieldErrors as ActionState["fieldErrors"]);
 }
 
+// Database rules that raise with a hint. Their raw messages name primitive
+// words, so the app words them itself.
+const HINTS: Record<string, string> = {
+  assignee_not_on_project: "That person can't see this work, so it can't be assigned to them. Add them to it first.",
+  project_role_ceiling: "Their organization role doesn't allow that role here. Choose a lower one.",
+  project_archived: "This is archived and read-only. Restore it to make changes.",
+  outranked_by_creator: "Someone ranked above you made this, so only they or someone at or above their rank can change it.",
+  // the task model (D100)
+  claim_limit: "Every spot on this is taken.",
+  not_claimable: "This was given to specific people, so it can't be claimed.",
+  task_done: "This is already done.",
+  appointed_cannot_leave: "They were appointed to this, so only the person who appointed them, or someone ranked above that person, can take them off.",
+  appoint_not_allowed: "Only someone ranked above them, or someone running this work, can give it to them.",
+  remove_not_allowed: "Only they can take themselves off this.",
+  personal_task: "Personal work belongs to the person who made it.",
+  personal_kind_fixed: "Personal work stays personal.",
+  completion_all: "Everyone on this ticks their own part, and it's done when they all have.",
+  done_not_allowed: "Only the people on this, or someone who can edit it, can tick it off.",
+  hide_not_allowed: "Only someone running this work, or who manages the organization, can hide it.",
+};
+
 /** Maps a Postgres/PostgREST error to a message people can act on. */
 export function dbFailure(error: { code?: string; message?: string; hint?: string | null } | null): ActionState {
   if (!error) return failure("Something went wrong. Try again.");
+  if (error.hint && HINTS[error.hint]) return failure(HINTS[error.hint]!);
   switch (error.code) {
     case "42501":
       return failure("You don't have permission to do that.");

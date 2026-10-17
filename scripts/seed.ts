@@ -65,6 +65,11 @@ async function ensureUsers() {
 async function removeExistingOrg() {
   const { data: org } = await db.from("organizations").select("id").eq("slug", DEMO_ORG.slug).maybeSingle();
   if (!org) return;
+  const { data: kept } = await db.from("participant_files").select("storage_path").eq("organization_id", org.id);
+  if (kept?.length) {
+    const { error } = await db.storage.from("participant-files").remove(kept.map((f) => f.storage_path));
+    if (error) throw new Error(`remove old participant files: ${error.message}`);
+  }
   const { data: objects } = await db.storage.from("documents").list(org.id, { limit: 1000 });
   if (objects?.length) {
     const { error } = await db.storage.from("documents").remove(objects.map((o) => `${org.id}/${o.name}`));
@@ -227,7 +232,7 @@ async function main() {
   const org = must(
     await db
       .from("organizations")
-      .insert({ name: DEMO_ORG.name, slug: DEMO_ORG.slug, preset_key: DEMO_ORG.preset, theme: { navy: "#1F2D4D", mode: "light" } })
+      .insert({ name: DEMO_ORG.name, slug: DEMO_ORG.slug, preset_key: DEMO_ORG.preset })
       .select("id")
       .single(),
     "create org",
@@ -250,8 +255,7 @@ async function main() {
           organization_id: org.id,
           name: "Homework Club",
           description: "Twice-weekly after-school homework help for grades 5 to 8 at the community centre.",
-          color: "#1F2D4D",
-          owner_membership_id: m(priya!),
+          color: "#163260",
           start_date: day(-40),
           end_date: day(70),
           created_by: priya,
@@ -260,8 +264,7 @@ async function main() {
           organization_id: org.id,
           name: "Winter Coat Drive",
           description: "Collect, clean and hand out winter coats to families in the neighbourhood before December.",
-          color: "#777F90",
-          owner_membership_id: m(marcus!),
+          color: "#72829B",
           start_date: day(-10),
           end_date: day(55),
           created_by: marcus,
@@ -270,8 +273,7 @@ async function main() {
           organization_id: org.id,
           name: "Teen Mentorship Circle",
           description: "Weekly evening circle pairing high-school students with volunteer mentors.",
-          color: "#4B566E",
-          owner_membership_id: m(sofia!),
+          color: "#445A7E",
           start_date: day(-25),
           end_date: day(120),
           created_by: sofia,
@@ -285,6 +287,24 @@ async function main() {
   const CD = p("Winter Coat Drive");
   const MC = p("Teen Mentorship Circle");
 
+  // Each creator joined their project as the highest role their org role
+  // allows (Priya leads, Marcus administers, Sofia is staff). Jordan owns the
+  // organization and sees everything. Sofia isn't on Homework Club, so it's
+  // private from her.
+  must(
+    await db
+      .from("project_members")
+      .insert([
+        { organization_id: org.id, project_id: HC, membership_id: m(marcus!), role: "staff" },
+        { organization_id: org.id, project_id: CD, membership_id: m(priya!), role: "staff" },
+        { organization_id: org.id, project_id: CD, membership_id: m(sofia!), role: "staff" },
+        { organization_id: org.id, project_id: MC, membership_id: m(priya!), role: "lead" },
+        { organization_id: org.id, project_id: MC, membership_id: m(marcus!), role: "staff" },
+      ])
+      .select("id"),
+    "project members",
+  );
+
   type Seed = [project: string, title: string, due: number | null, status: "todo" | "in_progress" | "done", assignee: string | null, by: string];
   const tasks: Seed[] = [
     [HC, "Confirm room booking for November", -3, "todo", jordan!, priya!],
@@ -293,7 +313,7 @@ async function main() {
     [HC, "Recruit two more math volunteers", 4, "in_progress", priya!, jordan!],
     [HC, "Send progress notes to families", 6, "todo", priya!, priya!],
     [HC, "Order new graph-paper notebooks", 12, "todo", null, priya!],
-    [HC, "Set up a quiet reading corner", 18, "todo", sofia!, priya!],
+    [HC, "Set up a quiet reading corner", 18, "todo", marcus!, priya!],
     [HC, "Review volunteer police checks", -5, "todo", jordan!, jordan!],
     [CD, "Book the van for collection days", -2, "todo", marcus!, marcus!],
     [CD, "Design the coat drive flyer", -12, "done", sofia!, marcus!],
@@ -323,13 +343,32 @@ async function main() {
           title,
           due_date: due === null ? null : day(due),
           status: "todo" as const,
-          assignee_membership_id: assignee ? m(assignee) : null,
+          // given to someone else: appointed; taken by its creator, or nobody's yet: open to claim
+          kind: assignee && assignee !== by ? ("appointed" as const) : ("general" as const),
           position: i + 1,
           created_by: by,
         })),
       )
       .select("id, title"),
     "tasks",
+  );
+  // assignees (D100): the creator claimed their own, anyone else was appointed by the creator
+  must(
+    await db
+      .from("task_assignees")
+      .insert(
+        tasks
+          .filter(([, , , , assignee]) => assignee)
+          .map(([, title, , , assignee, by]) => ({
+            organization_id: org.id,
+            task_id: insertedTasks.find((x) => x.title === title)!.id,
+            membership_id: m(assignee!),
+            kind: assignee === by ? ("claimed" as const) : ("appointed" as const),
+            added_by: by,
+          })),
+      )
+      .select("id"),
+    "task assignees",
   );
   // move tasks into their real status afterwards, so the activity log reads like real work
   for (const [, title, , status] of tasks) {
@@ -338,14 +377,74 @@ async function main() {
     must(await db.from("tasks").update({ status }).eq("id", id).select("id"), `status ${title}`);
   }
 
+  // priorities (D100): a few urgent ones, a few that can wait; the rest stay medium
+  const priorities: [string, "critical" | "high" | "low"][] = [
+    ["Review volunteer police checks", "critical"],
+    ["Confirm room booking for November", "high"],
+    ["Book the van for collection days", "high"],
+    ["Match new mentors with students", "high"],
+    ["Order new graph-paper notebooks", "low"],
+    ["Plan the distribution day layout", "low"],
+    ["Share the mentor guide", "low"],
+  ];
+  for (const [title, priority] of priorities) {
+    const id = insertedTasks.find((x) => x.title === title)!.id;
+    must(await db.from("tasks").update({ priority }).eq("id", id).select("id"), `priority ${title}`);
+  }
+  // open work with spots to claim
+  const openSpots = insertedTasks.find((x) => x.title === "Recruit sorting-day volunteers")!.id;
+  must(await db.from("tasks").update({ kind: "general", claim_limit: 3 }).eq("id", openSpots).select("id"), "claim limit");
+
+  // the newer kinds of work (D100): personal, org-level, hidden, and work everyone finishes
+  type TaskSeed = Database["public"]["Tables"]["tasks"]["Insert"];
+  // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
+  const extra = (t: Omit<TaskSeed, "organization_id">): TaskSeed => ({
+    organization_id: org.id,
+    status: "todo",
+    position: 100,
+    hidden: false,
+    claim_limit: null,
+    completion: "any",
+    ...t,
+  });
+  const more = must(
+    await db
+      .from("tasks")
+      .insert([
+        extra({ project_id: null, kind: "personal", title: "Draft my notes for the mentor check-ins", due_date: day(2), priority: "medium", created_by: sofia! }),
+        extra({ project_id: null, kind: "general", title: "Renew the liability insurance", due_date: day(10), priority: "critical", claim_limit: 1, created_by: jordan! }),
+        extra({ project_id: null, kind: "appointed", completion: "all", title: "Sign the updated volunteer code of conduct", due_date: day(6), priority: "high", created_by: jordan! }),
+        extra({ project_id: HC, kind: "appointed", hidden: true, title: "Follow up on a family's fee waiver", due_date: day(3), priority: "high", created_by: priya! }),
+      ])
+      .select("id, title"),
+    "more tasks",
+  );
+  const moreId = (title: string) => more.find((x) => x.title.startsWith(title))!.id;
+  must(
+    await db
+      .from("task_assignees")
+      .insert([
+        { organization_id: org.id, task_id: moreId("Draft my notes"), membership_id: m(sofia!), kind: "claimed", added_by: sofia! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(priya!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(marcus!), kind: "appointed", added_by: jordan!, done_at: new Date().toISOString() },
+        { organization_id: org.id, task_id: moreId("Sign the updated"), membership_id: m(sofia!), kind: "appointed", added_by: jordan! },
+        { organization_id: org.id, task_id: moreId("Follow up on a family"), membership_id: m(marcus!), kind: "appointed", added_by: priya! },
+      ])
+      .select("id"),
+    "more assignees",
+  );
+
   const at = (offset: number, time: string) => zonedTimeToUtc(day(offset), time, TZ).toISOString();
   type EventSeed = Database["public"]["Tables"]["events"]["Insert"];
   // PostgREST fills keys missing from some rows of a bulk insert with null, so set every column
   const fullEvent = (e: EventSeed): EventSeed => ({ all_day: false, description: null, location: null, ...e });
-  must(
+  const events = must(
     await db
       .from("events")
       .insert(([
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-7, "15:30"), ends_at: at(-7, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-5, "15:30"), ends_at: at(-5, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
+        { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(-2, "15:30"), ends_at: at(-2, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(0, "15:30"), ends_at: at(0, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Homework Club", starts_at: at(2, "15:30"), ends_at: at(2, "17:30"), location: "Room 104, Northside Community Centre", created_by: priya },
         { organization_id: org.id, project_id: HC, title: "Volunteer orientation", starts_at: at(5, "18:00"), ends_at: at(5, "19:30"), location: "Community Centre lounge", description: "New volunteers: safeguarding, sign-in, and a walk around the building.", created_by: jordan },
@@ -355,8 +454,160 @@ async function main() {
         { organization_id: org.id, project_id: CD, title: "Coat drive planning check-in", starts_at: at(-3, "12:00"), ends_at: at(-3, "12:45"), location: "Video call", created_by: marcus },
         { organization_id: org.id, project_id: null, title: "Board meeting", starts_at: at(12, "19:00"), ends_at: at(12, "20:30"), location: "Community Centre boardroom", description: "Quarterly update and budget review.", created_by: jordan },
       ] as EventSeed[]).map(fullEvent))
-      .select("id"),
+      .select("id, project_id, starts_at"),
     "events",
+  );
+
+  // Homework Club keeps a participant roster: six students, checked in at the
+  // three past sessions. Participants are records, not accounts.
+  must(await db.from("projects").update({ tracks_participants: true }).eq("id", HC).select("id"), "roster on");
+  const students = must(
+    await db
+      .from("participants")
+      .insert(
+        [
+          { name: "Amara Okafor", guardian_name: "Grace Okafor", phone: "416-555-0142", care_notes: "Asthma: inhaler in her backpack." },
+          { name: "Leo Tremblay", guardian_name: "Julie Tremblay", phone: "416-555-0187", care_notes: null },
+          { name: "Samir Haddad", guardian_name: "Rania Haddad", phone: "416-555-0119", care_notes: "Needs a seat near the front (hearing)." },
+          { name: "Mei Lin", guardian_name: "Hua Lin", phone: "416-555-0163", care_notes: null },
+          { name: "Jonah Brooks", guardian_name: "Dana Brooks", phone: "416-555-0174", care_notes: "Peanut allergy." },
+          { name: "Priyanka Rao", guardian_name: "Anil Rao", phone: "416-555-0108", care_notes: null },
+        ].map((x) => ({ organization_id: org.id, created_by: priya, ...x })),
+      )
+      .select("id, name"),
+    "participants",
+  );
+  must(
+    await db
+      .from("participant_programs")
+      .insert(students.map((x) => ({ organization_id: org.id, participant_id: x.id, project_id: HC })))
+      .select("participant_id"),
+    "enrollments",
+  );
+  const nowIso = new Date().toISOString();
+  const pastSessions = events.filter((e) => e.project_id === HC && e.starts_at < nowIso && e.starts_at < at(0, "00:00"));
+  // one row of marks per student, a session per column
+  const pattern: ("present" | "late" | "absent" | "excused")[][] = [
+    ["present", "present", "present"],
+    ["present", "late", "present"],
+    ["absent", "present", "late"],
+    ["present", "present", "excused"],
+    ["late", "absent", "absent"],
+    ["present", "present", "present"],
+  ];
+  must(
+    await db
+      .from("attendance")
+      .insert(
+        students.flatMap((x, i) =>
+          pastSessions.map((e, j) => ({
+            organization_id: org.id,
+            event_id: e.id,
+            participant_id: x.id,
+            status: pattern[i]![j] ?? "present",
+            note: i === 4 && j === 0 ? "Bus was late" : null,
+            recorded_by: priya,
+          })),
+        ),
+      )
+      .select("id"),
+    "attendance",
+  );
+
+  // Files kept about two of the students (D102): a signed waiver and a care plan.
+  const studentFiles = [
+    {
+      who: "Amara Okafor",
+      name: "Amara Okafor - signed waiver.txt",
+      kind: "waiver" as const,
+      body: Buffer.from(
+        "Homework Club participation waiver\n\nParticipant: Amara Okafor\nGuardian: Grace Okafor\nSigned: September 8, 2026\n",
+      ),
+    },
+    {
+      who: "Jonah Brooks",
+      name: "Jonah Brooks - allergy care plan.txt",
+      kind: "medical" as const,
+      body: Buffer.from(
+        "Allergy care plan\n\nParticipant: Jonah Brooks\nAllergy: peanuts\nEpinephrine auto-injector kept in the staff room first-aid kit.\n",
+      ),
+    },
+  ];
+  for (const f of studentFiles) {
+    const student = students.find((x) => x.name === f.who)!;
+    const path = `${org.id}/${HC}/${student.id}/${randomUUID()}`;
+    const up = await db.storage.from("participant-files").upload(path, f.body, { contentType: "text/plain", upsert: false });
+    if (up.error) throw new Error(`upload ${f.name}: ${up.error.message}`);
+    must(
+      await db
+        .from("participant_files")
+        .insert({
+          organization_id: org.id,
+          participant_id: student.id,
+          project_id: HC,
+          kind: f.kind,
+          name: f.name,
+          storage_path: path,
+          mime_type: "text/plain",
+          size_bytes: f.body.length,
+          uploaded_by: priya,
+        })
+        .select("id"),
+      `participant file ${f.name}`,
+    );
+  }
+
+  // Two funds, split into parts; owners and managers see them under Funds.
+  const funds = must(
+    await db
+      .from("funds")
+      .insert([
+        { organization_id: org.id, name: "Fall community grant", total_cents: 1000000, currency: "CAD", project_id: HC, description: "City of Toronto neighbourhood grant for the fall term.", created_by: priya, spend_by: day(75) },
+        { organization_id: org.id, name: "Winter coat donations", total_cents: 350000, currency: "CAD", project_id: CD, description: null, created_by: jordan, spend_by: day(20) },
+      ])
+      .select("id, name"),
+    "funds",
+  );
+  const fund = (name: string) => funds.find((f) => f.name === name)!.id;
+  must(
+    await db
+      .from("fund_allocations")
+      .insert(
+        (
+          [
+            ["Fall community grant", "Tutor stipends", 450000, HC],
+            ["Fall community grant", "Books and supplies", 180000, null],
+            ["Fall community grant", "Snacks", 120000, null],
+            ["Fall community grant", "Transit passes", 90000, null],
+            ["Winter coat donations", "Dry cleaning", 140000, null],
+            ["Winter coat donations", "Bins and signage", 60000, null],
+            ["Winter coat donations", "Distribution day", 100000, CD],
+          ] as const
+        ).map(([f, label, amount_cents, project_id], i) => ({
+          organization_id: org.id,
+          fund_id: fund(f),
+          label,
+          amount_cents,
+          project_id,
+          position: i + 1,
+        })),
+      )
+      .select("id"),
+    "allocations",
+  );
+
+  // Spending against the coat drive's fund (D108): approved and waiting, with
+  // its deadline close and much left, so its budget reads "at risk".
+  must(
+    await db
+      .from("spending_entries")
+      .insert([
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 32000, category: "Venue", spent_on: day(-9), note: "Church hall for sorting day", submitted_by: marcus, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 18650, category: "Printing", spent_on: day(-6), note: "Flyers and bin signs", submitted_by: sofia, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 5420, category: "Transport", spent_on: day(-2), note: "Gas for the van run", submitted_by: sofia, status: "pending", decided_by: null, decided_at: null },
+      ])
+      .select("id"),
+    "spending",
   );
 
   const docs: { name: string; mime: string; body: Buffer; project: string | null; tags: string[]; pinned: boolean; by: string }[] = [
@@ -412,17 +663,117 @@ async function main() {
     );
   }
 
-  must(
+  // a volunteer who hasn't joined yet, already granted Homework Club and
+  // assigned a task there
+  const invite = must(
     await db
       .from("invitations")
-      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", role: "member", invited_by: jordan })
-      .select("id"),
+      .insert({ organization_id: org.id, email: "new.volunteer@northside.example.org", name: "Alex Rivera", role: "staff", invited_by: jordan })
+      .select("id")
+      .single(),
     "invitation",
+  );
+  must(
+    await db
+      .from("invitation_projects")
+      .insert({ organization_id: org.id, invitation_id: invite.id, project_id: HC, role: "staff" })
+      .select("id"),
+    "invitation grant",
+  );
+  const notebooks = insertedTasks.find((x) => x.title === "Order new graph-paper notebooks")!.id;
+  must(
+    await db
+      .from("task_assignees")
+      .insert({ organization_id: org.id, task_id: notebooks, invitation_id: invite.id, kind: "appointed", added_by: priya })
+      .select("id"),
+    "invitee task",
+  );
+  must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
+
+  // Conversations (D106): the organization channel, Homework Club's channel,
+  // a direct message, a comment thread on a task and a discussion.
+  const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  // chat history starts when someone joined (D106): the demo team has been here for weeks
+  const joined = ago(60 * 24 * 60);
+  must(await db.from("memberships").update({ created_at: joined }).eq("organization_id", org.id).select("id"), "join dates");
+  must(await db.from("project_first_joins").update({ joined_at: joined }).eq("organization_id", org.id).select("project_id"), "program join dates");
+  const channel = async (filter: { kind: "org" } | { kind: "project"; project_id: string }) => {
+    let q = db.from("chat_channels").select("id").eq("organization_id", org.id).eq("kind", filter.kind);
+    if (filter.kind === "project") q = q.eq("project_id", filter.project_id);
+    return must(await q.single(), "channel").id;
+  };
+  const everyone = await channel({ kind: "org" });
+  const hcChannel = await channel({ kind: "project", project_id: HC });
+  const [a, b] = [priya!, marcus!].sort();
+  const direct = must(
+    await db.from("chat_channels").insert({ organization_id: org.id, kind: "direct", member_a: a, member_b: b }).select("id").single(),
+    "direct conversation",
+  ).id;
+  const say = (channel_id: string, sender_id: string, body: string, minutes: number) => ({
+    organization_id: org.id,
+    channel_id,
+    sender_id,
+    body,
+    created_at: ago(minutes),
+  });
+  must(
+    await db
+      .from("chat_messages")
+      .insert([
+        say(everyone, jordan!, "Welcome to the new chat, everyone. Program channels are for day-to-day questions; Discussions are for longer threads.", 300),
+        say(everyone, sofia!, "Thanks! The mentorship circle meets Thursday as usual.", 280),
+        say(hcChannel, priya!, "Room 104 is booked through November.", 120),
+        say(hcChannel, marcus!, `The snack cupboard is nearly empty, <@${priya}>. I'll restock it before Thursday.`, 95),
+        say(direct, priya!, "Could you cover the reading corner set-up next week?", 45),
+        say(direct, marcus!, "Yes, Tuesday works for me.", 40),
+      ])
+      .select("id"),
+    "chat messages",
+  );
+  const restock = insertedTasks.find((x) => x.title === "Restock snack cupboard")!.id;
+  must(
+    await db
+      .from("task_comments")
+      .insert([
+        { organization_id: org.id, task_id: restock, author_id: priya, body: "Granola bars and apples went fastest last month.", created_at: ago(90) },
+        { organization_id: org.id, task_id: restock, author_id: marcus, body: "Noted. I'll get both, and juice boxes.", created_at: ago(80) },
+      ])
+      .select("id"),
+    "task comments",
+  );
+  const thread = must(
+    await db
+      .from("discussions")
+      .insert({
+        organization_id: org.id,
+        project_id: HC,
+        author_id: priya,
+        title: "Ideas for the winter term",
+        body: "We have room for one new activity in January. A chess club and a reading challenge have both come up. What would the kids enjoy most?",
+        created_at: ago(600),
+        last_activity_at: ago(600),
+      })
+      .select("id")
+      .single(),
+    "discussion",
+  ).id;
+  must(
+    await db
+      .from("discussion_replies")
+      .insert({ organization_id: org.id, discussion_id: thread, author_id: marcus, body: "A reading challenge: the grade 5s keep asking for more books.", created_at: ago(500) })
+      .select("id"),
+    "discussion reply",
+  );
+
+  // work the seed marked done has no one who finished it: those notifications would only say "Someone"
+  must(
+    await db.from("notifications").delete().eq("organization_id", org.id).eq("type", "completed").is("actor_id", null).select("id"),
+    "seeded completion notifications",
   );
 
   console.log(
-    `Done: 4 people, ${projects.length} projects, ${tasks.length} tasks, 8 events, ${docs.length} documents.\n` +
-      `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (admin).`,
+    `Done: 4 people, ${projects.length} projects, ${tasks.length + more.length} tasks, ${events.length} events, ${docs.length} documents, ${students.length} participants, ${funds.length} funds.\n` +
+      `Sign in at /login with the development shortcut, or by magic link as ${DEMO_USERS[0].email} (owner).`,
   );
 }
 

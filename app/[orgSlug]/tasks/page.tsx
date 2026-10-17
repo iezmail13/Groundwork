@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import { ListChecks, SearchX } from "lucide-react";
+import { ListChecks, Plus, SearchX } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskBoard } from "@/components/tasks/task-board";
 import { TaskTable, type SortKey } from "@/components/tasks/task-table";
 import { FilterBar } from "@/components/tasks/filter-bar";
 import { QuickAddTask } from "@/components/tasks/quick-add";
-import { getMembers, getOrgContext, initials } from "@/lib/org";
+import { getMembers, getOrgContext } from "@/lib/org";
+import { getAvatars } from "@/lib/members";
+import { getAssigneeNames } from "@/lib/projects";
 import { getProjectOptions, TASK_SELECT, type TaskRow } from "@/lib/queries";
-import { filterTasks, readFilters, readSort, sortTasks } from "@/lib/task-filters";
+import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
 import { createClient } from "@/lib/supabase/server";
+import { WorkflowBoard } from "@/components/tasks/workflow-board";
+import { getWorkflow } from "@/lib/workflows";
 import { lower } from "@/lib/terminology/t";
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/tasks">): Promise<Metadata> {
@@ -25,18 +30,28 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   const { t, org, base, today } = ctx;
   const supabase = await createClient();
 
-  const [{ data, error }, members, projects] = await Promise.all([
+  const [{ data, error }, members, projects, memberName, avatars] = await Promise.all([
     supabase.from("tasks").select(TASK_SELECT).eq("organization_id", org.id).order("position").limit(2000),
     getMembers(org.id),
     getProjectOptions(org.id),
+    getAssigneeNames(org.id),
+    getAvatars(org.id, base),
   ]);
   if (error) throw error;
   const all = (data ?? []) as TaskRow[];
   const filters = readFilters(sp);
   const sort = readSort(sp);
-  const memberName = new Map(members.map((m) => [m.id, m.name]));
-  // the board shows every status as a column, so the status filter is list-only
-  const visible = filterTasks(all, view === "board" ? { ...filters, status: undefined } : filters, today, ctx.membershipId);
+  // finished work is hidden unless the Completed filter asks for it (D101)
+  const visible = forStatusView(filterTasks(all, filters, today, ctx.membershipId), filters.status);
+  const byUrgency = sp.order === "priority";
+  // a board filtered to one program that has its own steps shows those steps (D107)
+  const workflowProject =
+    view === "board" && filters.project && projects.some((p) => p.id === filters.project) ? filters.project : null;
+  const steps = workflowProject ? await getWorkflow(workflowProject) : [];
+  // every card on that program, finished ones too: its done steps hold them
+  const workflowTasks = steps.length
+    ? filterTasks(all, { ...filters, status: undefined }, today, ctx.membershipId).filter((x) => x.project_id === workflowProject)
+    : [];
   const plural = t("task", "other");
 
   const sortHref = (key: SortKey) => {
@@ -50,7 +65,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
 
   const tabHref = (v: string) => {
     const next = new URLSearchParams();
-    for (const k of ["project", "assignee", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
+    for (const k of ["project", "assignee", "status", "priority", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
     if (v === "list") next.set("view", "list");
     const qs = next.toString();
     return `${base}/tasks${qs ? `?${qs}` : ""}`;
@@ -60,6 +75,12 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
     <div className="flex flex-col gap-5">
       <PageHeader
         title={plural}
+        actions={
+          <ButtonLink href={`${base}/tasks/new`}>
+            <Plus aria-hidden className="size-4" />
+            New {lower(t("task"))}
+          </ButtonLink>
+        }
         tabsLabel={`${plural} views`}
         tabs={[
           { label: "Board", href: tabHref("board"), active: view === "board" },
@@ -68,25 +89,38 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
       />
 
       {all.length === 0 && projects.length === 0 ? (
-        <EmptyState icon={<ListChecks />} title={`No ${lower(plural)} yet`}>
+        <EmptyState icon={<ListChecks />} illustration="tasks" title={`No ${lower(plural)} yet`}>
           Every {lower(t("task"))} belongs to a {lower(t("project"))}. Create a {lower(t("project"))} first, then add{" "}
           {lower(plural)} here or on its page.
         </EmptyState>
       ) : (
         <>
           <FilterBar
-            showStatus={view === "list"}
+            showOrder={view === "board"}
             projects={projects.map((p) => ({ value: p.id, label: p.name }))}
             members={members.map((m) => ({ value: m.id, label: m.name }))}
           />
-          {view === "board" ? (
-            <TaskBoard
-              tasks={visible}
+          {view === "board" && steps.length > 0 && workflowProject ? (
+            <WorkflowBoard
+              steps={steps}
+              tasks={workflowTasks}
               base={base}
               today={today}
               organizationId={org.id}
               projects={projects}
-              memberInitials={Object.fromEntries(members.map((m) => [m.id, { initials: initials(m.name), name: m.name }]))}
+              projectId={workflowProject}
+              memberInitials={avatars}
+            />
+          ) : view === "board" ? (
+            <TaskBoard
+              tasks={byUrgency ? [...visible].sort(byPriority) : visible}
+              completed={filters.status === "done"}
+              sortedByPriority={byUrgency}
+              base={base}
+              today={today}
+              organizationId={org.id}
+              projects={projects}
+              memberInitials={avatars}
             />
           ) : (
             <div className="flex flex-col gap-4">

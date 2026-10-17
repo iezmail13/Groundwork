@@ -100,39 +100,58 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await page.getByLabel("New task title").fill("Draft the launch checklist");
   await page.getByLabel("Due date").fill("2026-11-02");
   await page.getByRole("button", { name: "Add task" }).click();
-  await expect(page.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="project-tasks"]').getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // quick-add starts fresh, so the next task doesn't inherit this one's due date
   await expect(page.getByLabel("New task title")).toHaveValue("");
   await expect(page.getByLabel("Due date")).toHaveValue("");
 
-  // 4. Move the task on the board: keyboard drag (Space, arrow, Space), then the move button.
+  // 4. The board (D101): reorder within a column with the keyboard, claim the task (it moves to
+  // In progress), tick it done (it leaves the board, with Undo), and find it under Completed.
   await visit(page, `${base}/tasks`);
-  const handle = page.getByRole("button", { name: "Drag “Draft the launch checklist”" });
+  const todo = page.locator('section[data-column="todo"]');
+  const inProgress = page.locator('section[data-column="in_progress"]');
+  const handle = page.getByRole("button", { name: "Reorder “Draft the launch checklist”" });
   await expect(handle).toBeVisible();
+  const cards = () => todo.locator("li[data-task-id]").evaluateAll((els) => els.map((el) => el.textContent ?? ""));
+  const from = (await cards()).findIndex((text) => text.includes("Draft the launch checklist"));
+  expect(from).toBeGreaterThan(0);
   // wait on dnd-kit's screen-reader announcements between keys, as a keyboard user would
   const announcer = page.locator("[aria-live]");
   await handle.focus();
   await page.keyboard.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("ArrowRight");
-  await expect(announcer.filter({ hasText: "is over In progress" })).toHaveCount(1);
+  await expect(announcer.filter({ hasText: `“Draft the launch checklist” is over position ${from + 1}` })).toHaveCount(1);
+  await page.keyboard.press("ArrowUp");
+  await expect(announcer.filter({ hasText: `is over position ${from}.` })).toHaveCount(1);
   await page.keyboard.press("Space");
-  const inProgress = page.locator('section[data-column="in_progress"]');
-  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await expect(announcer.filter({ hasText: `Moved “Draft the launch checklist” to position ${from}` })).toHaveCount(1);
   await page.reload();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  expect((await cards()).findIndex((text) => text.includes("Draft the launch checklist"))).toBe(from - 1);
+
+  await todo.getByRole("button", { name: "Claim Draft the launch checklist" }).click();
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.getByRole("button", { name: "Move “Draft the launch checklist” to Done" }).click();
+  await expect(todo.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  const toast = page.getByRole("status").filter({ hasText: "“Draft the launch checklist” is done." });
+  await expect(toast).toBeVisible();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  await inProgress.getByRole("checkbox", { name: "Done: Draft the launch checklist" }).click();
+  await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
+  // filters sit behind one button (D110)
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await page.getByLabel("Status").selectOption("done");
+  await expect(page.getByRole("button", { name: "Filters, 1 on" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Filters on" })).toContainText("Status: Completed");
   const done = page.locator('section[data-column="done"]');
-  await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
-  await page.reload();
-  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
   // open the task and edit it on its own page
   await done.getByRole("link", { name: "Draft the launch checklist" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
   await page.getByLabel("Title").fill("Finalize the launch checklist");
-  await page.getByLabel("Status").selectOption("in_progress");
+  await page.getByLabel("Priority").selectOption("high");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Finalize the launch checklist" })).toBeVisible();
@@ -209,56 +228,61 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
+  // settings are the preset, the people, the organization, its branding, your own
+  // profile and your notifications (no accounting link for now, D110); words aren't
+  // editable one by one
+  const sections = page.getByRole("navigation", { name: "Settings sections" });
+  await expect(sections.getByRole("link")).toHaveCount(6);
+  await expect(sections.getByRole("link", { name: "Finance" })).toHaveCount(0);
+  await expect(sections.getByRole("link", { name: "Notifications" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
+  await expect(sections.getByRole("link", { name: "Terminology" })).toHaveCount(0);
+  await expect(sections.getByRole("link", { name: "Theme" })).toHaveCount(0);
   await page.getByRole("radio", { name: /Tutoring/ }).check();
   await page.getByRole("button", { name: "Apply preset" }).click();
   await expect(page.getByText("Preset applied")).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Main" }).first();
-  await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
+  // several programs make the heading a group that opens to list them (D111)
+  await nav.getByRole("button", { name: "Subjects" }).click();
+  await expect(nav.getByRole("link", { name: "All subjects" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Materials" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tutors" })).toBeVisible();
-  // an organization override beats the preset
-  await visit(page, `${base}/settings?view=terminology`);
-  await page.getByLabel("Subject, singular").fill("Course");
-  await page.getByLabel("Subject, plural").fill("Courses");
-  await page.getByRole("button", { name: "Save labels" }).click();
-  await expect(page.getByText("Labels saved.")).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Courses" })).toBeVisible();
-  await page.getByLabel("Subject, singular").fill("");
-  await page.getByLabel("Subject, plural").fill("");
-  await page.getByRole("button", { name: "Save labels" }).click();
-  await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
 
   // 8. Reorder a dashboard widget with the keyboard, reload, and confirm it persisted.
   await visit(page, `${base}/dashboard`);
-  await expect(page.getByRole("heading", { name: "Upcoming lessons" })).toBeVisible();
+  // the preset's words reach the dashboard too
+  await expect(page.getByRole("heading", { name: "Subject progress" })).toBeVisible();
   const before = await widgetOrder(page);
-  expect(before.slice(0, 2)).toEqual(["overdue", "due_soon"]);
+  expect(before.slice(0, 2)).toEqual(["tasks", "priority"]);
   await page.getByRole("button", { name: "Customize" }).click();
-  const moveHandle = page.getByRole("button", { name: "Move Overdue" });
+  const moveHandle = page.getByRole("button", { name: "Move My tasks" });
   await moveHandle.focus();
   await page.keyboard.press("Space");
   await expect(moveHandle).toHaveAttribute("aria-pressed", "true");
+  // move only once the drop positions are measured, which the first "over" announcement shows
+  await expect(page.locator("[aria-live]").filter({ hasText: "My tasks is over position 1" })).toHaveCount(1);
   await page.keyboard.press("ArrowRight");
-  await expect(page.locator("[aria-live]").filter({ hasText: "Overdue is over position 2" })).toHaveCount(1);
+  await expect(page.locator("[aria-live]").filter({ hasText: "My tasks is over position 2" })).toHaveCount(1);
   await page.keyboard.press("Space");
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   const after = await widgetOrder(page);
-  expect(after.slice(0, 2)).toEqual(["due_soon", "overdue"]);
+  expect(after.slice(0, 2)).toEqual(["priority", "tasks"]);
   // resize and hide too, so persistence covers every kind of change
   await page.getByRole("radio", { name: "Large" }).first().check({ force: true });
-  await page.getByRole("button", { name: "Hide Recent activity" }).click();
+  await page.getByRole("button", { name: "Hide Coming up" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Layout saved." })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "recent_activity"));
-  await expect(page.locator('li[data-widget="due_soon"]')).toHaveClass(/xl:col-span-12/);
-  await expect(page.getByRole("heading", { name: "Recent activity" })).toHaveCount(0);
+  expect(await widgetOrder(page)).toEqual(after.filter((id) => id !== "coming_up"));
+  await expect(page.locator('li[data-widget="priority"]')).toHaveClass(/xl:col-span-12/);
+  await expect(page.getByRole("heading", { name: "Coming up" })).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
 
-test("invitations: invite, accept by magic link, change role, remove, last-admin guard", async ({ page, browser, request }) => {
+test("invitations: invite, accept by magic link, change role, remove, last-owner guard", async ({ page, browser, request }) => {
   const invitee = `invitee-${Date.now()}@example.org`;
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in as Jordan Ellis" }).click();
@@ -271,12 +295,14 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(page.getByText("That person is already in this organization.")).toBeVisible();
 
   await page.getByLabel("Email", { exact: true }).fill(invitee);
-  await page.getByLabel("Role", { exact: true }).selectOption("admin");
+  // an owner can hand out every role, highest first
+  await expect(page.getByLabel("Role", { exact: true }).locator("option")).toHaveText(["Owner", "Manager", "Admin", "Staff"]);
+  await page.getByLabel("Role", { exact: true }).selectOption("manager");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   const link = await page.getByLabel("Invite link", { exact: true }).inputValue();
-  // the form starts fresh, so the next invite can't silently inherit the Admin role
+  // the form starts fresh, so the next invite can't silently inherit a higher role
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("Role", { exact: true })).toHaveValue("member");
+  await expect(page.getByLabel("Role", { exact: true })).toHaveValue("staff");
   expect(link).toMatch(/\/invite\/[0-9a-f]{64}$/);
 
   // the invitee opens the link in their own browser, signs in, and accepts
@@ -293,23 +319,62 @@ test("invitations: invite, accept by magic link, change role, remove, last-admin
   await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await other.close();
 
-  // they joined as an admin; demote them, then remove them
+  // they joined as a manager; demote them, then remove them
   await visit(page, "/northside-youth-collective/settings?view=members");
   const row = page.getByRole("row").filter({ hasText: invitee });
   await expect(row).toBeVisible();
-  await expect(row.getByRole("combobox")).toHaveValue("admin");
-  await row.getByRole("combobox").selectOption("member");
+  await expect(row.getByRole("combobox")).toHaveValue("manager");
+  await row.getByRole("combobox").selectOption("staff");
   await row.getByRole("button", { name: "Update" }).click();
   await page.reload();
-  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("member");
+  await expect(page.getByRole("row").filter({ hasText: invitee }).getByRole("combobox")).toHaveValue("staff");
   await page.getByRole("button", { name: `Remove ${invitee}` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
   await expect(page.getByRole("row").filter({ hasText: invitee })).toHaveCount(0);
 
-  // the only admin can't leave
+  // the owner can start a transfer to anyone who isn't already an owner, and back out
+  await page.getByRole("button", { name: "Transfer ownership" }).click();
+  const transfer = page.getByRole("dialog", { name: "Transfer ownership" });
+  // everyone who isn't already an owner; seeded members share a join time, so compare without order
+  const candidates = transfer.getByLabel("New owner").locator("option:not([disabled])");
+  await expect(candidates).toHaveCount(3);
+  expect((await candidates.allTextContents()).sort()).toEqual(["Marcus Chen", "Priya Shah", "Sofia Alvarez"]);
+  await transfer.getByRole("button", { name: "Cancel" }).click();
+  await expect(transfer).toBeHidden();
+
+  // the only owner can't leave
   await page.getByRole("button", { name: "Leave the organization" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Leave" }).click();
-  await expect(page.getByRole("dialog").getByText("An organization must keep at least one admin")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("An organization must keep at least one owner")).toBeVisible();
+});
+
+test("role ladder: managers grant only lower roles, staff see settings read-only", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  // the owner outranks a manager, so their row is read-only
+  const owner = page.getByRole("row").filter({ hasText: "Jordan Ellis" });
+  await expect(owner.getByRole("combobox")).toHaveCount(0);
+  await expect(owner.getByText("Owner", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Jordan Ellis" })).toHaveCount(0);
+  // a manager can change and invite only the ranks below them
+  await expect(page.getByLabel("Role for Marcus Chen").locator("option")).toHaveText(["Admin", "Staff"]);
+  await expect(page.getByLabel("Role", { exact: true }).locator("option")).toHaveText(["Admin", "Staff"]);
+  await expect(page.getByRole("button", { name: "Transfer ownership" })).toHaveCount(0);
+
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await visit(staff, "/northside-youth-collective/settings?view=members");
+  await expect(staff.getByText("Only owners and managers can change settings.")).toBeVisible();
+  await expect(staff.getByRole("combobox")).toHaveCount(0);
+  await expect(staff.getByRole("heading", { name: "Invite someone" })).toHaveCount(0);
+  // staff can still leave on their own
+  await expect(staff.getByRole("button", { name: "Leave the organization" })).toBeVisible();
+  await context.close();
 });
 
 test("sign-in links work on another device and survive mail scanners", async ({ browser, request }) => {
@@ -379,6 +444,81 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
+test("landing page: signed-out visitors see the hero, the problems, benefits and FAQ, and a way in", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tasks, files and deadlines for your nonprofit, in one place.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
+  for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
+    await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+  }
+  await expect(page.getByRole("heading", { level: 3, name: "Never miss a deadline" })).toBeVisible();
+
+  // FAQ answers match the code and the verified settings
+  await page.getByText("Can I import files?").click();
+  await expect(page.getByText(/one at a time, up to 25 MB each/)).toBeVisible();
+  await page.getByText("Where is it stored?").click();
+  await expect(page.getByText(/Supabase in its US East region/)).toBeVisible();
+
+  // one primary action; "Log in" stays a small link in the masthead
+  const site = page.getByRole("navigation", { name: "Site" });
+  await expect(site.getByRole("link", { name: "Log in" })).toBeVisible();
+  await site.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Create your free Groundwork account" })).toBeVisible();
+  await expect(page.getByText("Log in", { exact: true })).toHaveCount(0);
+
+  // on a phone the links sit behind a menu button
+  const phone = await browser.newPage({ viewport: { width: 360, height: 740 } });
+  await phone.goto("/");
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  const menu = phone.getByRole("button", { name: "Open menu" });
+  await menu.click();
+  await expect(phone.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
+  await phone.locator("#site-menu").getByRole("link", { name: "Log in" }).click();
+  await expect(phone).toHaveURL(/\/login$/);
+  await phone.close();
+  await context.close();
+});
+
+test("public pages load signed out, at phone width, with the footer links", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  const page = await context.newPage();
+  for (const [path, title] of [
+    ["/security", "Security"],
+    ["/privacy", "Privacy"],
+    ["/terms", "Terms"],
+  ] as const) {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    const footer = page.getByRole("navigation", { name: "Footer" });
+    for (const link of ["Security", "Privacy", "Terms"]) await expect(footer.getByRole("link", { name: link })).toBeVisible();
+  }
+  // where data lives is stated as verified
+  await page.goto("/security");
+  await expect(page.getByText(/US East region in the United States/).first()).toBeVisible();
+  await expect(page.getByText(/doesn't offer restorable backups yet/)).toBeVisible();
+  await context.close();
+});
+
+test("Start free: a new person signs up, then creates their organization", async ({ page, request }) => {
+  const email = `signup-${Date.now()}@example.org`;
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start free" }).first().click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await page.getByLabel("Work email").fill(email);
+  await page.getByRole("button", { name: "Email me a link to get started" }).click();
+  await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  await finishSignIn(page, await magicLinkFor(request, email));
+  await expect(page).toHaveURL(/\/create-organization$/);
+});
+
 test("sign-in works before JavaScript loads (progressive enhancement)", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
@@ -397,13 +537,15 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
   await expect(page).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Upcoming sessions" })).toBeVisible();
-  const overdue = page.locator('li[data-widget="overdue"]');
-  await expect(overdue.getByText(/past due/)).toBeVisible();
-  await expect(overdue.locator(".sr-only").first()).toHaveText(/^[1-9]\d*$/);
+  // the seeded overdue work belongs to people she oversees, so it shows under "Everything I oversee"
+  await page.getByRole("navigation", { name: "Whose work" }).getByRole("link", { name: "Everything I oversee" }).click();
+  await expect(page).toHaveURL(/scope=all/);
+  const deadlines = page.locator('li[data-widget="deadlines"]');
+  await expect(deadlines.getByText("overdue", { exact: true })).toBeVisible();
+  await expect(deadlines.locator(".text-3xl").first()).toHaveText(/^[1-9]\d*$/);
   const nav = page.getByRole("navigation", { name: "Main" }).first();
-  await expect(nav.getByRole("link", { name: "Programs" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recent programs" })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Programs" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program progress" })).toBeVisible();
   // tasks appear on the calendar by due date, and clicking one opens it
   await visit(page, "/northside-youth-collective/calendar");
   await expect(page.locator('td[aria-current="date"]')).toHaveCount(1);
@@ -424,5 +566,303 @@ test("reduced motion disables animation", async ({ browser }) => {
   expect(animation).toBe("none");
   const swing = await page.locator(".logo-briefcase").first().evaluate((el) => getComputedStyle(el).animationName);
   expect(swing).toBe("none");
+  await context.close();
+});
+
+// Phase 2: project membership, invitations with project access, Google sign-in.
+// These run last because they add people to the seeded organization.
+
+test("projects are private to their people; leaving frees work for reassignment", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Homework Club" }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Homework Club");
+  const projectUrl = page.url();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+
+  // the lead takes Marcus off the project: his open work there is flagged
+  await page.getByRole("button", { name: "Remove Marcus Chen from this program" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toHaveCount(0);
+  const snacks = page.getByRole("row").filter({ hasText: "Restock snack cupboard" });
+  await expect(snacks.getByText("Needs assignee")).toBeVisible();
+
+  // and puts him back, then hands the task to him again from the task form
+  await page.getByLabel("Person", { exact: true }).selectOption({ label: "Marcus Chen" });
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "marcus@northside.example.org" })).toBeVisible();
+  await snacks.getByRole("link", { name: "Restock snack cupboard" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByRole("checkbox", { name: "Marcus Chen" }).check();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  await expect(page.getByText("Needs assignee")).toHaveCount(0);
+
+  // Sofia isn't on Homework Club: it's missing from her list and its page is not found
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await visit(staff, "/northside-youth-collective/projects");
+  await expect(staff.getByRole("link", { name: "Winter Coat Drive" }).first()).toBeVisible();
+  await expect(staff.getByRole("link", { name: "Homework Club" })).toHaveCount(0);
+  await staff.goto(projectUrl);
+  await expect(staff.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await visit(staff, "/northside-youth-collective/tasks?view=list");
+  await expect(staff.getByRole("link", { name: "Restock snack cupboard" })).toHaveCount(0);
+  await context.close();
+});
+
+test("invite from a task: a pending assignee, then join through the invitations page", async ({ page, browser, request }) => {
+  const email = `robin-${Date.now()}@example.org`;
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Jordan Ellis" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Homework Club" }).first().click();
+  await page.getByRole("link", { name: "Set up a quiet reading corner" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+
+  // the assignee picker leads to the invite form, which grants the project and assigns the task
+  await page.getByRole("link", { name: "Invite someone to assign" }).click();
+  await expect(page).toHaveURL(/\/settings\?view=members&task=[0-9a-f-]{36}#invite$/);
+  const invite = page.locator("#invite");
+  await expect(invite.getByText("is assigned Set up a quiet reading corner")).toBeVisible();
+  await expect(invite.getByLabel("Homework Club")).toHaveValue("staff");
+  await invite.getByLabel("Name").fill("Robin Tester");
+  await invite.getByLabel("Email").fill(email);
+  await invite.getByRole("button", { name: "Invite" }).click();
+  await expect(invite.getByLabel("Invite link")).toHaveValue(/\/invite\/[0-9a-f]{64}$/);
+  await expect(invite.getByText(/assigned to them/)).toBeVisible();
+  await invite.getByRole("link", { name: "Back to Set up a quiet reading corner" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(page.getByRole("checkbox", { name: "Robin Tester (pending)" })).toBeChecked();
+
+  // the invitation shows its project in settings
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  await expect(page.getByText(`Robin Tester · ${email}`)).toBeVisible();
+  await expect(page.getByText("Joins Homework Club (Staff)").first()).toBeVisible();
+
+  // Robin signs in normally and is shown the invitation before anything else
+  const context = await browser.newContext();
+  const guest = await context.newPage();
+  await signInWithMagicLink(guest, request, email);
+  await expect(guest).toHaveURL(/\/invitations$/);
+  await expect(guest.getByText("Northside Youth Collective", { exact: true })).toBeVisible();
+  await expect(guest.getByText("Program: Homework Club")).toBeVisible();
+  await guest.getByRole("button", { name: "Join Northside Youth Collective" }).click();
+  await expect(guest).toHaveURL(/\/northside-youth-collective\/dashboard$/);
+  // they see only the project they were given, with the task waiting for them
+  await visit(guest, "/northside-youth-collective/projects");
+  await expect(guest.getByRole("link", { name: "Homework Club" }).first()).toBeVisible();
+  await expect(guest.getByRole("link", { name: "Winter Coat Drive" })).toHaveCount(0);
+  await visit(guest, "/northside-youth-collective/tasks?view=list&assignee=me");
+  await expect(guest.getByRole("link", { name: "Set up a quiet reading corner" })).toBeVisible();
+  await context.close();
+
+  // removing them hands their open work to someone on the project
+  await visit(page, "/northside-youth-collective/settings?view=members");
+  await page.getByRole("button", { name: "Remove Robin Tester" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Hand over open tasks to").selectOption({ label: "Priya Shah" });
+  await dialog.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Removed. 1 open task handed over." })).toBeVisible();
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await expect(page.getByRole("row").filter({ hasText: "Set up a quiet reading corner" })).toContainText("Priya Shah");
+});
+
+test("Google sign-in hands off to Supabase and comes back to the callback", async ({ page }) => {
+  let authorize: URL | undefined;
+  // Google isn't configured locally: stop at the hand-off and check what was asked for
+  await page.route("**/auth/v1/authorize**", async (route) => {
+    authorize = new URL(route.request().url());
+    await route.fulfill({ status: 200, contentType: "text/plain", body: "stopped at the hand-off" });
+  });
+  await page.goto("/login?next=/invitations");
+  await page.locator("button", { hasText: "Continue with Google" }).click();
+  await expect.poll(() => authorize?.searchParams.get("provider")).toBe("google");
+  const back = new URL(authorize!.searchParams.get("redirect_to")!);
+  expect(back.pathname).toBe("/auth/callback");
+  expect(back.searchParams.get("next")).toBe("/invitations");
+
+  // if Google sends the person back with an error, they land on sign-in with a way forward
+  await page.unroute("**/auth/v1/authorize**");
+  await page.goto("/auth/callback?error=access_denied");
+  await expect(page).toHaveURL(/\/login\?error=google/);
+  // (Next.js renders its own, empty role=alert route announcer as well)
+  await expect(page.getByRole("alert").filter({ hasText: "Google sign-in didn't finish" })).toBeVisible();
+});
+
+test("what a higher rank made is read-only for lower ranks, except that its assignee can finish it", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Sofia Alvarez" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+
+  // Marcus (admin) made this one and it's his: Sofia (staff) can read it, not change it
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await expect(page.getByRole("checkbox", { name: /^Done: Book the van for collection days/ })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Book the van for collection days" }).click();
+  await expect(page.getByText(/An admin made this, so only they or someone ranked admin or above can change it\./)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+  await expect(page.getByLabel("Title")).toHaveCount(0);
+
+  // Marcus made this one too, but it's assigned to Sofia, so she can mark it done
+  await visit(page, "/northside-youth-collective/tasks?view=list");
+  await page.getByRole("link", { name: "Recruit sorting-day volunteers" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await expect(page.getByText(/As its assignee, you can still mark it done\./)).toBeVisible();
+  const done = page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" });
+  await done.click();
+  await expect(done).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: "Done: Recruit sorting-day volunteers" })).toHaveAttribute("aria-checked", "true");
+});
+
+test("attendance: roster, check-in, reports, archiving and permanent deletion", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+
+  // Priya leads Homework Club, which keeps a roster
+  await page.getByRole("link", { name: "Attendance", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Attendance" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Amara Okafor" })).toBeVisible();
+  await page.getByLabel("Search by name").fill("Samir");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByRole("link", { name: "Samir Haddad" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Amara Okafor" })).toHaveCount(0);
+
+  // add someone, then fill in their private details
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("button", { name: "Add participant" }).click();
+  await page.getByRole("dialog").getByLabel("Full name").fill("Noor Ali");
+  await page.getByRole("dialog").getByRole("button", { name: "Add" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Noor Ali" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added." })).toBeVisible();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByLabel("Emergency contact").fill("Sara Ali, 416-555-0190");
+  await page.getByRole("button", { name: "Save details" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+
+  // check everyone in at the latest session (today's in Toronto, which may be
+  // "Yesterday" in the test browser's UTC clock late in the evening)
+  await visit(page, "/northside-youth-collective/attendance?view=take");
+  await expect(page.getByRole("heading", { level: 2, name: /^(Today|Yesterday), .* · Homework Club$/ })).toBeVisible();
+  await page.getByRole("group", { name: "Leo Tremblay" }).getByText("Late").click();
+  await page.getByRole("button", { name: "Mark the rest present" }).click();
+  await page.getByRole("button", { name: "Save attendance" }).click();
+  await expect(page.getByText("Saved 7 marks.")).toBeVisible();
+
+  // reports compare participants and download as CSV
+  await visit(page, "/northside-youth-collective/attendance?view=reports");
+  await expect(page.getByText("Attendance rate by participant")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Amara Okafor .* 100%/ })).toBeVisible();
+  const csvHref = await page.getByRole("link", { name: "Download CSV" }).getAttribute("href");
+  const csv = await (await page.request.get(csvHref!)).text();
+  expect(csv).toContain("Amara Okafor");
+  expect(csv.split("\r\n")[0]).toBe("Date,Session,Program,Participant,Mark,Note");
+
+  // archiving hides someone from the roster and check-in; restoring brings them back
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("link", { name: "Noor Ali" }).click();
+  await page.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(/hidden from rosters and check-in/)).toBeVisible();
+  await visit(page, "/northside-youth-collective/attendance?view=take");
+  await expect(page.getByRole("group", { name: "Noor Ali" })).toHaveCount(0);
+  await visit(page, "/northside-youth-collective/attendance?show=archived");
+  await page.getByRole("button", { name: "Restore Noor Ali" }).click();
+  await expect(page.getByRole("button", { name: "Restore Noor Ali" })).toHaveCount(0);
+  await visit(page, "/northside-youth-collective/attendance");
+  await expect(page.getByRole("link", { name: "Noor Ali" })).toBeVisible();
+
+  // a privacy request: Leo's details go, his marks stay without a name
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("link", { name: "Leo Tremblay" }).click();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "Delete permanently" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Type Leo Tremblay to confirm").fill("Leo");
+  await dialog.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(dialog.getByText("The name doesn't match.")).toBeVisible();
+  await dialog.getByLabel("Type Leo Tremblay to confirm").fill("Leo Tremblay");
+  await dialog.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Deleted permanently." })).toBeVisible();
+  await visit(page, "/northside-youth-collective/attendance?view=reports");
+  await expect(page.getByRole("row", { name: /Removed participants/ }).first()).toBeVisible();
+  await expect(page.getByText("Leo Tremblay")).toHaveCount(0);
+
+  // project staff never see participants
+  const context = await browser.newContext();
+  const staff = await context.newPage();
+  await staff.goto("/login");
+  await staff.getByRole("button", { name: "Sign in as Marcus Chen" }).click();
+  await expect(staff).toHaveURL(/dashboard$/);
+  await expect(staff.getByRole("link", { name: "Attendance", exact: true })).toHaveCount(0);
+  await visit(staff, "/northside-youth-collective/attendance");
+  await expect(staff.getByText("No programs keep a roster you can see")).toBeVisible();
+  await context.close();
+});
+
+test("funds: owners and managers split a fund, see it on its project and the dashboard", async ({ page, browser }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
+  await expect(page).toHaveURL(/dashboard$/);
+  // Funds sits under Finances in the sidebar (D110)
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByRole("button", { name: "Finances" }).click();
+  await page.getByRole("link", { name: "Funds", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Funds" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("link", { name: "Fall community grant", exact: true })).toBeVisible();
+
+  // a new fund for a program, split in two
+  await page.getByRole("button", { name: "New fund" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill("Spring bake sale");
+  await dialog.getByLabel("Total").fill("2,000");
+  await dialog.getByLabel("Linked program (optional)").selectOption({ label: "Teen Mentorship Circle" });
+  await dialog.getByRole("button", { name: "Create fund" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Spring bake sale" })).toBeVisible();
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await page.getByLabel("What it's for").fill("Ingredients");
+  await page.getByLabel("Amount").fill("500");
+  await page.getByRole("button", { name: "Allocate" }).click();
+  await expect(page.getByText("Allocated to Ingredients.")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Ingredients .*\$500\.00 25%/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Unallocated .*\$1,500\.00 75%/ })).toBeVisible();
+
+  // the database won't allocate more than the fund holds
+  await page.getByLabel("What it's for").fill("Too much");
+  await page.getByLabel("Amount").fill("1600");
+  await page.getByRole("button", { name: "Allocate" }).click();
+  await expect(page.getByText("That's more than the fund has left to allocate.")).toBeVisible();
+
+  // the program shows its funding, and so does the dashboard
+  await visit(page, "/northside-youth-collective/projects");
+  await page.getByRole("link", { name: "Teen Mentorship Circle" }).first().click();
+  await expect(page.getByRole("heading", { level: 3, name: "Funding" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Spring bake sale" })).toBeVisible();
+  await visit(page, "/northside-youth-collective/dashboard");
+  await expect(page.getByRole("heading", { name: "Funding" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Spring bake sale: \d+% allocated, open the fund$/ })).toBeVisible();
+  // and the change is in the activity log, for owners and managers
+  await visit(page, "/northside-youth-collective/activity");
+  await expect(page.getByRole("table", { name: "Activity, newest first" }).getByRole("link", { name: "Spring bake sale" }).first()).toBeVisible();
+
+  // an admin sees none of it
+  const context = await browser.newContext();
+  const admin = await context.newPage();
+  await admin.goto("/login");
+  await admin.getByRole("button", { name: "Sign in as Marcus Chen" }).click();
+  await expect(admin).toHaveURL(/dashboard$/);
+  await expect(admin.getByRole("link", { name: "Funds", exact: true })).toHaveCount(0);
+  await expect(admin.getByRole("heading", { name: "Funding" })).toHaveCount(0);
+  await admin.goto("/northside-youth-collective/funds");
+  await expect(admin.getByRole("heading", { name: "Not found" })).toBeVisible();
+  await admin.goto("/northside-youth-collective/activity");
+  await expect(admin.getByRole("heading", { level: 1, name: "Activity" })).toBeVisible();
+  await expect(admin.getByText("Spring bake sale")).toHaveCount(0);
   await context.close();
 });

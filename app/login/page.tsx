@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { DEMO_USERS, devShortcutEnabled } from "@/lib/demo";
+import { DEMO_USERS, devShortcutEnabled, googleSignInEnabled } from "@/lib/demo";
 import { safeNext } from "@/lib/safe-next";
 import { devSignIn } from "./actions";
 
@@ -14,6 +14,7 @@ export const metadata: Metadata = { title: "Sign in" };
 const ERRORS: Record<string, string> = {
   link: "That sign-in link is invalid or has expired. Request a new one below.",
   demo: "The demo sign-in didn't work. Run npm run seed, then try again.",
+  google: "Google sign-in didn't finish. Try again, or use the email link below.",
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -26,13 +27,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (data.user) redirect(next);
 
   return (
-    <AuthFrame title="Sign in to Groundwork" subtitle="We'll email you a link. No password needed.">
+    <AuthFrame
+      title="Sign in to Groundwork"
+      subtitle={googleSignInEnabled() ? "Use your Google account, or we'll email you a link. No password needed." : "We'll email you a link. No password needed."}
+    >
       {error ? (
         <p role="alert" className="mb-4 border-l-4 border-ink pl-3 text-sm font-semibold">
           {error}
         </p>
       ) : null}
-      <LoginForm next={next === "/" ? undefined : next} />
+      <LoginForm next={next === "/" ? undefined : next} google={googleSignInEnabled()} />
 
       {devShortcutEnabled() ? (
         <section aria-labelledby="dev-signin" className="mt-8 border-t border-dashed border-rule pt-5">

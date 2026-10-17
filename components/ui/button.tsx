@@ -8,11 +8,11 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-md font-heading font-semibold whitespace-nowrap transition-[transform,border-color,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60 active:translate-y-px";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-on-primary border border-primary hover:-translate-y-px",
+  primary: "bg-accent text-on-accent border border-accent hover:-translate-y-px",
   secondary: "bg-canvas text-ink border border-rule hover:border-ink",
   ghost: "text-ink border border-transparent hover:border-rule hover:bg-panel",
-  // destructive: no red, so it's an outlined button with bold text and an icon
-  danger: "bg-canvas text-ink border-2 border-ink hover:bg-panel",
+  // destructive: outlined in the "bad" colour, with bold text and an icon
+  danger: "bg-canvas text-bad-ink border-2 border-bad hover:bg-bad-tint",
   rail: "text-rail-ink border border-transparent hover:bg-rail-hover",
 };
 

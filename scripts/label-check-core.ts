@@ -8,11 +8,18 @@ export const PRIMITIVE_WORDS = [
   "member", "members", "program", "programs", "session", "sessions", "meeting", "meetings",
   "subject", "subjects", "lesson", "lessons", "tutor", "tutors", "material", "materials",
   "team member", "team members",
+  "participant", "participants", "attendee", "attendees", "student", "students", "attendance",
+  "owner", "owners", "manager", "managers", "admin", "admins", "staff", "lead", "leads",
 ];
 
 // Status labels are ordinary phrases in lower case ("to do that"), so they
 // are only flagged when written the way a label would be.
-const STATUS_RE = /\b(To do|In progress)\b/;
+const STATUS_RE = /\b(To do|In progress|Present|Absent|Excused)\b/;
+
+// Priority levels and task kinds are everyday words too ("high time", "a
+// personal note"), so they're flagged only when a whole string is one of
+// them, the way a label is written (D96, D101).
+const EXACT_LABEL_RE = /^(Critical|High|Medium|Low|Open to claim|Appointed|Personal)( priority)?$/;
 
 const WORD_RE = new RegExp(`\\b(${PRIMITIVE_WORDS.map((w) => w.replace(" ", "\\s+")).join("|")})\\b`, "i");
 const CAPITALISED_RE = new RegExp(
@@ -90,7 +97,8 @@ export function findViolations(fileName: string, source: string): Violation[] {
   };
 
   const checkString = (node: ts.Node, text: string) => {
-    if (!WORD_RE.test(text) && !STATUS_RE.test(text)) return;
+    const exact = EXACT_LABEL_RE.test(text.trim());
+    if (!WORD_RE.test(text) && !STATUS_RE.test(text) && !exact) return;
     const parent = node.parent;
     if (parent && (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || ts.isExternalModuleReference(parent))) return;
     if (parent && ts.isLiteralTypeNode(parent)) return;
@@ -111,12 +119,12 @@ export function findViolations(fileName: string, source: string): Violation[] {
     const callee = calleeName(node);
     if (callee && CODE_CALLEES.has(callee)) return;
     if (isCodeLike(text)) return;
-    if (STATUS_RE.test(text) || CAPITALISED_RE.test(text) || (WORD_RE.test(text) && /\s/.test(text))) report(node, text);
+    if (exact || STATUS_RE.test(text) || CAPITALISED_RE.test(text) || (WORD_RE.test(text) && /\s/.test(text))) report(node, text);
   };
 
   const visit = (node: ts.Node) => {
     if (ts.isJsxText(node)) {
-      if (WORD_RE.test(node.text) || STATUS_RE.test(node.text)) report(node, node.text);
+      if (WORD_RE.test(node.text) || STATUS_RE.test(node.text) || EXACT_LABEL_RE.test(node.text.trim())) report(node, node.text);
     } else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       checkString(node, node.text);
     } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {

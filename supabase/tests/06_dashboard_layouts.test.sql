@@ -1,5 +1,5 @@
 -- A member can read and write only their own dashboard layout, even within
--- their own organization; admins get no special access.
+-- their own organization; owners get no special access.
 begin;
 \ir fixtures.inc
 select plan(9);
@@ -13,11 +13,11 @@ select throws_ok($$ insert into public.dashboard_layouts (organization_id, membe
 select throws_ok($$ update public.dashboard_layouts set membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where id = 'aaaaaaaa-7777-0000-0000-00000000000b' $$, '42501', null, 'a layout cannot be reassigned');
 
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
-select is((select count(*)::int from public.dashboard_layouts), 1, 'an admin sees only their own layout too');
-select is(tests.affected($q$ update public.dashboard_layouts set layout = '{}' where id = 'aaaaaaaa-7777-0000-0000-00000000000b' $q$), 0, 'an admin cannot update a member''s layout');
+select is((select count(*)::int from public.dashboard_layouts), 1, 'an owner sees only their own layout too');
+select is(tests.affected($q$ update public.dashboard_layouts set layout = '{}' where id = 'aaaaaaaa-7777-0000-0000-00000000000b' $q$), 0, 'an owner cannot update a member''s layout');
 
 reset role;
-select is((select layout from public.dashboard_layouts where id = 'aaaaaaaa-7777-0000-0000-00000000000a'), '{"widgets":[]}'::jsonb, 'the admin''s layout is unchanged');
+select is((select layout from public.dashboard_layouts where id = 'aaaaaaaa-7777-0000-0000-00000000000a'), '{"widgets":[]}'::jsonb, 'the owner''s layout is unchanged');
 
 select * from finish();
 rollback;

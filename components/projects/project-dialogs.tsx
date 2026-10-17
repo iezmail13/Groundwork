@@ -12,9 +12,7 @@ import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { ProjectForm, type ProjectFormValues } from "./project-form";
 
-type Members = { id: string; name: string }[];
-
-export function NewProjectButton({ organizationId, members }: { organizationId: string; members: Members }) {
+export function NewProjectButton({ organizationId }: { organizationId: string }) {
   const t = useT();
   return (
     <DialogButton
@@ -22,18 +20,16 @@ export function NewProjectButton({ organizationId, members }: { organizationId: 
       icon={<Plus aria-hidden className="size-4" />}
       title={`New ${lower(t("project"))}`}
     >
-      {(close) => <ProjectForm organizationId={organizationId} members={members} onDone={close} />}
+      {(close) => <ProjectForm organizationId={organizationId} onDone={close} />}
     </DialogButton>
   );
 }
 
 export function EditProjectButton({
   organizationId,
-  members,
   project,
 }: {
   organizationId: string;
-  members: Members;
   project: ProjectFormValues;
 }) {
   const t = useT();
@@ -44,7 +40,7 @@ export function EditProjectButton({
       icon={<Pencil aria-hidden className="size-4" />}
       title={`Edit ${lower(t("project"))}`}
     >
-      {(close) => <ProjectForm organizationId={organizationId} members={members} project={project} onDone={close} />}
+      {(close) => <ProjectForm organizationId={organizationId} project={project} onDone={close} />}
     </DialogButton>
   );
 }

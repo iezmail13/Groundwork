@@ -53,18 +53,33 @@ export function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-export function toHsl(hex: string): { h: number; s: number; l: number } {
+export type Hsl = { h: number; s: number; l: number };
+
+/** Hue in degrees, saturation and lightness 0..1. */
+export function toHsl(hex: string): Hsl {
   const { r, g, b } = parseHex(hex);
-  const [rn, gn, bn] = [r / 255, g / 255, b / 255];
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
+  const [x, y, z] = [r / 255, g / 255, b / 255];
+  const max = Math.max(x, y, z);
+  const min = Math.min(x, y, z);
   const l = (max + min) / 2;
   if (max === min) return { h: 0, s: 0, l };
   const d = max - min;
   const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h: number;
-  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0);
-  else if (max === gn) h = (bn - rn) / d + 2;
-  else h = (rn - gn) / d + 4;
-  return { h: h * 60, s, l };
+  const h = max === x ? ((y - z) / d + (y < z ? 6 : 0)) * 60 : max === y ? ((z - x) / d + 2) * 60 : ((x - y) / d + 4) * 60;
+  return { h, s, l };
+}
+
+export function fromHsl({ h, s, l }: Hsl): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r, g, b] =
+    hp < 1 ? [c, x, 0] : hp < 2 ? [x, c, 0] : hp < 3 ? [0, c, x] : hp < 4 ? [0, x, c] : hp < 5 ? [x, 0, c] : [c, 0, x];
+  const m = l - c / 2;
+  return toHex({ r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 });
+}
+
+/** The same hue and saturation at another lightness (0..1). */
+export function withLightness(hex: string, l: number): string {
+  return fromHsl({ ...toHsl(hex), l: Math.min(1, Math.max(0, l)) });
 }

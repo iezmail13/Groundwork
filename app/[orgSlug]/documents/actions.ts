@@ -131,7 +131,7 @@ export async function deleteDocument(_prev: ActionState, formData: FormData): Pr
   const { data, error } = await supabase.from("documents").delete().eq("id", parsed.data.id).select("storage_path");
   if (error) return dbFailure(error);
   const row = data?.[0];
-  if (!row) return failure("Only an admin or the person who uploaded this can delete it.");
+  if (!row) return failure("Only the person who uploaded this, or someone who manages the organization, can delete it.");
   const { error: storageError } = await supabase.storage.from(BUCKET).remove([row.storage_path]);
   if (storageError) console.error("Row deleted but the stored file could not be removed", row.storage_path, storageError);
   revalidateOrg();

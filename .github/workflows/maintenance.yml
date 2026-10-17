@@ -1,0 +1,60 @@
+# Switches maintenance mode on or off, or schedules a notice (D87).
+# Run it by hand: Actions → Maintenance → Run workflow (works from the
+# GitHub mobile app too). It writes the "maintenance" item in the Vercel Edge
+# Config that the app reads, so the change takes effect within seconds and
+# needs no redeploy.
+#
+# Needs: the VERCEL_TOKEN secret and the EDGE_CONFIG_ID variable (the Edge
+# Config connected to the Vercel project).
+name: Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Maintenance on (site shows the maintenance page) or off (normal; a future start schedules a notice)"
+        type: choice
+        options: ["off", "on"]
+        default: "off"
+      message:
+        description: "Message shown to people (optional)"
+        type: string
+        required: false
+      starts_at:
+        description: "Start time, e.g. 2026-10-25T22:00:00-04:00 (optional; a future start shows a notice 48 hours ahead)"
+        type: string
+        required: false
+      ends_at:
+        description: "Expected end time, e.g. 2026-10-25T23:00:00-04:00 (optional)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  set:
+    name: Set maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Update the Edge Config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EDGE_CONFIG_ID: ${{ vars.EDGE_CONFIG_ID }}
+          VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
+          STATE: ${{ inputs.state }}
+          MESSAGE: ${{ inputs.message }}
+          STARTS_AT: ${{ inputs.starts_at }}
+          ENDS_AT: ${{ inputs.ends_at }}
+        run: npx tsx scripts/maintenance/set.ts

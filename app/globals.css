@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
 /*
- * Two scales only: navy and bone. Tailwind's default palette and shadows are
- * removed so nothing else can sneak in; every utility colour below is a token
- * derived from the two scales (see lib/theme/theme.ts).
+ * Semantic colour tokens (D83-D85, D99). Tailwind's default palette and
+ * shadows are removed so nothing else can sneak in: every utility colour is a
+ * token below. lib/theme/theme.ts derives the values, checks their contrast
+ * in both modes, and a unit test keeps this file in step with it.
+ *
+ * Dark mode follows <html data-theme>: "light", "dark", or "system" (follow
+ * the device). The server sets it from the theme cookie, so there's no flash.
+ * An org or personal accent is applied by a small style sheet from
+ * accentStyleSheet() that overrides the accent and chart tokens.
  */
 @theme {
   --color-*: initial;
@@ -14,14 +20,12 @@
 
   --color-transparent: transparent;
   --color-current: currentColor;
+  --color-white: #ffffff;
+  /* the backdrop behind dialogs and the mobile menu, in both modes */
+  --color-scrim: #0b1a33;
 }
 
 @theme inline {
-  --color-navy-900: var(--navy-900);
-  --color-bone-50: var(--bone-50);
-  --color-bone-100: var(--bone-100);
-  --color-bone-300: var(--bone-300);
-
   --color-canvas: var(--canvas);
   --color-panel: var(--panel);
   --color-rule: var(--rule);
@@ -31,38 +35,71 @@
   --color-rail-ink: var(--rail-ink);
   --color-rail-ink-muted: var(--rail-ink-muted);
   --color-rail-hover: var(--rail-hover);
-  --color-primary: var(--primary);
-  --color-on-primary: var(--on-primary);
-  --color-active: var(--active-bg);
-  --color-active-ink: var(--active-ink);
+  --color-rail-active: var(--rail-active);
+  --color-rail-active-ink: var(--rail-active-ink);
   --color-tint: var(--tint);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-good-tint: var(--good-tint);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-tint: var(--warn-tint);
+  --color-bad: var(--bad);
+  --color-bad-ink: var(--bad-ink);
+  --color-bad-tint: var(--bad-tint);
+  --color-prio-critical: var(--prio-critical);
+  --color-prio-high: var(--prio-high);
+  --color-prio-medium: var(--prio-medium);
+  --color-prio-low: var(--prio-low);
+  --color-prio-medium-ink: var(--prio-medium-ink);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --navy-900: #1f2d4d;
-  --rail-default: #555e74;
-  --bone-50: #fbf9f4;
-  --bone-100: #f5f1e8;
-  --bone-300: #ddd6c8;
-
-  /* light theme defaults; the org shell overrides these inline */
-  --canvas: var(--bone-50);
-  --panel: var(--bone-100);
-  --rule: var(--bone-300);
-  --ink: var(--navy-900);
-  --ink-muted: #4b566e;
-  --rail: var(--rail-default);
-  --rail-ink: var(--bone-50);
-  --rail-ink-muted: #eaeae7;
-  --rail-hover: #424d66;
-  --primary: var(--navy-900);
-  --on-primary: var(--bone-50);
-  --active-bg: var(--bone-100);
-  --active-ink: var(--navy-900);
-  --tint: #eeedea;
+  --canvas: #FBF9F4;
+  --panel: #F5F1E8;
+  --rule: #DDD6C8;
+  --ink: #163260;
+  --ink-muted: #445A7E;
+  --rail: #163260;
+  --rail-ink: #FBF9F4;
+  --rail-ink-muted: #C9CDD3;
+  --rail-hover: #314A72;
+  --rail-active: #FBF9F4;
+  --rail-active-ink: #163260;
+  --tint: #EDEDEB;
+  --accent: #0006BF;
+  --on-accent: #FFFFFF;
+  --accent-tint: #DDDCEE;
+  --good: #16A34A;
+  --good-ink: #147A3A;
+  --good-tint: #E8F5EC;
+  --warn: #D97706;
+  --warn-ink: #A35A04;
+  --warn-tint: #FBEFD9;
+  --bad: #DC2626;
+  --bad-ink: #B91C1C;
+  --bad-tint: #FBE5E2;
+  --prio-critical: #DC2626;
+  --prio-high: #EA580C;
+  --prio-medium: #CA8A04;
+  --prio-low: #2563EB;
+  --prio-medium-ink: #163260;
+  --chart-1: #0006BF;
+  --chart-2: #091899;
+  --chart-3: #4B4FCF;
+  --chart-4: #0F257C;
+  --chart-5: #7173D7;
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -70,8 +107,84 @@
   color-scheme: light;
 }
 
-[data-mode="dark"] {
+:root[data-theme="dark"] {
+  --canvas: #0C1C35;
+  --panel: #112648;
+  --rule: #364152;
+  --ink: #F1EEE7;
+  --ink-muted: #B6C1D8;
+  --rail: #091528;
+  --rail-ink: #F1EEE7;
+  --rail-ink-muted: #AEB9D0;
+  --rail-hover: #1C2637;
+  --rail-active: #2E3847;
+  --rail-active-ink: #F1EEE7;
+  --tint: #18273F;
+  --accent: #8084FF;
+  --on-accent: #0C1C35;
+  --accent-tint: #1A284D;
+  --good: #4ADE80;
+  --good-ink: #4ADE80;
+  --good-tint: #143A35;
+  --warn: #FBBF24;
+  --warn-ink: #FBBF24;
+  --warn-tint: #3A3424;
+  --bad: #F87171;
+  --bad-ink: #F87171;
+  --bad-tint: #3F2738;
+  --prio-critical: #F87171;
+  --prio-high: #FB923C;
+  --prio-medium: #FACC15;
+  --prio-low: #60A5FA;
+  --prio-medium-ink: #F1EEE7;
+  --chart-1: #8084FF;
+  --chart-2: #ADAEF5;
+  --chart-3: #5D65C2;
+  --chart-4: #CFCEEE;
+  --chart-5: #5D64AB;
+
   color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0C1C35;
+    --panel: #112648;
+    --rule: #364152;
+    --ink: #F1EEE7;
+    --ink-muted: #B6C1D8;
+    --rail: #091528;
+    --rail-ink: #F1EEE7;
+    --rail-ink-muted: #AEB9D0;
+    --rail-hover: #1C2637;
+    --rail-active: #2E3847;
+    --rail-active-ink: #F1EEE7;
+    --tint: #18273F;
+    --accent: #8084FF;
+    --on-accent: #0C1C35;
+    --accent-tint: #1A284D;
+    --good: #4ADE80;
+    --good-ink: #4ADE80;
+    --good-tint: #143A35;
+    --warn: #FBBF24;
+    --warn-ink: #FBBF24;
+    --warn-tint: #3A3424;
+    --bad: #F87171;
+    --bad-ink: #F87171;
+    --bad-tint: #3F2738;
+    --prio-critical: #F87171;
+    --prio-high: #FB923C;
+    --prio-medium: #FACC15;
+    --prio-low: #60A5FA;
+    --prio-medium-ink: #F1EEE7;
+    --chart-1: #8084FF;
+    --chart-2: #ADAEF5;
+    --chart-3: #5D65C2;
+    --chart-4: #CFCEEE;
+    --chart-5: #5D64AB;
+
+    color-scheme: dark;
+  }
 }
 
 html,
@@ -95,9 +208,9 @@ h4 {
   letter-spacing: -0.01em;
 }
 
-/* Visible focus everywhere, drawn with the ink colour (no glow, no shadow). */
+/* Visible focus everywhere, drawn in the accent (no glow, no shadow). */
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .on-rail :focus-visible {
@@ -105,8 +218,8 @@ h4 {
 }
 
 ::selection {
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* Native dialogs: thin rule, no shadow, translucent navy backdrop. */
@@ -121,15 +234,34 @@ dialog.gw-dialog {
   max-height: calc(100dvh - 2rem);
 }
 dialog.gw-dialog::backdrop {
-  background: color-mix(in srgb, var(--navy-900) 45%, transparent);
+  background: color-mix(in srgb, var(--color-scrim) 55%, transparent);
 }
 dialog.gw-dialog[open] {
   animation: dialog-in 160ms var(--ease-out);
+}
+/* A drawer: full height on the right, over the page and any open form. */
+dialog.gw-drawer {
+  margin: 0 0 0 auto;
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: min(460px, 100vw);
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+}
+dialog.gw-drawer[open] {
+  animation: drawer-in 200ms var(--ease-out);
 }
 
 /* ------------------------------------------------------------------------ */
 /* Animation: CSS only, and all of it disabled under prefers-reduced-motion. */
 /* ------------------------------------------------------------------------ */
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
 
 @keyframes dialog-in {
   from {
@@ -241,7 +373,7 @@ dialog.gw-dialog[open] {
 /* Logo: helmet tips up on hover; briefcase swings every few seconds. */
 .logo-helmet {
   transform-box: view-box;
-  transform-origin: 25px 13px;
+  transform-origin: 28px 25px;
   transition: transform 260ms var(--ease-spring);
 }
 .logo-link:hover .logo-helmet,
@@ -266,7 +398,7 @@ dialog.gw-dialog[open] {
 }
 .logo-briefcase {
   transform-box: view-box;
-  transform-origin: 32px 41px;
+  transform-origin: 19px 39px;
   animation: briefcase-swing 5s ease-in-out infinite;
 }
 
@@ -278,6 +410,21 @@ dialog.gw-dialog[open] {
 }
 .slide-over-panel {
   animation: slide-in-left 200ms var(--ease-out);
+}
+
+/* Landing page: the mobile menu slides down and tab panels fade up. The
+   hero's grid is components/ui/grid-pulse.tsx. */
+@keyframes menu-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.menu-slide-down:not([hidden]) {
+  animation: menu-down 180ms var(--ease-out);
+}
+.tab-panel-in:not([hidden]) {
+  animation: fade-up 260ms var(--ease-out);
 }
 
 /* Skeletons for loading states: a static tint, gently pulsing. */
@@ -320,4 +467,88 @@ dialog.gw-dialog[open] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Things drawn differently per mode (the sun/moon, the logo on the canvas):
+   only the one matching the mode in force shows. Don't give these elements a
+   display class of their own; wrap them instead. */
+.only-dark {
+  display: none;
+}
+:root[data-theme="dark"] .only-light {
+  display: none;
+}
+:root[data-theme="dark"] .only-dark {
+  display: revert;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .only-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .only-dark {
+    display: revert;
+  }
+}
+
+/* Empty states show an illustration unless the organization turned them off
+   (Settings > Branding), in which case the plain icon shows instead. In dark
+   mode the artwork sits on a light backing so the navy figure stays visible. */
+.gw-empty-icon {
+  display: none;
+}
+[data-illustrations="off"] .gw-illustration {
+  display: none;
+}
+[data-illustrations="off"] .gw-empty-icon {
+  display: block;
+}
+:root[data-theme="dark"] .gw-illustration {
+  background: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gw-illustration {
+    background: var(--ink);
+  }
+}
+
+/* The Undo toast rises in (and doesn't move under reduced motion). */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast-in {
+  animation: toast-in 180ms var(--ease-out);
+}
+
+/* Printing (D109): reports print as plain documents, dark text on white,
+   whatever theme is on screen. */
+@media print {
+  /* Printing is always dark on white, whichever mode is on screen. */
+  :root,
+  :root[data-theme] {
+    color-scheme: light;
+    --canvas: #fff !important;
+    --panel: #fff !important;
+    --ink: #163260 !important;
+    --ink-muted: #445a7e !important;
+    --rule: #ddd6c8 !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .report,
+  .report * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+  .report table {
+    page-break-inside: auto;
+  }
+  .report tr {
+    page-break-inside: avoid;
+  }
 }

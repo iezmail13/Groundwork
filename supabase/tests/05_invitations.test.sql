@@ -1,7 +1,7 @@
 -- Invitations can only be accepted by the invited email, before expiry, once.
 begin;
 \ir fixtures.inc
-select plan(12);
+select plan(13);
 
 -- Mia (member of A) tries to use B's invitation, which was sent to Oscar.
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');
@@ -14,12 +14,16 @@ select throws_ok($$ select public.accept_invitation('token-b') $$, '42501', null
 select is((select organization_name from public.get_invitation('token-b')), 'Org B', 'the invite page can preview an invitation by token');
 select is((select count(*)::int from public.get_invitation('nope')), 0, 'no preview without a valid token');
 
--- Oscar accepts the invitation meant for him.
+-- Oscar accepts the invitation meant for him, which grants B's project.
+reset role;
+insert into public.invitation_projects (organization_id, invitation_id, project_id, role)
+values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-2222-0000-0000-000000000000', 'bbbbbbbb-3333-0000-0000-000000000000', 'staff');
 select tests.as_user('c0000000-0000-0000-0000-00000000000c');
 select is(public.accept_invitation('token-b'), 'org-b', 'the invited user can accept');
-select is((select role::text from public.memberships where user_id = 'c0000000-0000-0000-0000-00000000000c'), 'member', 'with the invited role');
+select is((select role::text from public.memberships where user_id = 'c0000000-0000-0000-0000-00000000000c'), 'staff', 'with the invited role');
 select is(public.accept_invitation('token-b'), 'org-b', 'accepting twice is harmless for the same user');
-select is((select count(*)::int from public.projects), 1, 'and can now see B''s projects');
+select is((select count(*)::int from public.projects), 1, 'and can now see the project the invitation granted');
+select is((select role::text from public.project_members where project_id = 'bbbbbbbb-3333-0000-0000-000000000000' and membership_id = public.my_membership_id('bbbbbbbb-0000-0000-0000-000000000000')), 'staff', 'with the granted project role');
 
 -- Expired invitations are refused.
 reset role;

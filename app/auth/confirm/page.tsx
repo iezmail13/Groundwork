@@ -38,7 +38,7 @@ export default async function ConfirmPage({ searchParams }: PageProps<"/auth/con
             : "It's missing the part that signs you in."
         }
       >
-        <Link href="/login" className="underline underline-offset-4">
+        <Link href="/login" className="text-accent underline underline-offset-4">
           Request a new sign-in link
         </Link>
       </AuthFrame>
