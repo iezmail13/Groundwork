@@ -521,3 +521,27 @@ dialog.gw-drawer[open] {
 .toast-in {
   animation: toast-in 180ms var(--ease-out);
 }
+
+/* Printing (D109): reports print as plain documents, dark text on white,
+   whatever theme is on screen. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .report,
+  .report * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+  .report table {
+    page-break-inside: auto;
+  }
+  .report tr {
+    page-break-inside: avoid;
+  }
+}

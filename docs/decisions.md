@@ -559,3 +559,31 @@ Tracking, not accounting (D82, D91): no bank feeds, tax, payroll, invoices, doub
 - **Bookkeeping work** stays ordinary work. Tasks gain an optional **link** (http or https, up to 500 characters), shown as "Open the link for this work".
 - **Settings → Finance** (owners and managers see it; only owners change it, enforced by a database guard). Pick QuickBooks, Xero, Wave, Sage or Other and an https link. Owners and managers then get an "Open …" button on the Spending page. It's a plain link: no OAuth, credentials or API calls.
 - **Tests.** pgTAP `26_spending` (38 tests: isolation, staff seeing only their own, self-approval refused, rank checks, receipts, the owner-only link). e2e `finance.spec.ts` (3 tests). Unit tests for budget status.
+
+## D109. Reports: templated, printable, downloadable and shareable by link (Part 11, expanded)
+
+The owner asked for reporting "on time, costs and resources to oversee progress, spot potential problems, and update your clients". In the session they chose costs from Funds, resources from workload, and sending by share link plus download, not email. There is no time logging.
+
+- **One Reports page** (sidebar) with four templates. Each takes a program (or everything you can see) and a date range.
+  - **Task progress**:
+    - open, overdue, due within 7 days, and finished in the period;
+    - a table by priority;
+    - a table by program, with the share done;
+    - the overdue list, most overdue first.
+  - **People and workload** (resources): each person's open, overdue, due-soon and finished work. It also gives the open work nobody is on and a one-line summary of who carries the most.
+  - **Costs against budget** (owners and managers): totals, budget against actual per fund with its D108 status, approved spending by category, and each approved entry in the period.
+  - **Attendance** (whoever can see a roster, as D81): sessions, the overall rate, everyone's rate lowest first, and who is below the low mark.
+- **Only what its author can see.** Every template reads through the same RLS and helpers as the rest of the app (`can_view_task` through the task query, the spending and funds rules, the attendance rules). Two people get different reports from the same settings.
+- **One model, four outputs.** `lib/report-model.ts` holds a report as a title, scope and sections of figures and tables. Each state is shown as a word with an icon ("On track", "Watch", "Needs attention"), never colour alone.
+  - The page renders it.
+  - **PDF** comes from the browser's print dialog ("Print or save as PDF"). Print styles drop the app's chrome and print dark on white. This needs **no package**: a PDF library would add weight for what the browser already does well.
+  - **CSV** lays out the same figures and tables, formula-safe.
+  - A **share link** shows the same model.
+- **Share links, not email.**
+  - "Create share link" stores a snapshot of the report as its author sees it now, behind a 64-character random token. Only the token's SHA-256 is stored, like the calendar feed (D102).
+  - The link is shown once and lasts 7, 30 or 90 days, never more. The author, or an owner or manager, can revoke it, and revoking is final.
+  - `/r/<token>` is public, read-only and unindexed. It uses Groundwork branding (D86) and says who shared it, from which organization and when it expires. It stops working once the link expires, is revoked, or its author leaves the organization. Nothing else is reachable through it.
+  - A snapshot is the author's statement, like a PDF they send. Viewers see whose it is.
+- **Attendance reports are never shared by link**, because they hold participant details (D81). The database refuses it. They can be printed or downloaded.
+- **Recorded.** Generating, printing, downloading and sharing reports, and revoking links, go into the activity log as "report" entries, with the template and dates but never the contents. Only owners and managers can read those entries.
+- **Tests.** pgTAP `27_reports` (22 tests: snapshots, expiry limit, no attendance or staff costs sharing, nobody sharing in someone else's name, anonymous opening, revoking, isolation, activity visibility). Unit tests for the CSV layout and formula safety. e2e `reports.spec.ts` (3 tests).

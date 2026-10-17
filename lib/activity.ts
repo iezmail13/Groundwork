@@ -25,9 +25,19 @@ const BRANDING: Record<string, string> = {
   hid_illustrations: "turned illustrations off",
 };
 
+/** Reports (D109), worded after the actor's name. */
+const REPORT: Record<string, string> = {
+  generated: "generated a report",
+  exported_csv: "downloaded a report as CSV",
+  printed: "printed a report",
+  shared: "shared a report by link",
+  revoked: "revoked a report link",
+};
+
 /** "completed task" / "moved task to In progress" — the verb phrase after the actor's name. */
 export function describeActivity(a: ActivityRow, t: Translate): string {
   if (a.entity_type === "organization") return BRANDING[a.action] ?? "changed the branding";
+  if (a.entity_type === "report") return REPORT[a.action] ?? "used a report";
   // funds aren't a relabelled primitive, so they keep their own word
   const noun = a.entity_type === "fund" ? "fund" : lower(t(ENTITY_KEY[a.entity_type] ?? "task"));
   if (a.action === "moved" && a.metadata.to) {
@@ -55,6 +65,8 @@ export function activityHref(a: ActivityRow, base: string): string | null {
       return `${base}/attendance/participants/${a.entity_id}`;
     case "organization":
       return `${base}/settings?view=branding`;
+    case "report":
+      return `${base}/reports`;
     default:
       return null;
   }

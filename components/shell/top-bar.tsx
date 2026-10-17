@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
  */
 export function TopBar({ actions, notice }: { actions: ReactNode; notice?: ReactNode }) {
   return (
-    <div className="sticky top-0 z-20 bg-canvas">
+    <div className="sticky top-0 z-20 bg-canvas print:hidden">
       <div className="hidden h-14 items-center justify-end gap-1 border-b border-rule px-4 sm:px-8 min-[900px]:flex">
         <div role="toolbar" aria-label="Your controls" className="flex items-center gap-1">
           {actions}

@@ -833,6 +833,32 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"report_shares": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"expires_at": string,"id": string,"organization_id": string,"revoked_at": string | null,"snapshot": NonNullable<Json>,"template": Database["public"]['Enums']["report_template"],"title": string,"token_hash": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"expires_at": string,"id"?: string,"organization_id": string,"revoked_at"?: string | null,"snapshot": NonNullable<Json>,"template": Database["public"]['Enums']["report_template"],"title": string,"token_hash": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"organization_id"?: string,"revoked_at"?: string | null,"snapshot"?: NonNullable<Json>,"template"?: Database["public"]['Enums']["report_template"],"title"?: string,"token_hash"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "report_shares_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "report_shares_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"spending_entries": {
                   Row: {
                     "amount_cents": number,"category": string,"created_at": string,"decided_at": string | null,"decided_by": string | null,"decision_note": string | null,"fund_id": string,"id": string,"note": string | null,"organization_id": string,"project_id": string,"receipt_path": string | null,"spent_on": string,"status": Database["public"]['Enums']["spending_status"],"submitted_by": string | null,"updated_at": string
@@ -1239,6 +1265,9 @@ isOneToOne: false
 "last_step":
 { Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string
                            },
+"log_report":
+{ Args: { "action": string,"details"?: Json,"org": string,"report"?: string }; Returns: undefined
+                           },
 "mark_channel_read":
 { Args: { "channel": string }; Returns: undefined
                            },
@@ -1355,6 +1384,11 @@ isOneToOne: false
 "set_task_done":
 { Args: { "done": boolean,"task_id": string }; Returns: Database["public"]['Enums']["task_status"]
                            },
+"shared_report":
+{ Args: { "token": string }; Returns: {
+              "created_at": string,"expires_at": string,"organization_name": string,"shared_by": string,"snapshot": Json,"template": Database["public"]['Enums']["report_template"],"title": string
+            }[]
+                           },
 "shares_org":
 { Args: { "other_user": string }; Returns: boolean
                            },
@@ -1406,7 +1440,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","spending_status": "pending"|"approved"|"rejected","step_kind": "open"|"done","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
+            "attendance_status": "present"|"late"|"absent"|"excused","chat_channel_kind": "org"|"project"|"direct","member_role": "owner"|"manager"|"admin"|"staff","notification_type": "assigned"|"claimed"|"completed"|"due_soon"|"overdue"|"invitation_accepted"|"low_attendance"|"direct_message"|"channel_message"|"mention"|"task_comment"|"task_changed"|"discussion","participant_file_action": "uploaded"|"viewed"|"downloaded"|"deleted","participant_file_kind": "waiver"|"medical"|"consent"|"id"|"other","presence_mode": "auto"|"dnd"|"invisible","project_role": "lead"|"admin"|"staff","project_status": "active"|"archived","report_template": "progress"|"resources"|"costs"|"attendance","spending_status": "pending"|"approved"|"rejected","step_kind": "open"|"done","task_assignee_kind": "claimed"|"appointed","task_completion": "any"|"all","task_kind": "general"|"appointed"|"personal","task_priority": "critical"|"high"|"medium"|"low","task_status": "todo"|"in_progress"|"done"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1526,7 +1560,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"spending_status": ["pending", "approved", "rejected"],"step_kind": ["open", "done"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
+            "attendance_status": ["present", "late", "absent", "excused"],"chat_channel_kind": ["org", "project", "direct"],"member_role": ["owner", "manager", "admin", "staff"],"notification_type": ["assigned", "claimed", "completed", "due_soon", "overdue", "invitation_accepted", "low_attendance", "direct_message", "channel_message", "mention", "task_comment", "task_changed", "discussion"],"participant_file_action": ["uploaded", "viewed", "downloaded", "deleted"],"participant_file_kind": ["waiver", "medical", "consent", "id", "other"],"presence_mode": ["auto", "dnd", "invisible"],"project_role": ["lead", "admin", "staff"],"project_status": ["active", "archived"],"report_template": ["progress", "resources", "costs", "attendance"],"spending_status": ["pending", "approved", "rejected"],"step_kind": ["open", "done"],"task_assignee_kind": ["claimed", "appointed"],"task_completion": ["any", "all"],"task_kind": ["general", "appointed", "personal"],"task_priority": ["critical", "high", "medium", "low"],"task_status": ["todo", "in_progress", "done"]
           }
         }
 } as const
