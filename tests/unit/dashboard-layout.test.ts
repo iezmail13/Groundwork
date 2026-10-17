@@ -8,18 +8,18 @@ describe("dashboard layout", () => {
   });
 
   it("keeps the saved order, sizes and visibility", () => {
-    const saved = { version: 1, widgets: [{ id: "pinned_documents", size: "l", hidden: false }, { id: "overdue", size: "m", hidden: true }] };
+    const saved = { version: 1, widgets: [{ id: "coming_up", size: "l", hidden: false }, { id: "tasks", size: "m", hidden: true }] };
     const layout = normalizeLayout(saved);
-    expect(layout.widgets[0]).toEqual({ id: "pinned_documents", size: "l", hidden: false });
-    expect(layout.widgets[1]).toEqual({ id: "overdue", size: "m", hidden: true });
+    expect(layout.widgets[0]).toEqual({ id: "coming_up", size: "l", hidden: false });
+    expect(layout.widgets[1]).toEqual({ id: "tasks", size: "m", hidden: true });
     expect(layout.widgets).toHaveLength(WIDGET_IDS.length);
   });
 
   it("drops unknown widgets and duplicates, and repairs bad sizes", () => {
     const layout = normalizeLayout({
-      widgets: [{ id: "weather", size: "s" }, { id: "overdue", size: "xl" }, { id: "overdue", size: "l" }],
+      widgets: [{ id: "weather", size: "s" }, { id: "tasks", size: "xl" }, { id: "tasks", size: "l" }],
     });
-    expect(layout.widgets.filter((w) => w.id === "overdue")).toEqual([{ id: "overdue", size: "s", hidden: false }]);
+    expect(layout.widgets.filter((w) => w.id === "tasks")).toEqual([{ id: "tasks", size: "s", hidden: false }]);
     expect(layout.widgets.map((w) => w.id)).not.toContain("weather");
   });
 

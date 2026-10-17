@@ -426,3 +426,45 @@ Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a 
   - presence topics limited to members.
   
   e2e `tests/e2e/people.spec.ts` covers editing your profile and uploading, refusing and removing a photo, the same profile showing a lead and a staff member different work, muting one person while another still notifies, and live status changes (online, Do not disturb, Appear offline, closing the app).
+
+## Dashboards, part 8
+
+**D105. One dashboard design for everyone, filtered by the database, with live updates.**
+
+- **Read-only summaries.** The dashboard no longer edits anything: Quick add, the My tasks checkboxes and the old list widgets are gone. Rearranging, resizing and hiding widgets (layout only) stay. Saved layouts drop the retired widgets automatically.
+- **Rendered on the server.** Every number comes from queries through RLS (`can_view_task()`, D81 for attendance, D82 for funds), so nothing the viewer can't see is loaded or sent to the browser. Charts are hand-built SVG and HTML (no package), rendered on the server and handed to the layout grid.
+- **The widgets, by role.**
+  - Everyone gets:
+    - **Tasks**: a donut of to do / in progress / done this week, using the existing `completed_at`.
+    - **Deadlines**: a stacked bar per program of overdue / due within 3 days / on track, with symbols as well as colours.
+    - **Priority**: open work by priority, with the flags.
+    - **Program progress**: share of work done, red with "n overdue", amber "behind", green "on pace".
+    - **Coming up**: a seven-day timeline of due work and calendar items, with overdue work first.
+  - Admins and leads of a program that keeps a roster, and owners, get **Attendance**: lowest participant rates and a per-session trend line.
+  - Managers and owners also get **Workload** (open work per person ranked below them) and **Funding** (the existing split bars). Budget versus actual arrives with Part 10.
+  - Each widget has an icon, a short title, one big number and its chart.
+- **Mine / Everything I oversee.** Anyone who oversees others (managers, owners, and program admins and leads) can switch between their own work and the work they run: all visible work for managers and owners, or their programs' work for admins and leads. Others always see their own.
+- **Click to act.** Every segment, bar and point is a keyboard-focusable link with a full label, such as "3 tasks overdue in Homework Club, open the list".
+  - `canEdit(target, viewer)` in `lib/can-edit.ts` mirrors the database rules: project page and project work for its admins and leads (owners everywhere), participants per D81, funds and workload for managers and owners, and your own work always.
+  - If it's true, the mark opens the editable view (the filtered board or list, the program page, the participant record, the fund).
+  - If not, it opens a read-only "View details" panel on the same page listing what's behind the mark.
+  - `canEdit` checks future per-person grants first, so adding them later won't change callers. The grants themselves aren't built, as decided.
+  - The task board gains two due filters to match the buckets ("Within 3 days", "More than 3 days away") and a "no program" project filter.
+- **Charts are accessible.** Each chart is a `<figure>` with a caption, a visually hidden data table, and its values visible on the marks. Values on coloured segments sit on a canvas chip, so they read on any colour. Bars and rings animate to new values with CSS transitions, which stop under reduced motion.
+- **Attendance marks.** `low_attendance_percent` (now 50 by default) and a new `high_attendance_percent` (80) are org settings for owners and managers (Settings → Organization). They're whole numbers with 0 ≤ low < high ≤ 100, checked by zod and by a database CHECK. Below low is red ("Poor"), below high amber ("Fair"), at or above high green ("Good"). The Attendance tab's rate bars use the same marks. The low mark still drives the notification from D103.
+- **Live updates.**
+  - Your own actions show at once through the existing revalidation.
+  - Other people's changes to work, assignees, calendar items or attendance make the database send a Realtime broadcast (`realtime.send`). The broadcast carries only the program's id, on a private channel `project:{id}:changes`, or `org:{id}:changes` for work outside any program.
+  - Only people who can see a program may listen on its channel (`can_use_realtime_topic`). Nobody can send a change signal themselves: clients may only announce presence.
+  - Dashboards subscribe to the programs the viewer can see (all of them for owners), debounce bursts for a second, then re-fetch their own filtered numbers through the server.
+- **Program dashboard.** "At a glance" at the top of each program page shows:
+  - that program's Tasks donut, Priority and Deadlines;
+  - Attendance, when it keeps a roster and the viewer runs it;
+  - Funding, moved up from further down the page, for owners and managers;
+  - "Latest on this program", the last five activity entries, with a link to the filtered activity log.
+  
+  It reuses the tasks the page already loads (no second task query), adding only the attendance and latest-activity reads. Marks follow the same canEdit and detail rules, and the section has its own live updates.
+- **Tests.**
+  - pgTAP `22_dashboards`: the marks' ordering and permissions; signals naming only the program, never the change; who may listen; that nobody can fake a signal, while presence still works.
+  - Unit tests for `canEdit`, including the grant extension point.
+  - e2e `tests/e2e/dashboards.spec.ts`: read-only dashboards with labelled marks; click-through as an editor (opens the program) versus a viewer (View details); the scope switch and workload; the marks' validation; and a live update in a second browser, while someone off the program gets no signal and no change.

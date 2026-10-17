@@ -391,14 +391,14 @@ isOneToOne: false
                   ]
                 },"organizations": {
                   Row: {
-                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "accent": string | null,"allow_personal_accent": boolean,"created_at": string,"high_attendance_percent": number,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Update: {
-                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -842,6 +842,7 @@ isOneToOne: false
               "accent": string | null,
 "allow_personal_accent": boolean,
 "created_at": string,
+"high_attendance_percent": number,
 "id": string,
 "logo_dark_path": string | null,
 "logo_path": string | null,
@@ -957,6 +958,9 @@ isOneToOne: false
                            },
 "role_rank":
 { Args: { "role": Database["public"]['Enums']["member_role"] }; Returns: number
+                           },
+"send_change_signal":
+{ Args: { "org": string,"project": string }; Returns: undefined
                            },
 "set_my_photo":
 { Args: { "org_id": string,"path": string }; Returns: string

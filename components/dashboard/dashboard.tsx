@@ -12,72 +12,27 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
-import {
-  CalendarDays,
-  ChartNoAxesColumn,
-  Check,
-  Clock,
-  Eye,
-  EyeOff,
-  GripVertical,
-  LayoutGrid,
-  PiggyBank,
-  Pin,
-  Plus,
-  RotateCcw,
-  TriangleAlert,
-  UserCheck,
-} from "lucide-react";
+import { Check, Eye, EyeOff, GripVertical, LayoutGrid, RotateCcw } from "lucide-react";
 import { saveDashboardLayout } from "@/app/[orgSlug]/dashboard/actions";
 import { DEFAULT_LAYOUT, SIZE_CLASSES, type DashboardLayout, type WidgetId, type WidgetLayout, type WidgetSize } from "@/lib/dashboard-layout";
-import { useT } from "@/lib/terminology/context";
-import { lower } from "@/lib/terminology/t";
 import { Button } from "@/components/ui/button";
-import {
-  DueSoonWidget,
-  FundingWidget,
-  MyTasksWidget,
-  OverdueWidget,
-  PinnedDocumentsWidget,
-  ProjectProgressWidget,
-  QuickAddWidget,
-  UpcomingEventsWidget,
-  type DashboardData,
-} from "./widgets";
 
-type WidgetDef = { title: string; icon: ReactNode; render: (data: DashboardData) => ReactNode };
-
-function useWidgetDefs(): Record<WidgetId, WidgetDef> {
-  const t = useT();
-  const icon = (I: typeof Clock) => <I aria-hidden className="size-4" />;
-  return {
-    overdue: { title: "Overdue", icon: icon(TriangleAlert), render: (d) => <OverdueWidget data={d} /> },
-    due_soon: { title: "Due in 7 days", icon: icon(Clock), render: (d) => <DueSoonWidget data={d} /> },
-    my_tasks: { title: `My ${lower(t("task", "other"))}`, icon: icon(UserCheck), render: (d) => <MyTasksWidget data={d} /> },
-    project_progress: {
-      title: `${t("project")} progress`,
-      icon: icon(ChartNoAxesColumn),
-      render: (d) => <ProjectProgressWidget data={d} />,
-    },
-    upcoming_events: {
-      title: `Upcoming ${lower(t("event", "other"))}`,
-      icon: icon(CalendarDays),
-      render: (d) => <UpcomingEventsWidget data={d} />,
-    },
-    pinned_documents: {
-      title: `Pinned ${lower(t("document", "other"))}`,
-      icon: icon(Pin),
-      render: (d) => <PinnedDocumentsWidget data={d} />,
-    },
-    quick_add: { title: "Quick add", icon: icon(Plus), render: (d) => <QuickAddWidget data={d} /> },
-    funding: { title: "Funding", icon: icon(PiggyBank), render: (d) => <FundingWidget data={d} /> },
-  };
-}
+/** A widget the server rendered for this viewer: only the ones their role allows are sent (D105). */
+export type WidgetSlot = { id: WidgetId; title: string; icon: ReactNode; content: ReactNode };
+type WidgetDef = Pick<WidgetSlot, "title" | "icon">;
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function Dashboard({ data, initialLayout }: { data: DashboardData; initialLayout: DashboardLayout }) {
-  const defs = useWidgetDefs();
+export function Dashboard({
+  organizationId,
+  widgets,
+  initialLayout,
+}: {
+  organizationId: string;
+  widgets: WidgetSlot[];
+  initialLayout: DashboardLayout;
+}) {
+  const defs = Object.fromEntries(widgets.map((w) => [w.id, w])) as Partial<Record<WidgetId, WidgetSlot>>;
   const [layout, setLayout] = useState<DashboardLayout>(initialLayout);
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -92,12 +47,12 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
     (next: DashboardLayout) => {
       setSaveState("saving");
       queue.current = queue.current.then(async () => {
-        const result = await saveDashboardLayout(data.organizationId, next);
+        const result = await saveDashboardLayout(organizationId, next);
         setSaveState(result.ok ? "saved" : "error");
         setSaveMessage(result.ok ? "Layout saved." : result.message);
       });
     },
-    [data.organizationId],
+    [organizationId],
   );
 
   const update = (next: DashboardLayout) => {
@@ -119,8 +74,8 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // funding is for owners and managers; the saved layout keeps its place for everyone
-  const available = (w: WidgetLayout) => w.id !== "funding" || data.funds !== null;
+  // widgets this viewer's role doesn't get keep their place in the saved layout
+  const available = (w: WidgetLayout) => Boolean(defs[w.id]);
   const visible = layout.widgets.filter((w) => !w.hidden && available(w));
   const hidden = layout.widgets.filter((w) => w.hidden && available(w));
   const titleOf = (id: string | number) => defs[id as WidgetId]?.title ?? "widget";
@@ -188,13 +143,13 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
                 key={w.id}
                 widget={w}
                 index={i}
-                def={defs[w.id]}
+                def={defs[w.id]!}
                 editing={editing}
                 settling={settling === w.id}
                 onSize={(size) => setWidget(w.id, { size })}
                 onHide={() => setWidget(w.id, { hidden: true })}
               >
-                {defs[w.id].render(data)}
+                {defs[w.id]!.content}
               </SortableWidget>
             ))}
           </ol>
@@ -211,7 +166,7 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
               <li key={w.id}>
                 <Button variant="secondary" size="sm" onClick={() => setWidget(w.id, { hidden: false })}>
                   <Eye aria-hidden className="size-4" />
-                  Show {defs[w.id].title}
+                  Show {defs[w.id]!.title}
                 </Button>
               </li>
             ))}
