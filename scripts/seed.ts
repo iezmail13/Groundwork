@@ -562,8 +562,8 @@ async function main() {
     await db
       .from("funds")
       .insert([
-        { organization_id: org.id, name: "Fall community grant", total_cents: 1000000, currency: "CAD", project_id: HC, description: "City of Toronto neighbourhood grant for the fall term.", created_by: priya },
-        { organization_id: org.id, name: "Winter coat donations", total_cents: 350000, currency: "CAD", project_id: CD, description: null, created_by: jordan },
+        { organization_id: org.id, name: "Fall community grant", total_cents: 1000000, currency: "CAD", project_id: HC, description: "City of Toronto neighbourhood grant for the fall term.", created_by: priya, spend_by: day(75) },
+        { organization_id: org.id, name: "Winter coat donations", total_cents: 350000, currency: "CAD", project_id: CD, description: null, created_by: jordan, spend_by: day(20) },
       ])
       .select("id, name"),
     "funds",
@@ -594,6 +594,20 @@ async function main() {
       )
       .select("id"),
     "allocations",
+  );
+
+  // Spending against the coat drive's fund (D108): approved and waiting, with
+  // its deadline close and much left, so its budget reads "at risk".
+  must(
+    await db
+      .from("spending_entries")
+      .insert([
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 32000, category: "Venue", spent_on: day(-9), note: "Church hall for sorting day", submitted_by: marcus, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 18650, category: "Printing", spent_on: day(-6), note: "Flyers and bin signs", submitted_by: sofia, status: "approved", decided_by: priya, decided_at: new Date().toISOString() },
+        { organization_id: org.id, fund_id: fund("Winter coat donations"), project_id: CD, amount_cents: 5420, category: "Transport", spent_on: day(-2), note: "Gas for the van run", submitted_by: sofia },
+      ])
+      .select("id"),
+    "spending",
   );
 
   const docs: { name: string; mime: string; body: Buffer; project: string | null; tags: string[]; pinned: boolean; by: string }[] = [
