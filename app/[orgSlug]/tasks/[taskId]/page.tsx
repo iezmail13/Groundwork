@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, EyeOff } from "lucide-react";
+import { ArrowLeft, ExternalLink, EyeOff } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { DueBadge, NeedsAssigneeBadge, PriorityFlag, TaskStatusBadge } from "@/components/tasks/badges";
 import { Lock } from "lucide-react";
@@ -99,6 +99,18 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
           </span>
         }
       />
+      {task.link_url ? (
+        <a
+          href={task.link_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+        >
+          <ExternalLink aria-hidden className="size-4" />
+          Open the link for this work
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+      ) : null}
       <section aria-label="People and progress" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-rule py-3">
         <TaskDoneBox task={task} />
         <span className="text-sm">

@@ -37,6 +37,7 @@ const fundInput = z.object({
   total: amount("the total"),
   currency: z.enum(CURRENCIES, { error: "Pick a currency." }),
   projectId: id.optional(),
+  spendBy: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.")]).optional(),
 });
 
 export async function createFund(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -53,6 +54,7 @@ export async function createFund(_prev: ActionState, formData: FormData): Promis
     total_cents: d.total,
     currency: d.currency,
     project_id: d.projectId ?? null,
+    spend_by: d.spendBy || null,
   });
   if (error) return dbFailure(error);
   revalidateOrg();
@@ -66,7 +68,7 @@ export async function updateFund(_prev: ActionState, formData: FormData): Promis
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("funds")
-    .update({ name: d.name, description: d.description ?? null, total_cents: d.total, currency: d.currency, project_id: d.projectId ?? null })
+    .update({ name: d.name, description: d.description ?? null, total_cents: d.total, currency: d.currency, project_id: d.projectId ?? null, spend_by: d.spendBy || null })
     .eq("id", d.id)
     .select("id");
   if (error?.hint === "fund_overallocated") {

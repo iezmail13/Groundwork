@@ -6,6 +6,7 @@ import { Field, Input, Textarea, inputClass } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { idle } from "@/lib/action-state";
+import { keepValues } from "@/lib/forms";
 import { editDiscussion, removeDiscussion, startDiscussion } from "@/app/[orgSlug]/discussions/actions";
 
 /** Starting a thread, on the organization's board or a program's (D106). */
@@ -22,7 +23,7 @@ export function StartDiscussionForm({
 }) {
   const [state, action, pending] = useActionState(startDiscussion, idle);
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4">
       <input type="hidden" name="orgSlug" value={orgSlug} />
       <Field label={whereLabel} htmlFor="discussion-where" error={state.fieldErrors?.where}>
         <select id="discussion-where" name="where" defaultValue={initialWhere} className={inputClass}>

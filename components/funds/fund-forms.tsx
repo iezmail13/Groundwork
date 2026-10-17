@@ -23,6 +23,7 @@ export type FundValues = {
   total_cents: number;
   currency: string;
   project_id: string | null;
+  spend_by?: string | null;
 };
 
 function ProjectPicker({ id, projects, value, error }: { id: string; projects: ProjectOption[]; value: string | null; error?: string[] }) {
@@ -114,6 +115,9 @@ function FundForm({
         </Field>
       </div>
       <ProjectPicker id="fund-project" projects={projects} value={fund?.project_id ?? null} error={e.projectId} />
+      <Field label="Spend by (optional)" htmlFor="fund-spend-by" hint="For time-limited money, like a grant that must be spent by a date." error={e.spendBy}>
+        <Input id="fund-spend-by" name="spendBy" type="date" defaultValue={fund?.spend_by ?? ""} />
+      </Field>
       <Field label="Notes" htmlFor="fund-description" error={e.description}>
         <Textarea id="fund-description" name="description" rows={3} maxLength={2000} defaultValue={fund?.description ?? ""} />
       </Field>

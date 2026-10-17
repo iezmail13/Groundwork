@@ -13,6 +13,7 @@ import {
   FolderKanban,
   History,
   MessageSquareText,
+  Receipt,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -174,6 +175,7 @@ function SidebarBody({
     { href: `${base}/activity`, label: "Activity", icon: History },
     ...(showAttendance ? [{ href: `${base}/attendance`, label: t("section.attendance"), icon: ClipboardCheck }] : []),
     ...(showFunds ? [{ href: `${base}/funds`, label: t("section.funds"), icon: PiggyBank }] : []),
+    { href: `${base}/spending`, label: "Spending", icon: Receipt },
   ];
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 

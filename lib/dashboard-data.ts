@@ -4,6 +4,7 @@ import { getMembers, type getOrgContext } from "@/lib/org";
 import { getEvents, TASK_SELECT, type EventRow, type TaskPriority, type TaskRow } from "@/lib/queries";
 import { getAttendancePrograms, getMarksInRange, getParticipantNames, type Mark as AttendanceMark } from "@/lib/participants";
 import { getFunds } from "@/lib/funds";
+import { getBudgets } from "@/lib/spending";
 import { addDays, dateInZone, eventStartDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { canEdit, type EditTarget, type Viewer } from "@/lib/can-edit";
 import { isAssignee, PRIORITIES, taskPart } from "@/lib/task-filters";
@@ -246,11 +247,15 @@ export async function buildMainDashboard(ctx: Ctx, scope: Scope, detailKey: stri
     });
   }
 
-  const [attendance, workload, funds] = await Promise.all([
+  const manager = rankOf(ctx.role) >= rankOf("manager");
+  const [attendance, workload, funds, budgets] = await Promise.all([
     buildAttendance(ctx, inputs, detailHref),
     buildWorkload(ctx, inputs),
-    rankOf(ctx.role) >= rankOf("manager") ? getFunds(ctx.org.id) : Promise.resolve(null),
+    manager ? getFunds(ctx.org.id) : Promise.resolve(null),
+    // budget against actual feeds the Funding widget (D108)
+    manager ? getBudgets(ctx) : Promise.resolve([]),
   ]);
+  const budgetOf = new Map(budgets.map((b) => [b.id, b]));
 
   return {
     scope: effective,
@@ -269,6 +274,8 @@ export async function buildMainDashboard(ctx: Ctx, scope: Scope, detailKey: stri
           currency: f.currency,
           totalCents: f.total_cents,
           parts: f.allocations.map((a) => ({ key: a.id, label: a.label, cents: a.amount_cents })),
+          spentCents: budgetOf.get(f.id)?.spentCents ?? 0,
+          status: budgetOf.get(f.id)?.status ?? "on_pace",
         }))
       : null,
     detail: detailKey && details[detailKey] ? details[detailKey]!() : null,

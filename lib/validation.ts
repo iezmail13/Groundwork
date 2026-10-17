@@ -55,6 +55,13 @@ export const taskFormInput = z
     projectId: id.optional(),
     title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
     description: optionalText(4000, "Use 4,000 characters or fewer."),
+    // a link for the work, like the accounting software for a bookkeeping task (D108)
+    linkUrl: z
+      .string()
+      .trim()
+      .max(500, "Use 500 characters or fewer.")
+      .refine((v) => v === "" || /^https?:\/\/[^\s]+$/.test(v), "Use a full web address starting https://.")
+      .optional(),
     kind: z.enum(["general", "appointed", "personal"], { error: "Choose what kind of work this is." }),
     priority: z.enum(["critical", "high", "medium", "low"], { error: "Choose a priority." }),
     dueDate: isoDate.optional(),

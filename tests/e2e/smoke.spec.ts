@@ -224,10 +224,11 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
 
   // 7. Switch the preset and watch the whole UI relabel.
   await visit(page, `${base}/settings`);
-  // settings are the preset, the people, the organization, its branding, your own
-  // profile and your notifications; words aren't editable one by one
+  // settings are the preset, the people, the organization, its branding, its finance
+  // link (D108), your own profile and your notifications; words aren't editable one by one
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link")).toHaveCount(6);
+  await expect(sections.getByRole("link")).toHaveCount(7);
+  await expect(sections.getByRole("link", { name: "Finance" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Notifications" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Branding" })).toHaveCount(1);
   await expect(sections.getByRole("link", { name: "Profile" })).toHaveCount(1);
@@ -804,7 +805,7 @@ test("funds: owners and managers split a fund, see it on its project and the das
   await expect(page).toHaveURL(/dashboard$/);
   await page.getByRole("link", { name: "Funds", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Funds" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Fall community grant" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("link", { name: "Fall community grant", exact: true })).toBeVisible();
 
   // a new fund for a program, split in two
   await page.getByRole("button", { name: "New fund" }).click();
