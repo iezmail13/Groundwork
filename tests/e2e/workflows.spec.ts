@@ -90,6 +90,9 @@ test("cards move between steps; a done step finishes the work and leaving it reo
   // into the done step: the work is finished
   await column(marcus, "Being reviewed").getByLabel("Step for “Plan the distribution day layout”").selectOption({ label: "Approved" });
   await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
+  // the board shows a move at once and saves it in the background: check it was saved before leaving
+  await marcus.reload();
+  await expect(column(marcus, "Approved").getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
   await marcus.goto(`${ORG}/tasks?view=list&status=done`);
   await expect(marcus.getByRole("link", { name: "Plan the distribution day layout" })).toBeVisible();
 
