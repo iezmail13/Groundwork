@@ -114,9 +114,14 @@ test("staff on the program see its steps but can't change them, and can't move o
   await expect(sofia.getByRole("status").filter({ hasText: "Only the people on it, or someone who can edit it, can move it." })).toBeAttached();
   await sofia.reload();
   await expect(column(sofia, "Intake").getByRole("link", { name: "Book the van for collection days" })).toBeVisible();
-  // but her own does
-  await column(sofia, "Intake").getByLabel("Step for “Recruit sorting-day volunteers”").selectOption({ label: "Being reviewed" });
-  await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Recruit sorting-day volunteers" })).toBeVisible();
+  // but one she made does
+  await column(sofia, "Intake").getByLabel("New task title").fill("Sort the donated scarves");
+  await column(sofia, "Intake").getByRole("button", { name: "Add task" }).click();
+  await expect(column(sofia, "Intake").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
+  await column(sofia, "Intake").getByLabel("Step for “Sort the donated scarves”").selectOption({ label: "Being reviewed" });
+  await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
+  await sofia.reload();
+  await expect(column(sofia, "Being reviewed").getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
   await sofia.context().close();
 });
 
@@ -128,6 +133,7 @@ test("going back to the standard board keeps every card's status", async ({ brow
   await expect(marcus.locator("#workflow").getByText("This board uses the standard columns again.")).toBeVisible();
   await marcus.goto(`${ORG}/tasks`);
   await expect(marcus.locator("section[data-step]")).toHaveCount(0);
-  await expect(marcus.locator('section[data-column="in_progress"]').getByRole("link", { name: "Recruit sorting-day volunteers" })).toBeVisible();
+  // Sofia's card, open with nobody on it, is back in To do
+  await expect(marcus.locator('section[data-column="todo"]').getByRole("link", { name: "Sort the donated scarves" })).toBeVisible();
   await marcus.context().close();
 });
