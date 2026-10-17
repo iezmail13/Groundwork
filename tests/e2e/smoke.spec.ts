@@ -243,7 +243,9 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await page.getByRole("button", { name: "Apply preset" }).click();
   await expect(page.getByText("Preset applied")).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Main" }).first();
-  await expect(nav.getByRole("link", { name: "Subjects" })).toBeVisible();
+  // several programs make the heading a group that opens to list them (D111)
+  await nav.getByRole("button", { name: "Subjects" }).click();
+  await expect(nav.getByRole("link", { name: "All subjects" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Materials" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tutors" })).toBeVisible();
 
@@ -542,7 +544,7 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   await expect(deadlines.getByText("overdue", { exact: true })).toBeVisible();
   await expect(deadlines.locator(".text-3xl").first()).toHaveText(/^[1-9]\d*$/);
   const nav = page.getByRole("navigation", { name: "Main" }).first();
-  await expect(nav.getByRole("link", { name: "Programs" })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Programs" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Program progress" })).toBeVisible();
   // tasks appear on the calendar by due date, and clicking one opens it
   await visit(page, "/northside-youth-collective/calendar");

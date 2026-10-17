@@ -1,9 +1,11 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 
-// The shell (D110): Funds and Spending sit under a Finances heading that opens
-// and closes; Activity is a menu in the top bar beside the notifications, not
-// a sidebar item; filters sit behind one Filters button. Seeded Northside:
-// Priya is a manager; Marcus is an admin.
+// The shell (D110, D111): Funds and Spending sit under a Finances heading that
+// opens and closes, and so do the programs once there are two or more;
+// Activity is a menu in the top bar beside the notifications, not a sidebar
+// item; filters sit behind one Filters button. Seeded Northside: Priya is a
+// manager and sees all three programs; Marcus is an admin; Sofia isn't on
+// Homework Club.
 
 const ORG = "/northside-youth-collective";
 
@@ -71,4 +73,34 @@ test("Activity opens from the top bar, beside the notifications", async ({ brows
   await priya.keyboard.press("Escape");
   await expect(priya.getByLabel("Person")).toBeHidden();
   await priya.context().close();
+});
+
+test("with two or more programs, Programs opens to list the ones you can see", async ({ browser }) => {
+  const priya = await signIn(browser, "Priya Shah");
+  const nav = priya.getByRole("navigation", { name: "Main" }).first();
+  const programs = nav.getByRole("button", { name: "Programs" });
+  await expect(programs).toHaveAttribute("aria-expanded", "false");
+  await programs.click();
+  await expect(nav.getByRole("link", { name: "All programs" })).toBeVisible();
+  // A to Z
+  const names = await nav.getByRole("link").evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? ""));
+  const listed = names.slice(names.indexOf("All programs") + 1, names.indexOf("All programs") + 4);
+  expect(listed).toEqual(["Homework Club", "Teen Mentorship Circle", "Winter Coat Drive"]);
+  await nav.getByRole("link", { name: "Winter Coat Drive" }).click();
+  await expect(priya.getByRole("heading", { level: 1, name: "Winter Coat Drive" })).toBeVisible();
+  // on a program's page the group is open and marks it current; the overview isn't
+  await expect(nav.getByRole("link", { name: "Winter Coat Drive" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "All programs" })).not.toHaveAttribute("aria-current", "page");
+  await nav.getByRole("link", { name: "All programs" }).click();
+  await expect(priya.getByRole("heading", { level: 1, name: "Programs" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "All programs" })).toHaveAttribute("aria-current", "page");
+  await priya.context().close();
+
+  // only the programs she's on
+  const sofia = await signIn(browser, "Sofia Alvarez");
+  const hers = sofia.getByRole("navigation", { name: "Main" }).first();
+  await hers.getByRole("button", { name: "Programs" }).click();
+  await expect(hers.getByRole("link", { name: "Winter Coat Drive" })).toBeVisible();
+  await expect(hers.getByRole("link", { name: "Homework Club" })).toHaveCount(0);
+  await sofia.context().close();
 });
