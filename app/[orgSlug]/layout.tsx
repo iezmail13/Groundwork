@@ -16,6 +16,8 @@ import { canManageOrg, rankOf } from "@/lib/roles";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { PresenceProvider } from "@/components/people/presence";
 import { getUnreadCount, queueDueNotifications } from "@/lib/notifications";
+import { ChatButton, ChatProvider } from "@/components/chat/chat";
+import { getChatUnread } from "@/lib/chat";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -43,7 +45,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
     getMaintenance(),
     getBranding(ctx.org, ctx.userId),
   ]);
-  const unread = await getUnreadCount(ctx.org.id);
+  const [unread, chatUnread] = await Promise.all([getUnreadCount(ctx.org.id), getChatUnread(ctx)]);
 
   const orgs = (memberships ?? [])
     .map((m) => m.organization)
@@ -52,6 +54,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
 
   const actions = (
     <>
+      <ChatButton />
       <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} />
       <ThemeToggle initial={branding.themeMode} />
     </>
@@ -64,6 +67,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
       <TerminologyProvider labels={ctx.labels}>
       <ViewerProvider viewer={{ userId: ctx.userId, role: ctx.role, membershipId: ctx.membershipId }}>
       <PresenceProvider organizationId={ctx.org.id} userId={ctx.userId} mode={profile?.presence_mode ?? "auto"}>
+      <ChatProvider orgSlug={ctx.org.slug} userId={ctx.userId} initialUnread={chatUnread}>
       <UndoToastProvider>
         <ClientCookies tz={ctx.tz} orgSlug={ctx.org.slug} themeMode={branding.themeMode} />
         <a
@@ -78,6 +82,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             logo={branding.logoUrl ? { url: branding.logoUrl, darkUrl: branding.logoDarkUrl } : null}
             mobileActions={
               <>
+                <ChatButton onRail />
                 <NotificationBell orgSlug={ctx.org.slug} initialUnread={unread} onRail />
                 <ThemeToggle initial={branding.themeMode} onRail />
               </>
@@ -97,6 +102,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
           </div>
         </div>
       </UndoToastProvider>
+      </ChatProvider>
       </PresenceProvider>
       </ViewerProvider>
       </TerminologyProvider>

@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlarmClock,
+  AtSign,
+  MessageSquare,
+  MessageSquareText,
+  MessagesSquare,
+  PencilLine,
+  ScrollText,
   Bell,
   CheckCheck,
   CircleCheck,
@@ -32,6 +38,12 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   overdue: TriangleAlert,
   invitation_accepted: MailCheck,
   low_attendance: TrendingDown,
+  task_comment: MessageSquareText,
+  task_changed: PencilLine,
+  mention: AtSign,
+  direct_message: MessageSquare,
+  channel_message: MessagesSquare,
+  discussion: ScrollText,
 };
 
 /** Overdue and low attendance are bad news, finished work good news (status colours, D83). */

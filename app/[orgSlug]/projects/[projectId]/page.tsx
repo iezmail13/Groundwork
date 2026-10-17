@@ -14,7 +14,9 @@ import {
   History,
   ListChecks,
   Lock,
+  MessageSquareText,
   PiggyBank,
+  Plus,
   Users,
 } from "lucide-react";
 import {
@@ -84,6 +86,7 @@ import {
 import { toEventFormValues } from "@/lib/event-values";
 import { creatorLock } from "@/lib/creator-lock";
 import { lower } from "@/lib/terminology/t";
+import { getDiscussions } from "@/lib/discussions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -160,8 +163,9 @@ export default async function ProjectPage({
   const tasks = (taskData ?? []) as TaskRow[];
   // the project dashboard reuses the tasks this page already loaded (D105)
   const detailKey = typeof sp.detail === "string" ? sp.detail : null;
-  const [pd, { data: latest }] = await Promise.all([
+  const [pd, threads, { data: latest }] = await Promise.all([
     buildProjectDashboard(ctx, project.id, project.name, tasks, detailKey),
+    getDiscussions(ctx, { projectId: project.id, limit: 3 }),
     supabase
       .from("activity_log")
       .select(
@@ -696,6 +700,41 @@ export default async function ProjectPage({
           )}
         </section>
       </div>
+
+      <section aria-labelledby="project-discussions" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="project-discussions" className="flex items-center gap-2 font-heading text-xl font-bold">
+            <MessageSquareText aria-hidden className="size-5" />
+            Discussions
+          </h2>
+          <Link
+            href={`${base}/discussions?board=${project.id}&new=1`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-rule px-3 py-1.5 font-heading text-sm font-semibold hover:bg-panel"
+          >
+            <Plus aria-hidden className="size-4" />
+            Start a discussion
+          </Link>
+        </div>
+        {threads.length === 0 ? (
+          <p className="text-sm text-ink-muted">No discussions on this {lower(t("project"))} yet.</p>
+        ) : (
+          <ul className="divide-y divide-rule border-y border-rule">
+            {threads.map((d) => (
+              <li key={d.id} className="flex items-baseline gap-3 py-2.5">
+                <Link href={`${base}/discussions/${d.id}`} className="min-w-0 flex-1 truncate font-semibold hover:underline">
+                  {d.title}
+                </Link>
+                <span className="text-sm text-ink-muted">
+                  {d.replies} {d.replies === 1 ? "reply" : "replies"} · <time dateTime={d.lastActivityAt}>{d.lastActivity}</time>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href={`${base}/discussions?board=${project.id}`} className="self-start text-sm font-semibold text-accent hover:underline">
+          All discussions on this board
+        </Link>
+      </section>
 
       <section aria-labelledby="project-people" className="flex flex-col gap-3">
         <h2

@@ -13,6 +13,9 @@ import { getAssigneeNames } from "@/lib/projects";
 import { TASK_SELECT, type TaskRow } from "@/lib/queries";
 import { assigneeIds, isAssignee } from "@/lib/task-filters";
 import { getAvatars } from "@/lib/members";
+import { getChatPeople } from "@/lib/chat";
+import { getTaskComments } from "@/lib/comments";
+import { CommentThread } from "@/components/comments/comment-thread";
 import { createClient } from "@/lib/supabase/server";
 import { formatTimestamp } from "@/lib/dates";
 import { lower } from "@/lib/terminology/t";
@@ -53,7 +56,7 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
     task.project && !form.projects.some((p) => p.id === task.project_id)
       ? [...form.projects, { id: task.project.id, name: task.project.name }]
       : form.projects;
-  const avatars = await getAvatars(org.id, base);
+  const [avatars, chatPeople, comments] = await Promise.all([getAvatars(org.id, base), getChatPeople(ctx), getTaskComments(ctx, task.id)]);
   const people = assigneeIds(task).map((id) => ({ id, name: memberName.get(id) ?? "Someone", href: avatars[id]?.href ?? null }));
 
   // someone ranked above the viewer made it: read-only, though its assignee can still mark it done
@@ -153,6 +156,22 @@ export default async function TaskPage({ params }: PageProps<"/[orgSlug]/tasks/[
         sharedWith={(shares ?? []).map((x) => x.membership_id)}
       />
       )}
+      <section id="comments" aria-labelledby="comments-heading" className="flex max-w-3xl scroll-mt-20 flex-col gap-3">
+        <h2 id="comments-heading" className="font-heading text-lg font-bold">
+          Comments <span className="font-normal text-ink-muted">({comments.items.filter((c) => !c.deleted).length})</span>
+        </h2>
+        <CommentThread
+          orgSlug={org.slug}
+          kind="task"
+          targetId={task.id}
+          items={comments.items}
+          people={chatPeople}
+          me={ctx.userId}
+          mentionable={comments.mentionable}
+          noun="comment"
+          emptyText="No comments yet. Ask a question or share an update; the people on it will hear about it."
+        />
+      </section>
     </div>
   );
 }

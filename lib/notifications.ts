@@ -19,9 +19,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   "overdue",
   "invitation_accepted",
   "low_attendance",
+  "task_comment",
+  "task_changed",
+  "mention",
+  "direct_message",
+  "channel_message",
+  "discussion",
 ];
-
-export type NotificationIcon = "assigned" | "claimed" | "completed" | "due_soon" | "overdue" | "invitation_accepted" | "low_attendance";
 
 /** One notification, ready to show (serialisable, for the bell's panel). */
 export type NotificationItem = {
@@ -40,7 +44,7 @@ type Row = {
   subject_type: string;
   subject_id: string;
   actor_id: string | null;
-  data: { rate?: number; project_id?: string; due_date?: string };
+  data: { rate?: number; project_id?: string; due_date?: string; changed?: string[] };
   read_at: string | null;
   created_at: string;
 };
@@ -82,15 +86,32 @@ export async function getNotifications(
   const ids = (type: string) => [...new Set(rows.filter((r) => r.subject_type === type).map((r) => r.subject_id))];
   const taskIds = ids("task");
   const participantIds = ids("participant");
+  const channelIds = ids("channel");
+  const discussionIds = ids("discussion");
   const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((x): x is string => Boolean(x)))];
   const projectIds = [...new Set(rows.map((r) => r.data.project_id).filter((x): x is string => Boolean(x)))];
 
-  const [tasks, participants, actors, projects] = await Promise.all([
+  const [tasks, participants, actors, projects, channels, discussions] = await Promise.all([
     taskIds.length ? supabase.from("tasks").select("id, title").in("id", taskIds) : { data: [] },
     participantIds.length ? supabase.from("participants").select("id, name").in("id", participantIds) : { data: [] },
     actorIds.length ? supabase.from("profiles").select("id, full_name, email").in("id", actorIds) : { data: [] },
     projectIds.length ? supabase.from("projects").select("id, name").in("id", projectIds) : { data: [] },
+    channelIds.length ? supabase.from("chat_channels").select("id, kind, project_id").in("id", channelIds) : { data: [] },
+    discussionIds.length ? supabase.from("discussions").select("id, title").in("id", discussionIds) : { data: [] },
   ]);
+  // a program channel is named after its program, read through the viewer's access
+  const channelProjects = [...new Set((channels.data ?? []).map((c) => c.project_id).filter((x): x is string => Boolean(x)))];
+  const { data: channelProjectNames } = channelProjects.length
+    ? await supabase.from("projects").select("id, name").in("id", channelProjects)
+    : { data: [] as { id: string; name: string }[] };
+  const channelProjectName = new Map((channelProjectNames ?? []).map((p) => [p.id, p.name]));
+  const channelOf = new Map(
+    (channels.data ?? []).map((c) => [
+      c.id,
+      c.kind === "org" ? "Everyone" : c.kind === "direct" ? null : (channelProjectName.get(c.project_id ?? "") ?? null),
+    ]),
+  );
+  const discussionOf = new Map((discussions.data ?? []).map((d) => [d.id, d.title]));
   const titleOf = new Map((tasks.data ?? []).map((x) => [x.id, x.title]));
   const personOf = new Map((participants.data ?? []).map((x) => [x.id, x.name]));
   const actorOf = new Map((actors.data ?? []).map((x) => [x.id, x.full_name || x.email]));
@@ -103,6 +124,8 @@ export async function getNotifications(
       participant: personOf.get(r.subject_id),
       actor: (r.actor_id && actorOf.get(r.actor_id)) || "Someone",
       project: r.data.project_id ? projectOf.get(r.data.project_id) : undefined,
+      channel: channelOf.has(r.subject_id) ? (channelOf.get(r.subject_id) ?? null) : undefined,
+      discussion: discussionOf.get(r.subject_id),
     });
     return {
       id: r.id,
@@ -120,9 +143,25 @@ function describe(
   r: Row,
   base: string,
   t: Translate,
-  names: { title?: string; participant?: string; actor: string; project?: string },
+  names: { title?: string; participant?: string; actor: string; project?: string; channel?: string | null; discussion?: string },
 ): { sentence: string; href: string | null } {
   const task = lower(t("task"));
+  if (r.subject_type === "channel") {
+    // undefined: they can't see it any more; null: a direct conversation
+    if (names.channel === undefined) return { sentence: "A conversation you can no longer see had news.", href: null };
+    const href = `${base}/notifications?chat=${r.subject_id}`;
+    if (r.type === "direct_message") return { sentence: `${names.actor} sent you a message.`, href };
+    if (r.type === "mention") {
+      return { sentence: names.channel ? `${names.actor} mentioned you in #${names.channel}.` : `${names.actor} mentioned you in a message.`, href };
+    }
+    return { sentence: `${names.actor} wrote in #${names.channel ?? "a conversation"}.`, href };
+  }
+  if (r.subject_type === "discussion") {
+    if (names.discussion === undefined) return { sentence: "A discussion you can no longer see had news.", href: null };
+    const href = `${base}/discussions/${r.subject_id}`;
+    if (r.type === "mention") return { sentence: `${names.actor} mentioned you in “${names.discussion}”.`, href };
+    return { sentence: `${names.actor} posted in “${names.discussion}”.`, href };
+  }
   if (r.subject_type === "task" && names.title === undefined) {
     // they can't see it any more: don't name it
     return { sentence: `A ${task} you can no longer see was updated.`, href: null };
@@ -130,6 +169,18 @@ function describe(
   const title = `“${names.title}”`;
   const taskHref = `${base}/tasks/${r.subject_id}`;
   switch (r.type) {
+    case "task_comment":
+      return { sentence: `${names.actor} commented on ${title}.`, href: `${taskHref}#comments` };
+    case "mention":
+      return { sentence: `${names.actor} mentioned you on ${title}.`, href: `${taskHref}#comments` };
+    case "task_changed": {
+      const what = (r.data.changed ?? []).map((c) => CHANGE_WORDS[c] ?? c);
+      return { sentence: `${names.actor} changed ${what.length ? `the ${listWords(what)} of ` : ""}${title}.`, href: taskHref };
+    }
+    case "direct_message":
+    case "channel_message":
+    case "discussion":
+      return { sentence: `${names.actor} updated ${title}.`, href: taskHref };
     case "assigned":
       return { sentence: `${names.actor} gave you ${title}.`, href: taskHref };
     case "claimed":
@@ -155,6 +206,12 @@ function describe(
   }
 }
 
+const CHANGE_WORDS: Record<string, string> = { title: "title", due_date: "due date", priority: "priority", status: "status", project: "home" };
+
+function listWords(words: string[]): string {
+  return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
+
 /** What each kind of notification is about, for Settings → Notifications. */
 export function notificationTypeLabel(type: NotificationType, t: Translate): string {
   const task = lower(t("task"));
@@ -173,5 +230,17 @@ export function notificationTypeLabel(type: NotificationType, t: Translate): str
       return "Someone accepts an invitation you sent";
     case "low_attendance":
       return `A ${lower(t("participant"))}'s ${lower(t("section.attendance"))} falls below the low mark`;
+    case "task_comment":
+      return `Someone comments on a ${task} you made, are on, or have commented on`;
+    case "task_changed":
+      return `Someone changes the title, due date, priority or status of a ${task} you're on`;
+    case "mention":
+      return "Someone mentions you in a comment, chat or discussion";
+    case "direct_message":
+      return "Someone sends you a direct message";
+    case "channel_message":
+      return "New messages in a chat you're in (once until you open it)";
+    case "discussion":
+      return `A new discussion on your ${lower(t("project", "other"))}, or a reply in one you're part of`;
   }
 }

@@ -676,6 +676,81 @@ async function main() {
   );
   must(await db.from("tasks").update({ kind: "appointed" }).eq("id", notebooks).select("id"), "invitee task kind");
 
+  // Conversations (D106): the organization channel, Homework Club's channel,
+  // a direct message, a comment thread on a task and a discussion.
+  const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  // chat history starts when someone joined (D106): the demo team has been here for weeks
+  const joined = ago(60 * 24 * 60);
+  must(await db.from("memberships").update({ created_at: joined }).eq("organization_id", org.id).select("id"), "join dates");
+  must(await db.from("project_first_joins").update({ joined_at: joined }).eq("organization_id", org.id).select("project_id"), "program join dates");
+  const channel = async (filter: { kind: "org" } | { kind: "project"; project_id: string }) => {
+    let q = db.from("chat_channels").select("id").eq("organization_id", org.id).eq("kind", filter.kind);
+    if (filter.kind === "project") q = q.eq("project_id", filter.project_id);
+    return must(await q.single(), "channel").id;
+  };
+  const everyone = await channel({ kind: "org" });
+  const hcChannel = await channel({ kind: "project", project_id: HC });
+  const [a, b] = [priya!, marcus!].sort();
+  const direct = must(
+    await db.from("chat_channels").insert({ organization_id: org.id, kind: "direct", member_a: a, member_b: b }).select("id").single(),
+    "direct conversation",
+  ).id;
+  const say = (channel_id: string, sender_id: string, body: string, minutes: number) => ({
+    organization_id: org.id,
+    channel_id,
+    sender_id,
+    body,
+    created_at: ago(minutes),
+  });
+  must(
+    await db
+      .from("chat_messages")
+      .insert([
+        say(everyone, jordan!, "Welcome to the new chat, everyone. Program channels are for day-to-day questions; Discussions are for longer threads.", 300),
+        say(everyone, sofia!, "Thanks! The mentorship circle meets Thursday as usual.", 280),
+        say(hcChannel, priya!, "Room 104 is booked through November.", 120),
+        say(hcChannel, marcus!, `The snack cupboard is nearly empty, <@${priya}>. I'll restock it before Thursday.`, 95),
+        say(direct, priya!, "Could you cover the reading corner set-up next week?", 45),
+        say(direct, marcus!, "Yes, Tuesday works for me.", 40),
+      ])
+      .select("id"),
+    "chat messages",
+  );
+  const restock = insertedTasks.find((x) => x.title === "Restock snack cupboard")!.id;
+  must(
+    await db
+      .from("task_comments")
+      .insert([
+        { organization_id: org.id, task_id: restock, author_id: priya, body: "Granola bars and apples went fastest last month.", created_at: ago(90) },
+        { organization_id: org.id, task_id: restock, author_id: marcus, body: "Noted. I'll get both, and juice boxes.", created_at: ago(80) },
+      ])
+      .select("id"),
+    "task comments",
+  );
+  const thread = must(
+    await db
+      .from("discussions")
+      .insert({
+        organization_id: org.id,
+        project_id: HC,
+        author_id: priya,
+        title: "Ideas for the winter term",
+        body: "We have room for one new activity in January. A chess club and a reading challenge have both come up. What would the kids enjoy most?",
+        created_at: ago(600),
+        last_activity_at: ago(600),
+      })
+      .select("id")
+      .single(),
+    "discussion",
+  ).id;
+  must(
+    await db
+      .from("discussion_replies")
+      .insert({ organization_id: org.id, discussion_id: thread, author_id: marcus, body: "A reading challenge: the grade 5s keep asking for more books.", created_at: ago(500) })
+      .select("id"),
+    "discussion reply",
+  );
+
   // work the seed marked done has no one who finished it: those notifications would only say "Someone"
   must(
     await db.from("notifications").delete().eq("organization_id", org.id).eq("type", "completed").is("actor_id", null).select("id"),
