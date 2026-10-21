@@ -119,6 +119,7 @@ export async function withdrawSpending(input: { entryId: string }): Promise<{ ok
 
 const DECISION_MESSAGES: Record<string, string> = {
   own_entry: "Nobody approves their own spending.",
+  already_decided: "Someone has already decided on this. Refresh to see the latest.",
   rank: "Only someone ranked above them can decide on this.",
   not_approver: "Only the people who approve spending can do that.",
 };

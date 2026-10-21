@@ -28,6 +28,10 @@ describe("attendance report", () => {
   it("writes CSV that spreadsheets can't mistake for formulas", () => {
     expect(csvField('Sam "Jr", 7')).toBe('"Sam ""Jr"", 7"');
     expect(csvField("=HYPERLINK(1)")).toBe("'=HYPERLINK(1)");
+    expect(csvField("-2+3+cmd|' /C calc'!A0")).toBe("'-2+3+cmd|' /C calc'!A0");
+    expect(csvField(-1250)).toBe("-1250");
+    expect(csvField("-$1,200.00")).toBe('"-$1,200.00"');
+    expect(csvField("-12.5%")).toBe("-12.5%");
     expect(csvField(null)).toBe("");
     expect(toCsv([["Name", "Rate"], ["Pat", "80%"]])).toBe("Name,Rate\r\nPat,80%\r\n");
   });

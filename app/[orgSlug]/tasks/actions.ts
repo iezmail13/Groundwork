@@ -148,7 +148,7 @@ export async function claimTask(input: { id: string; claim: boolean }): Promise<
 }
 
 export async function deleteTask(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ id, orgSlug: z.string().min(1) }).safeParse(formObject(formData));
+  const parsed = z.object({ id, orgSlug: slugInput }).safeParse(formObject(formData));
   if (!parsed.success) return failure("Invalid request.");
   const supabase = await createClient();
   const { data, error } = await supabase.from("tasks").delete().eq("id", parsed.data.id).select("id");

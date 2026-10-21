@@ -54,8 +54,10 @@ export function groupMarks<M extends { status: MarkStatus }>(
 /** One CSV field, quoted when it needs to be, and safe to open in a spreadsheet. */
 export function csvField(value: string | number | null): string {
   let text = value === null ? "" : String(value);
-  // a leading =, +, - or @ would run as a formula in a spreadsheet
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  // a leading =, +, - or @ would run as a formula in a spreadsheet; plain
+  // numbers and amounts (like -12.50 or -$1,200.00) are left as they are
+  const plainNumber = typeof value === "number" || /^[+-]?[$€£¥]?\d[\d,]*(\.\d+)?%?$/.test(text);
+  if (!plainNumber && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
