@@ -90,11 +90,12 @@ export type EventRow = {
   project_id: string | null;
   created_by: string | null;
   created_by_role: Role | null;
+  series_id: string | null;
   project: { id: string; name: string } | null;
 };
 
 export const EVENT_SELECT =
-  "id, title, description, starts_at, ends_at, all_day, location, project_id, created_by, created_by_role, project:projects(id, name)";
+  "id, title, description, starts_at, ends_at, all_day, location, project_id, created_by, created_by_role, series_id, project:projects(id, name)";
 
 /** Events overlapping [fromIso, toIso). */
 export async function getEvents(orgId: string, fromIso: string, toIso: string): Promise<EventRow[]> {

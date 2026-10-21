@@ -11,6 +11,7 @@ export type RosterRow = {
   orgRole: Role;
   name: string;
   email: string;
+  userId: string;
 };
 
 /** Who is on a project (owners aren't listed: they see every project). */
@@ -26,7 +27,7 @@ export const getProjectRoster = cache(async (orgId: string, projectId: string): 
   return (data ?? [])
     .flatMap((row) => {
       const m = byId.get(row.membership_id);
-      return m ? [{ id: row.id, membershipId: m.id, role: row.role, orgRole: m.role, name: m.name, email: m.email }] : [];
+      return m ? [{ id: row.id, membershipId: m.id, role: row.role, orgRole: m.role, name: m.name, email: m.email, userId: m.userId }] : [];
     })
     .sort((a, b) => order[a.role] - order[b.role] || a.name.localeCompare(b.name));
 });

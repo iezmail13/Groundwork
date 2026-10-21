@@ -620,3 +620,31 @@ The owner asked that, when there are several programs, the sidebar's Programs it
 - It opens by itself on the overview or on a program's page, and marks the current one. The overview link matches only its own page, not the programs under it. On the narrow (collapsed) sidebar it is the Programs icon, linking to the overview.
 - The separate "Recent programs" list under the menu is gone: it would have repeated the same names just above it. The `recent_projects` database function stays, unused by the sidebar.
 - The menu area scrolls when the list is long.
+
+## D112. The owner's review: bulk add, simpler filters, plainer scope words, repeating events, profile cards, report previews
+
+After using the app, the owner asked for six changes.
+
+- **Adding participants several at once.**
+  - "Add participants" opens a wide dialog laid out as a table. Each row is one person, with every field on view at once: full name, email, phone, parent or guardian, emergency contact.
+  - Rows can be added, removed, or filled from a pasted list (one person per line, commas or a spreadsheet's tabs, parsed by `lib/people-paste.ts`). Blank rows are skipped, and a row with details but no name is caught on that row.
+  - Everyone is saved together through `add_participants(project, people)`. It is SECURITY DEFINER with the same checks as `add_participant()` (the caller manages participants on that program, and it isn't archived). It runs in one transaction, so one bad row adds nobody, and it returns the new ids.
+  - Adding one person still opens their profile. Adding several returns to the list with "Added N".
+  - Date of birth and medical notes stay on each profile, where fewer people see them.
+  - pgTAP `29_bulk_participants`.
+- **Fewer filters on Tasks.**
+  - The Filters panel holds only what narrows the work: program, assignee, priority, due. Status is the board's columns already, so finished work is one "Include finished work" checkbox. The board's order is a "Most urgent first" toggle beside the button, not a filter.
+  - The quick-add box's program picker, which sat under the filters and read as a second filter, appears only once a title is typed. It is labelled "in program" and starts on the program the list is filtered to.
+- **Plainer scope words.** The dashboard's switch reads "Assigned to me" and "All work", not "Mine" and "Everything I oversee".
+- **Repeating events.**
+  - When adding an event, "Repeats weekly" picks weekdays and a number of weeks (up to 52; for example, every Friday for 5 weeks, 16:00–18:00). A summary ("5 times") updates as it's set.
+  - Each time is stored as its own event sharing `events.series_id`, so it shows, edits, exports to the calendar feed and takes attendance like any other. All are added in one insert.
+  - Editing changes one time. Deleting asks "Only this time" or "Every time it repeats", and the series delete still goes through the events policies.
+  - A trigger stops an event joining another organization's series. pgTAP `28_event_series`; unit tests for `weeklyDates`.
+- **Profile cards on programs.**
+  - On a program's People list, each name (with photo or initials) opens a card: photo, title, online status, email, their role on the program, "Message", and "Full profile".
+  - It reads the same member data as the profile page.
+- **Report previews.**
+  - The report was already shown in full on the page before any download. The button is now "Preview report".
+  - A "Preview as" switch shows it "On screen", as the "PDF page" (an A4 sheet styled exactly as it prints, dark on white in either mode), or as the "CSV" (every row and column, numbered, as a spreadsheet opens it).
+  - Nothing is printed, downloaded or shared until the viewer chooses to.

@@ -36,7 +36,7 @@ test("dashboards are read-only summaries", async ({ browser }) => {
     expect(label).toMatch(/, (open|view details)/);
   }
   // staff don't oversee anyone, so there's no scope switch or workload
-  await expect(sofia.getByRole("navigation", { name: "Whose work" })).toHaveCount(0);
+  await expect(sofia.getByRole("navigation", { name: "Dashboard scope" })).toHaveCount(0);
   await expect(sofia.locator('li[data-widget="workload"]')).toHaveCount(0);
   await sofia.context().close();
 });
@@ -69,12 +69,12 @@ test("a chart mark opens the editable view for an editor and a read-only panel f
 
 test("people who oversee others switch between their own work and everything they oversee", async ({ browser }) => {
   const priya = await signIn(browser, "Priya Shah");
-  const scope = priya.getByRole("navigation", { name: "Whose work" });
-  await expect(scope.getByRole("link", { name: "Mine" })).toHaveAttribute("aria-current", "page");
+  const scope = priya.getByRole("navigation", { name: "Dashboard scope" });
+  await expect(scope.getByRole("link", { name: "Assigned to me" })).toHaveAttribute("aria-current", "page");
   const mine = Number(await priya.locator('li[data-widget="tasks"] .text-3xl').first().innerText());
-  await scope.getByRole("link", { name: "Everything I oversee" }).click();
+  await scope.getByRole("link", { name: "All work" }).click();
   await expect(priya).toHaveURL(/scope=all/);
-  await expect(scope.getByRole("link", { name: "Everything I oversee" })).toHaveAttribute("aria-current", "page");
+  await expect(scope.getByRole("link", { name: "All work" })).toHaveAttribute("aria-current", "page");
   const all = Number(await priya.locator('li[data-widget="tasks"] .text-3xl').first().innerText());
   expect(all).toBeGreaterThan(mine);
   // a manager also sees the workload of people ranked below her

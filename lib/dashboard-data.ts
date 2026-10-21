@@ -114,7 +114,7 @@ export function oversees(inputs: Pick<Inputs, "viewer">) {
   return rankOf(inputs.viewer.role) >= rankOf("manager") || [...inputs.viewer.projectRanks.values()].some((r) => r >= 2);
 }
 
-/** "Mine" is work assigned to the viewer; "everything I oversee" adds the programs they run (all of it for managers and owners). */
+/** "Assigned to me" is work assigned to the viewer; "All work" adds the programs they run (all of it for managers and owners). */
 function scopeTasks(inputs: Inputs, ctx: Ctx, scope: Scope): TaskRow[] {
   if (scope === "mine") return inputs.tasks.filter((x) => isAssignee(x, ctx.membershipId));
   if (rankOf(ctx.role) >= rankOf("manager")) return inputs.tasks;

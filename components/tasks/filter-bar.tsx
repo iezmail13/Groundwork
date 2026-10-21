@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import { X } from "lucide-react";
+import { ArrowDownWideNarrow, X } from "lucide-react";
 import { inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { FilterMenu } from "@/components/ui/filter-menu";
@@ -37,6 +37,9 @@ export function FilterBar({
     startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
   };
 
+  // one panel of filters (D112): what the work is, whose it is and when it's due.
+  // Status is the board's columns already, so finished work is one checkbox, and
+  // the board's order is a toggle beside the button, not a filter.
   const fields: { key: string; label: string; options: FilterOption[]; allLabel: string }[] = [
     ...(showProject ? [{ key: "project", label: t("project"), options: projects, allLabel: "All" }] : []),
     {
@@ -44,17 +47,6 @@ export function FilterBar({
       label: "Assignee",
       options: [{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...members],
       allLabel: "Anyone",
-    },
-    {
-      key: "status",
-      label: "Status",
-      options: [
-        { value: "todo", label: t("status.todo") },
-        { value: "in_progress", label: t("status.in_progress") },
-        // finished work is hidden from everyday views; this brings it back
-        { value: "done", label: "Completed" },
-      ],
-      allLabel: "Open",
     },
     {
       key: "priority",
@@ -76,14 +68,18 @@ export function FilterBar({
       ],
       allLabel: "Any time",
     },
-    ...(showOrder ? [{ key: "order", label: "Order", options: [{ value: "priority", label: "Most urgent first" }], allLabel: "Board order" }] : []),
   ];
+  const finished = params.get("status") === "done";
+  const urgentFirst = params.get("order") === "priority";
   // what's on, in words, beside the button
-  const on = fields.flatMap((f) => {
-    const value = params.get(f.key);
-    const option = value ? f.options.find((o) => o.value === value) : undefined;
-    return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
-  });
+  const on = [
+    ...fields.flatMap((f) => {
+      const value = params.get(f.key);
+      const option = value ? f.options.find((o) => o.value === value) : undefined;
+      return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
+    }),
+    ...(finished ? [{ key: "status", text: "Including finished work" }] : []),
+  ];
 
   return (
     <div role="search" aria-label="Filters" aria-busy={pending} className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">
@@ -108,7 +104,29 @@ export function FilterBar({
             </select>
           </div>
         ))}
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={finished}
+            onChange={(e) => set("status", e.target.checked ? "done" : "")}
+            className="size-4 accent-[var(--accent)]"
+          />
+          Include finished work
+        </label>
       </FilterMenu>
+      {showOrder ? (
+        <button
+          type="button"
+          aria-pressed={urgentFirst}
+          onClick={() => set("order", urgentFirst ? "" : "priority")}
+          className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 font-heading text-sm font-semibold hover:bg-panel ${
+            urgentFirst ? "border-accent text-accent" : "border-rule"
+          }`}
+        >
+          <ArrowDownWideNarrow aria-hidden className="size-4" />
+          Most urgent first
+        </button>
+      ) : null}
       {on.length ? (
         <>
           <ul aria-label="Filters on" className="flex flex-wrap gap-1.5">
@@ -123,7 +141,7 @@ export function FilterBar({
             size="sm"
             onClick={() => {
               const next = new URLSearchParams(params.toString());
-              fields.forEach((f) => next.delete(f.key));
+              [...fields.map((f) => f.key), "status"].forEach((k) => next.delete(k));
               startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
             }}
           >

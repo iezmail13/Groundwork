@@ -196,6 +196,12 @@ test("ticking a task done in the list hides it, and Undo brings it back", async 
 test("filtering and sorting by priority", async ({ browser }) => {
   const priya = await signIn(browser, "Priya Shah");
   await visit(priya, `${ORG}/tasks`);
+  // the quick-add's program picker waits for a title, so it isn't taken for a second filter (D112)
+  const quickAdd = priya.getByRole("form", { name: "Add a task" }).first();
+  await expect(quickAdd.getByLabel("in program")).toBeHidden();
+  await quickAdd.getByLabel("New task title").fill("Check the fire exits");
+  await expect(quickAdd.getByLabel("in program")).toBeVisible();
+  await quickAdd.getByLabel("New task title").fill("");
   await priya.getByRole("button", { name: /^Filters/ }).click();
   await priya.getByLabel("Priority", { exact: true }).selectOption({ label: "Critical" });
   await expect(priya).toHaveURL(/priority=critical/);
@@ -206,7 +212,11 @@ test("filtering and sorting by priority", async ({ browser }) => {
   expect(new Set(flags)).toEqual(new Set(["critical"]));
 
   // the board can put the most urgent first
-  await visit(priya, `${ORG}/tasks?order=priority`);
+  // a toggle beside Filters, not a filter (D112)
+  await visit(priya, `${ORG}/tasks`);
+  await priya.getByRole("button", { name: "Most urgent first" }).click();
+  await expect(priya).toHaveURL(/order=priority/);
+  await expect(priya.getByRole("button", { name: "Most urgent first" })).toHaveAttribute("aria-pressed", "true");
   const order = await board(priya, "in_progress")
     .locator("li[data-task-id] [data-priority]")
     .evaluateAll((els) => els.map((el) => el.getAttribute("data-priority")));

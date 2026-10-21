@@ -81,6 +81,12 @@ export default async function AttendancePage({ params, searchParams }: PageProps
           Deleted permanently. Their past {lower(t("section.attendance"))} still counts, without a name.
         </p>
       ) : null}
+      {sp.notice === "added" && typeof sp.count === "string" && /^\d+$/.test(sp.count) ? (
+        <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
+          <CircleCheck aria-hidden className="size-4" />
+          Added {sp.count} {lower(Number(sp.count) === 1 ? t("participant") : t("participant", "other"))}. Add private details on each profile.
+        </p>
+      ) : null}
       {view === "participants" ? <ParticipantsView ctx={ctx} programs={programs} sp={sp} /> : null}
       {view === "take" ? <TakeView ctx={ctx} programs={programs} sp={sp} /> : null}
       {view === "reports" ? <ReportsView ctx={ctx} programs={programs} sp={sp} /> : null}

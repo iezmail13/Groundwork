@@ -14,6 +14,7 @@ export function Modal({
   title,
   description,
   drawer = false,
+  wide = false,
   children,
 }: {
   open: boolean;
@@ -22,6 +23,8 @@ export function Modal({
   description?: ReactNode;
   /** Slide in from the side, over whatever form is open underneath. */
   drawer?: boolean;
+  /** Wider, for forms laid out as a table. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -38,7 +41,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={drawer ? "gw-dialog gw-drawer" : "gw-dialog m-auto"}
+      className={drawer ? "gw-dialog gw-drawer" : `gw-dialog m-auto ${wide ? "gw-dialog-wide" : ""}`}
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       onClose={onClose}
@@ -85,6 +88,7 @@ export function DialogButton({
   size = "md",
   className,
   ariaLabel,
+  wide = false,
   children,
 }: {
   label: ReactNode;
@@ -95,6 +99,7 @@ export function DialogButton({
   size?: "sm" | "md";
   className?: string;
   ariaLabel?: string;
+  wide?: boolean;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -112,7 +117,7 @@ export function DialogButton({
         {icon}
         {label}
       </Button>
-      <Modal open={open} onClose={close} title={title} description={description}>
+      <Modal open={open} onClose={close} title={title} description={description} wide={wide}>
         {children(close)}
       </Modal>
     </>
