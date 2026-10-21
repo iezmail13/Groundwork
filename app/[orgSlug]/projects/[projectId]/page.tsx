@@ -525,6 +525,7 @@ export default async function ProjectPage({
               forStatusView(
                 filterTasks(tasks, readFilters(sp), today, ctx.membershipId),
                 readFilters(sp).status,
+                readFilters(sp).finished,
               ),
               typeof sp.sort === "string"
                 ? readSort(sp)

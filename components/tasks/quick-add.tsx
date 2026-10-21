@@ -86,6 +86,8 @@ export function QuickAddTask({
               in {lower(t("project"))}
             </label>
             <select
+              // starts again on the filtered program whenever the filter changes
+              key={startProject}
               id={`quick-add-project-${idSuffix}`}
               name="projectId"
               className={`${inputClass} min-w-0 flex-1`}

@@ -148,6 +148,9 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(page.getByRole("list", { name: "Filters on" })).toContainText("Including finished work");
   const done = page.locator('section[data-column="done"]');
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  // "include" keeps the open work beside it
+  await expect(page.locator('section[data-column="todo"]')).toBeVisible();
+  await expect(inProgress).toBeVisible();
   // open the task and edit it on its own page
   await done.getByRole("link", { name: "Draft the launch checklist" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
@@ -783,6 +786,8 @@ test("attendance: roster, check-in, reports, archiving and permanent deletion", 
   await add.getByRole("button", { name: "Remove row 3" }).click();
   await add.getByRole("button", { name: "Add 2 participants" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Added 2 participants." })).toBeVisible();
+  // the dialog closes, so the same people can't be added twice by accident
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Rae Kim" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Teo Park" })).toBeVisible();
 

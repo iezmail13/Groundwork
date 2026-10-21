@@ -98,11 +98,14 @@ export async function deleteEvent(_prev: ActionState, formData: FormData): Promi
   if (!parsed.success) return failure("Invalid request.");
   const supabase = await createClient();
   const { id: eventId, seriesId, scope } = parsed.data;
-  // the whole series: RLS still limits it to the occurrences the caller may delete
-  const query =
-    scope === "series" && seriesId
-      ? supabase.from("events").delete().eq("series_id", seriesId)
-      : supabase.from("events").delete().eq("id", eventId);
+  let query = supabase.from("events").delete().eq("id", eventId);
+  if (scope === "series" && seriesId) {
+    // this time and every later one: earlier times, and the attendance taken
+    // at them, stay. RLS still limits it to the times the caller may delete.
+    const { data: from } = await supabase.from("events").select("starts_at").eq("id", eventId).eq("series_id", seriesId).maybeSingle();
+    if (!from) return failure("This no longer exists. Refresh to see the latest.");
+    query = supabase.from("events").delete().eq("series_id", seriesId).gte("starts_at", from.starts_at);
+  }
   const { data, error } = await query.select("id");
   if (error) return dbFailure(error);
   if (!data?.length) return failure("Only the person who created this, or someone who manages the organization, can delete it.");

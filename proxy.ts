@@ -150,6 +150,9 @@ async function bypassMaintenance(request: NextRequest, https: boolean): Promise<
   return safeEqual(request.cookies.get(BYPASS_COOKIE)?.value ?? "", expected);
 }
 
+// Only real static files skip the proxy, by fixed location. Matching by file
+// extension would let any page path ending in ".png" skip the maintenance gate,
+// the auth redirect and the CSP (D113).
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.svg|maintenance.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico$|logo.svg$|maintenance.js$|marketing/).*)"],
 };

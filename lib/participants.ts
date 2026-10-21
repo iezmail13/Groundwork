@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { addDays, eventStartDate } from "@/lib/dates";
 import type { Database } from "@/lib/supabase/database.types";
 
 // Participants and attendance. RLS decides what each query returns: owners,
@@ -108,19 +109,29 @@ export async function getMarksForParticipant(orgId: string, participantId: strin
 }
 
 /** Every mark at sessions starting in [fromIso, toIso), optionally for one program. */
-export async function getMarksInRange(orgId: string, fromIso: string, toIso: string, programId?: string): Promise<Mark[]> {
+/**
+ * Marks at sessions held from `fromDate` to `toDate` (calendar dates, both
+ * included), judged by each session's own date: an all-day session by its
+ * stored UTC date, a timed one by its start in the organization's time zone.
+ * The query reaches a day either side so no time zone falls outside it.
+ */
+export async function getMarksInRange(orgId: string, fromDate: string, toDate: string, tz: string, programId?: string): Promise<Mark[]> {
   const supabase = await createClient();
   let query = supabase
     .from("attendance")
     .select(MARK_SELECT)
     .eq("organization_id", orgId)
-    .gte("event.starts_at", fromIso)
-    .lt("event.starts_at", toIso)
+    .gte("event.starts_at", `${addDays(fromDate, -1)}T00:00:00Z`)
+    .lt("event.starts_at", `${addDays(toDate, 2)}T00:00:00Z`)
     .limit(20000);
   if (programId) query = query.eq("event.project_id", programId);
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as Mark[];
+  return ((data ?? []) as Mark[]).filter((m) => {
+    if (!m.event) return false;
+    const day = eventStartDate(m.event.starts_at, m.event.all_day, tz);
+    return day >= fromDate && day <= toDate;
+  });
 }
 
 /** Names for every participant the viewer can see, archived ones included (reports count them). */

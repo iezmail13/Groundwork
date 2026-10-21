@@ -300,7 +300,7 @@ async function buildAttendance(
   const high = org.high_attendance_percent;
   const from = addDays(today, -30);
   const [marks, names] = await Promise.all([
-    Promise.all(programs.map((p) => getMarksInRange(org.id, `${from}T00:00:00Z`, `${addDays(today, 1)}T00:00:00Z`, p.id))).then((x) => x.flat()),
+    Promise.all(programs.map((p) => getMarksInRange(org.id, from, today, ctx.tz, p.id))).then((x) => x.flat()),
     getParticipantNames(org.id),
   ]);
   const counted = (list: AttendanceMark[]) => list.filter((m) => m.status !== "excused");

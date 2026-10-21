@@ -214,10 +214,13 @@ describe("checkLoginPage", () => {
 });
 
 describe("security headers", () => {
-  it("allows only this app, Supabase and Stripe, with a per-request nonce", () => {
+  it("allows only this app and Supabase, with a per-request nonce", () => {
     const csp = buildCsp({ nonce: "abc123", supabaseUrl: "https://ref.supabase.co", dev: false, https: true });
-    expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic' https://js.stripe.com");
-    expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co https://api.stripe.com");
+    expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic';");
+    expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co;");
+    // no third party: billing is out of scope (D113)
+    expect(csp).not.toContain("stripe");
+    expect(csp).toContain("frame-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     // only the app itself and in-page blob workers (Realtime's heartbeat), never other hosts
     expect(csp).toContain("worker-src 'self' blob:;");

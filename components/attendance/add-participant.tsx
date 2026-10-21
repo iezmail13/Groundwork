@@ -11,6 +11,7 @@ import { Field, inputClass, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
+import { keepValues } from "@/lib/forms";
 import { parsePastedPeople, type NewPersonRow as Row } from "@/lib/people-paste";
 
 const EMPTY: Row = { name: "", email: "", phone: "", guardianName: "", emergencyContact: "" };
@@ -73,7 +74,7 @@ function AddPeopleForm({
   const update = (i: number, key: keyof Row, value: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="orgSlug" value={orgSlug} />
       <input type="hidden" name="people" value={JSON.stringify(rows)} />
       <Field label={t("project")} htmlFor="participants-program" error={e.projectId} className="max-w-sm">

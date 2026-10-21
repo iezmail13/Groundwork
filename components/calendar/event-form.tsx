@@ -196,6 +196,7 @@ function DeleteEvent({
   onCancel: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const [state, action] = useActionState(deleteEvent, idle);
   useEffect(() => {
     if (state.status === "success") onDone();
@@ -207,7 +208,7 @@ function DeleteEvent({
       {seriesId ? (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1">
-            Delete <strong>{title}</strong>? It repeats. This can&apos;t be undone.
+            Delete <strong>{title}</strong>? It repeats. Earlier times, and the {lower(t("section.attendance"))} taken at them, stay. This can&apos;t be undone.
           </legend>
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="scope" value="one" defaultChecked className="size-4 accent-[var(--accent)]" />
@@ -215,7 +216,7 @@ function DeleteEvent({
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="scope" value="series" className="size-4 accent-[var(--accent)]" />
-            Every time it repeats
+            This time and every later time
           </label>
         </fieldset>
       ) : (

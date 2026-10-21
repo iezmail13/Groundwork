@@ -81,7 +81,8 @@ export async function addParticipants(_prev: ActionState, formData: FormData): P
   revalidateAttendance();
   const base = `/${head.data.orgSlug}/attendance`;
   if (ids?.length === 1) redirect(`${base}/participants/${ids[0]}?notice=added`);
-  redirect(`${base}?program=${head.data.projectId}&notice=added&count=${ids?.length ?? people.length}`);
+  // `batch` is new each time, so the page remounts the add dialog closed and empty
+  redirect(`${base}?program=${head.data.projectId}&notice=added&count=${ids?.length ?? people.length}&batch=${ids?.[0] ?? ""}`);
 }
 
 const participantInput = z.object({

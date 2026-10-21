@@ -68,6 +68,7 @@ export default async function AttendancePage({ params, searchParams }: PageProps
         actions={
           view === "participants" && programs.some((p) => p.active) ? (
             <AddParticipantButton
+              key={typeof sp.batch === "string" ? sp.batch : "add"}
               orgSlug={org.slug}
               programs={programs.filter((p) => p.active)}
               programId={UUID.test(one(sp, "program")) ? one(sp, "program") : undefined}
@@ -279,12 +280,7 @@ async function ReportsView({ ctx, programs, sp }: { ctx: OrgContext; programs: P
   const toDate = isIsoDate(one(sp, "to")) && one(sp, "to") >= fromDate ? one(sp, "to") : today;
   const programId = programs.find((p) => p.id === one(sp, "program"))?.id ?? "";
   const [marks, names] = await Promise.all([
-    getMarksInRange(
-      org.id,
-      zonedTimeToUtc(fromDate, "00:00", tz).toISOString(),
-      zonedTimeToUtc(addDays(toDate, 1), "00:00", tz).toISOString(),
-      programId || undefined,
-    ),
+    getMarksInRange(org.id, fromDate, toDate, tz, programId || undefined),
     getParticipantNames(org.id),
   ]);
   const programName = new Map(programs.map((p) => [p.id, p.name]));

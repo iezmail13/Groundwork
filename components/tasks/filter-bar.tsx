@@ -70,7 +70,7 @@ export function FilterBar({
     },
   ];
   // ticks at once, then follows the address once the page has caught up
-  const fromUrl = params.get("status") === "done";
+  const fromUrl = params.get("finished") === "1";
   const [finished, setFinished] = useState(fromUrl);
   const [lastFromUrl, setLastFromUrl] = useState(fromUrl);
   if (fromUrl !== lastFromUrl) {
@@ -78,6 +78,8 @@ export function FilterBar({
     setFinished(fromUrl);
   }
   const urgentFirst = params.get("order") === "priority";
+  const statusParam = params.get("status");
+  const statusOn = statusParam === "todo" || statusParam === "in_progress" || statusParam === "done" ? statusParam : null;
   // what's on, in words, beside the button
   const on = [
     ...fields.flatMap((f) => {
@@ -85,7 +87,9 @@ export function FilterBar({
       const option = value ? f.options.find((o) => o.value === value) : undefined;
       return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
     }),
-    ...(finished ? [{ key: "status", text: "Including finished work" }] : []),
+    ...(finished ? [{ key: "finished", text: "Including finished work" }] : []),
+    // a status from a link (a dashboard chart, "See all finished work") shows here so it can be cleared
+    ...(statusOn ? [{ key: "status", text: `Status: ${statusOn === "done" ? "Finished only" : t(`status.${statusOn}`)}` }] : []),
   ];
 
   return (
@@ -117,7 +121,7 @@ export function FilterBar({
             checked={finished}
             onChange={(e) => {
               setFinished(e.target.checked);
-              set("status", e.target.checked ? "done" : "");
+              set("finished", e.target.checked ? "1" : "");
             }}
             className="size-4 accent-[var(--accent)]"
           />
@@ -151,7 +155,7 @@ export function FilterBar({
             size="sm"
             onClick={() => {
               const next = new URLSearchParams(params.toString());
-              [...fields.map((f) => f.key), "status"].forEach((k) => next.delete(k));
+              [...fields.map((f) => f.key), "status", "finished"].forEach((k) => next.delete(k));
               startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
             }}
           >

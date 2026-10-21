@@ -15,6 +15,18 @@ describe("pasting a list of people", () => {
     ]);
   });
 
+  it("keeps commas inside quoted cells, and doubled quotes", () => {
+    expect(parsePastedPeople('"Doe, Jane",jane@x.org,555-1234,"Smith, Ann","Ann ""Nan"" Smith, 555-9999"')).toEqual([
+      { name: "Doe, Jane", email: "jane@x.org", phone: "555-1234", guardianName: "Smith, Ann", emergencyContact: 'Ann "Nan" Smith, 555-9999' },
+    ]);
+  });
+
+  it("skips a header row naming the columns", () => {
+    expect(parsePastedPeople("Name,Email,Phone\nAna Lima,ana@example.org")).toEqual([
+      { name: "Ana Lima", email: "ana@example.org", phone: "", guardianName: "", emergencyContact: "" },
+    ]);
+  });
+
   it("skips blank lines, including Windows line ends", () => {
     expect(parsePastedPeople("\r\nDee\r\n\r\n  \n")).toHaveLength(1);
   });

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getOrgContext } from "@/lib/org";
 import { getAttendancePrograms, getMarksInRange, getParticipantNames } from "@/lib/participants";
 import { formatRate, groupMarks, toCsv } from "@/lib/attendance-report";
-import { addDays, dateInZone, isIsoDate, zonedTimeToUtc } from "@/lib/dates";
+import { addDays, dateInZone, isIsoDate } from "@/lib/dates";
 import { lower } from "@/lib/terminology/t";
 
 /**
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, route: RouteContext<"/[orgSlug]/
   const programId = programs.find((p) => p.id === sp.get("program"))?.id;
 
   const [marks, names] = await Promise.all([
-    getMarksInRange(org.id, zonedTimeToUtc(from, "00:00", tz).toISOString(), zonedTimeToUtc(addDays(to, 1), "00:00", tz).toISOString(), programId),
+    getMarksInRange(org.id, from, to, tz, programId),
     getParticipantNames(org.id),
   ]);
   const programName = new Map(programs.map((p) => [p.id, p.name]));
