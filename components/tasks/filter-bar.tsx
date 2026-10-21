@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { ArrowDownWideNarrow, X } from "lucide-react";
 import { inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,14 @@ export function FilterBar({
       allLabel: "Any time",
     },
   ];
-  const finished = params.get("status") === "done";
+  // ticks at once, then follows the address once the page has caught up
+  const fromUrl = params.get("status") === "done";
+  const [finished, setFinished] = useState(fromUrl);
+  const [lastFromUrl, setLastFromUrl] = useState(fromUrl);
+  if (fromUrl !== lastFromUrl) {
+    setLastFromUrl(fromUrl);
+    setFinished(fromUrl);
+  }
   const urgentFirst = params.get("order") === "priority";
   // what's on, in words, beside the button
   const on = [
@@ -108,7 +115,10 @@ export function FilterBar({
           <input
             type="checkbox"
             checked={finished}
-            onChange={(e) => set("status", e.target.checked ? "done" : "")}
+            onChange={(e) => {
+              setFinished(e.target.checked);
+              set("status", e.target.checked ? "done" : "");
+            }}
             className="size-4 accent-[var(--accent)]"
           />
           Include finished work
