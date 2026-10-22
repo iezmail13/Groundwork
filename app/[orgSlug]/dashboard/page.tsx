@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps<"/[orgSlug]/dashboa
  * The dashboard (D105): read-only summaries filtered by permission in the
  * database. Every chart mark links to an editable view, or to a read-only
  * "View details" panel for people who can't act there. People who oversee
- * others switch between "Assigned to me" and "All work" (D112).
+ * others switch between "My work" and "All work" (D112).
  */
 export default async function DashboardPage({ params, searchParams }: PageProps<"/[orgSlug]/dashboard">) {
   const { orgSlug } = await params;
@@ -91,7 +91,7 @@ export default async function DashboardPage({ params, searchParams }: PageProps<
                   aria-current={model.scope === s ? "page" : undefined}
                   className={`px-3 py-1.5 font-heading text-sm font-semibold ${model.scope === s ? "bg-accent text-on-accent" : "hover:bg-panel"}`}
                 >
-                  {s === "mine" ? "Assigned to me" : "All work"}
+                  {s === "mine" ? "My work" : "All work"}
                 </Link>
               ))}
             </nav>
