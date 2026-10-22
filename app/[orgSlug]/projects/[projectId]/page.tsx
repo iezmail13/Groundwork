@@ -48,7 +48,8 @@ import {
 } from "@/components/calendar/event-buttons";
 import { UploadButton } from "@/components/documents/upload-form";
 import { FileIcon, formatBytes } from "@/components/documents/file-icon";
-import { getMembers, getOrgContext } from "@/lib/org";
+import { getMembers, getOrgContext, initials } from "@/lib/org";
+import { getMemberPhotos } from "@/lib/members";
 import {
   getAssigneeNames,
   getMyProjectRank,
@@ -166,7 +167,7 @@ export default async function ProjectPage({
   const tasks = (taskData ?? []) as TaskRow[];
   // the project dashboard reuses the tasks this page already loaded (D105)
   const detailKey = typeof sp.detail === "string" ? sp.detail : null;
-  const [pd, threads, steps, { data: latest }] = await Promise.all([
+  const [pd, threads, steps, { data: latest }, photos, { data: peopleProfiles }] = await Promise.all([
     buildProjectDashboard(ctx, project.id, project.name, tasks, detailKey),
     getDiscussions(ctx, { projectId: project.id, limit: 3 }),
     getWorkflow(project.id),
@@ -181,6 +182,9 @@ export default async function ProjectPage({
       )
       .order("created_at", { ascending: false })
       .limit(5),
+    // for each person's profile card (D112)
+    getMemberPhotos(org.id),
+    supabase.from("profiles").select("id, title").in("id", roster.map((r) => r.userId)),
   ]);
   const memberName = new Map(members.map((m) => [m.id, m.name]));
   const events = (eventData ?? []) as EventRow[];
@@ -521,6 +525,7 @@ export default async function ProjectPage({
               forStatusView(
                 filterTasks(tasks, readFilters(sp), today, ctx.membershipId),
                 readFilters(sp).status,
+                readFilters(sp).finished,
               ),
               typeof sp.sort === "string"
                 ? readSort(sp)
@@ -781,7 +786,12 @@ export default async function ProjectPage({
           orgSlug={org.slug}
           myRank={myRank}
           myMembershipId={ctx.membershipId}
-          roster={roster}
+          roster={roster.map((r) => ({
+            ...r,
+            initials: initials(r.name),
+            photoUrl: photos.get(r.userId) ?? null,
+            title: peopleProfiles?.find((x) => x.id === r.userId)?.title ?? null,
+          }))}
           candidates={members
             .filter((m) => m.role !== "owner" && !onProject.has(m.id))
             .map((m) => ({

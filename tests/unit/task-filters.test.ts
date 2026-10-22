@@ -80,13 +80,15 @@ describe("task filters", () => {
   });
 
   it("ignores malformed URL parameters", () => {
-    expect(readFilters({ project: "x; drop table", assignee: "everyone", status: "bogus", due: "yesterday" })).toEqual({
+    expect(readFilters({ project: "x; drop table", assignee: "everyone", status: "bogus", due: "yesterday", finished: "yes" })).toEqual({
       project: undefined,
       assignee: undefined,
       status: undefined,
+      finished: false,
       priority: undefined,
       due: undefined,
     });
+    expect(readFilters({ finished: "1" }).finished).toBe(true);
     expect(readFilters({ priority: "urgent" }).priority).toBeUndefined();
     expect(readFilters({ priority: "high" }).priority).toBe("high");
     expect(readSort({ sort: "nope", dir: "sideways" })).toEqual({ key: "due", dir: "asc" });
@@ -110,6 +112,9 @@ describe("priority and completed work", () => {
   it("shows open work by default and finished work only under Completed", () => {
     expect(ids(forStatusView(tasks, undefined))).not.toContain("late-but-done");
     expect(ids(forStatusView(tasks, "done"))).toEqual(["late-but-done"]);
+    // "Include finished work" keeps the open work and adds the finished (D112)
+    expect(ids(forStatusView(tasks, undefined, true))).toEqual(ids(tasks));
+    expect(ids(forStatusView(tasks, "done", true))).toEqual(["late-but-done"]);
   });
 });
 

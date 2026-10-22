@@ -42,6 +42,7 @@ export function TaskBoard({
   projects,
   memberInitials,
   completed,
+  withFinished = false,
   sortedByPriority,
 }: {
   tasks: TaskRow[];
@@ -52,11 +53,13 @@ export function TaskBoard({
   memberInitials: Record<string, StackPerson>;
   /** The Completed filter: one column of finished work. */
   completed: boolean;
+  /** "Include finished work" (D112): the open columns plus a column of finished work. */
+  withFinished?: boolean;
   /** Ordered by priority rather than by hand, so dragging is off. */
   sortedByPriority: boolean;
 }) {
   const t = useT();
-  const columns: TaskStatus[] = completed ? ["done"] : ["todo", "in_progress"];
+  const columns: TaskStatus[] = completed ? ["done"] : withFinished ? ["todo", "in_progress", "done"] : ["todo", "in_progress"];
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-muted">
@@ -66,7 +69,7 @@ export function TaskBoard({
             ? `Sorted by priority. Switch back to board order to rearrange cards.`
             : `${t("status.todo")} has open work nobody has claimed yet. Drag a card, or focus its handle and press Space then the arrow keys, to reorder it. Tick a card when it's done.`}
       </p>
-      <div className={`grid gap-4 ${completed ? "" : "md:grid-cols-2"}`}>
+      <div className={`grid gap-4 ${completed ? "" : withFinished ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2"}`}>
         {columns.map((status) => (
           <BoardColumn
             key={status}
@@ -75,7 +78,7 @@ export function TaskBoard({
             base={base}
             today={today}
             memberInitials={memberInitials}
-            sortable={!completed && !sortedByPriority}
+            sortable={!completed && !sortedByPriority && status !== "done"}
             title={t(`status.${status}`)}
           >
             {status === "todo" ? (

@@ -68,6 +68,7 @@ export default async function AttendancePage({ params, searchParams }: PageProps
         actions={
           view === "participants" && programs.some((p) => p.active) ? (
             <AddParticipantButton
+              key={typeof sp.batch === "string" ? sp.batch : "add"}
               orgSlug={org.slug}
               programs={programs.filter((p) => p.active)}
               programId={UUID.test(one(sp, "program")) ? one(sp, "program") : undefined}
@@ -79,6 +80,12 @@ export default async function AttendancePage({ params, searchParams }: PageProps
         <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
           <CircleCheck aria-hidden className="size-4" />
           Deleted permanently. Their past {lower(t("section.attendance"))} still counts, without a name.
+        </p>
+      ) : null}
+      {sp.notice === "added" && typeof sp.count === "string" && /^\d+$/.test(sp.count) ? (
+        <p role="status" className="flex items-center gap-2 border-l-4 border-ink pl-3 font-semibold">
+          <CircleCheck aria-hidden className="size-4" />
+          Added {sp.count} {lower(Number(sp.count) === 1 ? t("participant") : t("participant", "other"))}. Add private details on each profile.
         </p>
       ) : null}
       {view === "participants" ? <ParticipantsView ctx={ctx} programs={programs} sp={sp} /> : null}
@@ -273,12 +280,7 @@ async function ReportsView({ ctx, programs, sp }: { ctx: OrgContext; programs: P
   const toDate = isIsoDate(one(sp, "to")) && one(sp, "to") >= fromDate ? one(sp, "to") : today;
   const programId = programs.find((p) => p.id === one(sp, "program"))?.id ?? "";
   const [marks, names] = await Promise.all([
-    getMarksInRange(
-      org.id,
-      zonedTimeToUtc(fromDate, "00:00", tz).toISOString(),
-      zonedTimeToUtc(addDays(toDate, 1), "00:00", tz).toISOString(),
-      programId || undefined,
-    ),
+    getMarksInRange(org.id, fromDate, toDate, tz, programId || undefined),
     getParticipantNames(org.id),
   ]);
   const programName = new Map(programs.map((p) => [p.id, p.name]));

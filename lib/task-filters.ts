@@ -5,8 +5,10 @@ import type { Sort, SortKey } from "@/components/tasks/task-table";
 export type TaskFilters = {
   project?: string;
   assignee?: string; // "me" | "none" | membership id
-  /** Left out: open work only (finished work shows with status "done", the Completed filter). */
+  /** One status only; "done" is finished work alone (links such as "See all finished work"). */
   status?: TaskStatus;
+  /** "Include finished work" (D112): open work and finished work together. */
+  finished?: boolean;
   priority?: TaskPriority;
   /** "soon" is due within three days, "ontrack" later than that (the dashboard's deadline buckets, D105). */
   due?: "overdue" | "today" | "soon" | "week" | "ontrack" | "later" | "none";
@@ -28,6 +30,7 @@ export function readFilters(params: Record<string, string | string[] | undefined
     project: project && (project === "none" || UUID.test(project)) ? project : undefined,
     assignee: assignee && (assignee === "me" || assignee === "none" || UUID.test(assignee)) ? assignee : undefined,
     status: status === "todo" || status === "in_progress" || status === "done" ? status : undefined,
+    finished: get("finished") === "1",
     priority: PRIORITIES.find((p) => p === priority),
     due: (["overdue", "today", "soon", "week", "ontrack", "later", "none"] as const).find((d) => d === due),
   };
@@ -90,12 +93,19 @@ export function filterTasks(tasks: TaskRow[], f: TaskFilters, today: string, myM
 const STATUS_ORDER: Record<TaskStatus, number> = { todo: 0, in_progress: 1, done: 2 };
 
 /**
- * What a view shows for a status filter: finished work only for "done" (the
- * Completed filter), otherwise open work only, since completing a task hides
- * it from everyday views (D101). It still counts in charts and reports.
+ * What a view shows for its filters: finished work only for status "done";
+ * open and finished work together for "Include finished work" (D112);
+ * otherwise open work only, since completing a task hides it from everyday
+ * views (D101). It still counts in charts and reports.
  */
-export function forStatusView<T extends Pick<TaskRow, "status">>(tasks: T[], status: TaskStatus | undefined): T[] {
-  return status === "done" ? tasks.filter((x) => x.status === "done") : tasks.filter((x) => x.status !== "done");
+export function forStatusView<T extends Pick<TaskRow, "status">>(
+  tasks: T[],
+  status: TaskStatus | undefined,
+  includeFinished = false,
+): T[] {
+  if (status === "done") return tasks.filter((x) => x.status === "done");
+  if (includeFinished && !status) return tasks;
+  return tasks.filter((x) => x.status !== "done");
 }
 
 /** Most urgent first, then soonest due, then title: the order for "sort by priority". */

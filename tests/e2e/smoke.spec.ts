@@ -142,11 +142,15 @@ test("main flows: sign in, project, task, move, event, document, preset, dashboa
   await expect(inProgress.getByRole("link", { name: "Draft the launch checklist" })).toHaveCount(0);
   // filters sit behind one button (D110)
   await page.getByRole("button", { name: /^Filters/ }).click();
-  await page.getByLabel("Status").selectOption("done");
+  // finished work is one checkbox; status is the board's columns (D112)
+  await page.getByLabel("Include finished work").check();
   await expect(page.getByRole("button", { name: "Filters, 1 on" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Filters on" })).toContainText("Status: Completed");
+  await expect(page.getByRole("list", { name: "Filters on" })).toContainText("Including finished work");
   const done = page.locator('section[data-column="done"]');
   await expect(done.getByRole("link", { name: "Draft the launch checklist" })).toBeVisible();
+  // "include" keeps the open work beside it
+  await expect(page.locator('section[data-column="todo"]')).toBeVisible();
+  await expect(inProgress).toBeVisible();
   // open the task and edit it on its own page
   await done.getByRole("link", { name: "Draft the launch checklist" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft the launch checklist" })).toBeVisible();
@@ -537,8 +541,8 @@ test("seeded demo: dev sign-in shortcut, reminders and private layouts", async (
   await page.getByRole("button", { name: "Sign in as Priya Shah" }).click();
   await expect(page).toHaveURL(/\/northside-youth-collective\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
-  // the seeded overdue work belongs to people she oversees, so it shows under "Everything I oversee"
-  await page.getByRole("navigation", { name: "Whose work" }).getByRole("link", { name: "Everything I oversee" }).click();
+  // the seeded overdue work belongs to people she oversees, so it shows under "All work"
+  await page.getByRole("navigation", { name: "Dashboard scope" }).getByRole("link", { name: "All work" }).click();
   await expect(page).toHaveURL(/scope=all/);
   const deadlines = page.locator('li[data-widget="deadlines"]');
   await expect(deadlines.getByText("overdue", { exact: true })).toBeVisible();
@@ -737,9 +741,9 @@ test("attendance: roster, check-in, reports, archiving and permanent deletion", 
 
   // add someone, then fill in their private details
   await visit(page, "/northside-youth-collective/attendance");
-  await page.getByRole("button", { name: "Add participant" }).click();
-  await page.getByRole("dialog").getByLabel("Full name").fill("Noor Ali");
-  await page.getByRole("dialog").getByRole("button", { name: "Add" }).click();
+  await page.getByRole("button", { name: "Add participants" }).click();
+  await page.getByRole("dialog").getByLabel("Full name, row 1").fill("Noor Ali");
+  await page.getByRole("dialog").getByRole("button", { name: "Add participant", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Noor Ali" })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Added." })).toBeVisible();
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
@@ -764,6 +768,28 @@ test("attendance: roster, check-in, reports, archiving and permanent deletion", 
   const csv = await (await page.request.get(csvHref!)).text();
   expect(csv).toContain("Amara Okafor");
   expect(csv.split("\r\n")[0]).toBe("Date,Session,Program,Participant,Mark,Note");
+
+  // several at once (D112): every field on view, rows filled from a pasted list, all saved together
+  await visit(page, "/northside-youth-collective/attendance");
+  await page.getByRole("button", { name: "Add participants" }).click();
+  const add = page.getByRole("dialog");
+  await add.getByRole("button", { name: "Paste a list" }).click();
+  await add.getByLabel("Paste a list").fill("Rae Kim, rae@example.org, 416-555-0111\nTeo Park\t\t\tMin Park\tMin, 416-555-0122");
+  await add.getByRole("button", { name: "Fill the rows" }).click();
+  await expect(add.getByLabel("Email, row 1")).toHaveValue("rae@example.org");
+  await expect(add.getByLabel("Parent or guardian, row 2")).toHaveValue("Min Park");
+  // details without a name are caught on their row, and nothing is added
+  await add.getByRole("button", { name: "Add a row" }).click();
+  await add.getByLabel("Email, row 3").fill("someone@example.org");
+  await add.getByRole("button", { name: "Add 3 participants" }).click();
+  await expect(add.getByText("Add a name.")).toBeVisible();
+  await add.getByRole("button", { name: "Remove row 3" }).click();
+  await add.getByRole("button", { name: "Add 2 participants" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Added 2 participants." })).toBeVisible();
+  // the dialog closes, so the same people can't be added twice by accident
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Rae Kim" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Teo Park" })).toBeVisible();
 
   // archiving hides someone from the roster and check-in; restoring brings them back
   await visit(page, "/northside-youth-collective/attendance");

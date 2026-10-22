@@ -313,14 +313,14 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "all_day": boolean,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"ends_at": string,"id": string,"location": string | null,"organization_id": string,"project_id": string | null,"starts_at": string,"title": string,"updated_at": string
+                    "all_day": boolean,"created_at": string,"created_by": string | null,"created_by_role": Database["public"]['Enums']["member_role"] | null,"description": string | null,"ends_at": string,"id": string,"location": string | null,"organization_id": string,"project_id": string | null,"series_id": string | null,"starts_at": string,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at": string,"id"?: string,"location"?: string | null,"organization_id": string,"project_id"?: string | null,"starts_at": string,"title": string,"updated_at"?: string
+                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at": string,"id"?: string,"location"?: string | null,"organization_id": string,"project_id"?: string | null,"series_id"?: string | null,"starts_at": string,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at"?: string,"id"?: string,"location"?: string | null,"organization_id"?: string,"project_id"?: string | null,"starts_at"?: string,"title"?: string,"updated_at"?: string
+                    "all_day"?: boolean,"created_at"?: string,"created_by"?: string | null,"created_by_role"?: Database["public"]['Enums']["member_role"] | null,"description"?: string | null,"ends_at"?: string,"id"?: string,"location"?: string | null,"organization_id"?: string,"project_id"?: string | null,"series_id"?: string | null,"starts_at"?: string,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1093,6 +1093,9 @@ isOneToOne: false
 "add_participant":
 { Args: { "name": string,"project_id": string }; Returns: string
                            },
+"add_participants":
+{ Args: { "people": Json,"project_id": string }; Returns: (string)[]
+                           },
 "appoint_to_task":
 { Args: { "invitation_id"?: string,"membership_id"?: string,"task_id": string }; Returns: undefined
                            },
@@ -1118,8 +1121,17 @@ isOneToOne: false
 "can_appoint":
 { Args: { "target_rank": number,"task_id": string }; Returns: boolean
                            },
+"can_delete_document":
+{ Args: { "doc_id": string }; Returns: boolean
+                           },
 "can_delete_participant_file":
 { Args: { "file_id": string }; Returns: boolean
+                           },
+"can_delete_project":
+{ Args: { "project_id": string }; Returns: boolean
+                           },
+"can_delete_storage_object":
+{ Args: { "object_name": string }; Returns: boolean
                            },
 "can_edit_task":
 { Args: { "task_id": string }; Returns: boolean
@@ -1141,6 +1153,9 @@ isOneToOne: false
                            },
 "can_manage_project_content":
 { Args: { "project_id": string }; Returns: boolean
+                           },
+"can_manage_project_member":
+{ Args: { "membership": string,"org_id": string }; Returns: boolean
                            },
 "can_read_chat_message":
 { Args: { "channel": string,"sent_at": string }; Returns: boolean
@@ -1187,6 +1202,9 @@ isOneToOne: false
 "can_view_task":
 { Args: { "task_id": string }; Returns: boolean
                            },
+"can_view_task_activity":
+{ Args: { "entity": string,"org": string }; Returns: boolean
+                           },
 "chat_channel_people":
 { Args: { "channel": string }; Returns: {
               "user_id": string
@@ -1223,6 +1241,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"create_report_share":
+{ Args: { "days": number,"org": string,"snapshot": Json,"template": Database["public"]['Enums']["report_template"],"title": string,"token_hash": string }; Returns: string
+                           },
 "decide_spending":
 { Args: { "approve": boolean,"entry": string,"note"?: string }; Returns: Database["public"]['Enums']["spending_status"]
                            },
@@ -1233,6 +1254,9 @@ isOneToOne: false
 { Args: { "discussion": string }; Returns: {
               "user_id": string
             }[]
+                           },
+"document_has_row":
+{ Args: { "object_name": string }; Returns: boolean
                            },
 "first_step":
 { Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string

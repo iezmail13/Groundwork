@@ -233,6 +233,11 @@ dialog.gw-dialog {
   width: 100%;
   max-height: calc(100dvh - 2rem);
 }
+/* A wide dialog, for forms laid out as a table (D112). */
+dialog.gw-dialog.gw-dialog-wide {
+  width: min(1040px, calc(100vw - 2rem));
+  max-width: min(1040px, calc(100vw - 2rem));
+}
 dialog.gw-dialog::backdrop {
   background: color-mix(in srgb, var(--color-scrim) 55%, transparent);
 }
@@ -524,6 +529,22 @@ dialog.gw-drawer[open] {
 
 /* Printing (D109): reports print as plain documents, dark text on white,
    whatever theme is on screen. */
+/* The report's PDF preview (D112): the page as it prints, dark on white in either mode. */
+.report-paper {
+  color-scheme: light;
+  --canvas: #fff;
+  --panel: #fff;
+  --ink: #163260;
+  --ink-muted: #445a7e;
+  --rule: #ddd6c8;
+  background: #fff;
+  color: #000;
+}
+.report-paper .report,
+.report-paper .report * {
+  color: #000;
+}
+
 @media print {
   /* Printing is always dark on white, whichever mode is on screen. */
   :root,

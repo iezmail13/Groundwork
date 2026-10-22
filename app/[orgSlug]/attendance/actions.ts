@@ -28,20 +28,61 @@ const optional = (max: number, message: string) =>
 
 const slug = z.string().regex(/^[a-z0-9-]{1,48}$/);
 
-export async function addParticipant(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z
-    .object({
-      orgSlug: slug,
-      projectId: id,
-      name: z.string({ error: "Add a name." }).trim().min(1, "Add a name.").max(120, "Use 120 characters or fewer."),
-    })
-    .safeParse(formObject(formData));
-  if (!parsed.success) return invalid(parsed.error);
+/** One row of the add form (D112): a name, and the details shown beside it. */
+const newPersonInput = z.object({
+  name: z.string().trim().min(1, "Add a name.").max(120, "Use 120 characters or fewer."),
+  email: z
+    .string()
+    .trim()
+    .max(254, "Use 254 characters or fewer.")
+    .transform((v) => v.toLowerCase())
+    .pipe(z.union([z.literal(""), z.email("Enter a valid email address.")])),
+  phone: z.string().trim().max(40, "Use 40 characters or fewer."),
+  guardianName: z.string().trim().max(120, "Use 120 characters or fewer."),
+  emergencyContact: z.string().trim().max(200, "Use 200 characters or fewer."),
+});
+const NEW_PERSON_FIELDS = ["name", "email", "phone", "guardianName", "emergencyContact"] as const;
+const MAX_PEOPLE_AT_ONCE = 200;
+
+/**
+ * Adds one or more people to a program at once (D112), all or none. Blank rows
+ * are skipped. One person opens their profile next; several return to the list.
+ */
+export async function addParticipants(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const head = z.object({ orgSlug: slug, projectId: id }).safeParse(formObject(formData));
+  if (!head.success) return invalid(head.error);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(formData.get("people") ?? "[]"));
+  } catch {
+    return failure("Couldn't read the list. Try again.");
+  }
+  const rows = z
+    .array(z.record(z.string(), z.string().max(4000)))
+    .max(MAX_PEOPLE_AT_ONCE, `Add ${MAX_PEOPLE_AT_ONCE} people or fewer at a time.`)
+    .safeParse(raw);
+  if (!rows.success) return failure(rows.error.issues[0]?.message ?? "Couldn't read the list. Try again.");
+
+  const people: z.infer<typeof newPersonInput>[] = [];
+  const fieldErrors: Record<string, string[]> = {};
+  rows.data.forEach((row, i) => {
+    const values = Object.fromEntries(NEW_PERSON_FIELDS.map((f) => [f, row[f] ?? ""]));
+    if (NEW_PERSON_FIELDS.every((f) => values[f]!.trim() === "")) return;
+    const parsed = newPersonInput.safeParse(values);
+    if (parsed.success) people.push(parsed.data);
+    else for (const issue of parsed.error.issues) fieldErrors[`row-${i}-${String(issue.path[0])}`] ??= [issue.message];
+  });
+  if (Object.keys(fieldErrors).length) return failure("Check the highlighted fields.", fieldErrors);
+  if (people.length === 0) return failure("Add at least one name.");
+
   const supabase = await createClient();
-  const { data: newId, error } = await supabase.rpc("add_participant", { project_id: parsed.data.projectId, name: parsed.data.name });
+  const { data: ids, error } = await supabase.rpc("add_participants", { project_id: head.data.projectId, people });
   if (error) return dbFailure(error);
   revalidateAttendance();
-  redirect(`/${parsed.data.orgSlug}/attendance/participants/${newId}?notice=added`);
+  const base = `/${head.data.orgSlug}/attendance`;
+  if (ids?.length === 1) redirect(`${base}/participants/${ids[0]}?notice=added`);
+  // `batch` is new each time, so the page remounts the add dialog closed and empty
+  redirect(`${base}?program=${head.data.projectId}&notice=added&count=${ids?.length ?? people.length}&batch=${ids?.[0] ?? ""}`);
 }
 
 const participantInput = z.object({

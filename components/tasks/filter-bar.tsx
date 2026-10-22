@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
-import { X } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ArrowDownWideNarrow, X } from "lucide-react";
 import { inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { FilterMenu } from "@/components/ui/filter-menu";
@@ -37,6 +37,9 @@ export function FilterBar({
     startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
   };
 
+  // one panel of filters (D112): what the work is, whose it is and when it's due.
+  // Status is the board's columns already, so finished work is one checkbox, and
+  // the board's order is a toggle beside the button, not a filter.
   const fields: { key: string; label: string; options: FilterOption[]; allLabel: string }[] = [
     ...(showProject ? [{ key: "project", label: t("project"), options: projects, allLabel: "All" }] : []),
     {
@@ -44,17 +47,6 @@ export function FilterBar({
       label: "Assignee",
       options: [{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...members],
       allLabel: "Anyone",
-    },
-    {
-      key: "status",
-      label: "Status",
-      options: [
-        { value: "todo", label: t("status.todo") },
-        { value: "in_progress", label: t("status.in_progress") },
-        // finished work is hidden from everyday views; this brings it back
-        { value: "done", label: "Completed" },
-      ],
-      allLabel: "Open",
     },
     {
       key: "priority",
@@ -76,14 +68,29 @@ export function FilterBar({
       ],
       allLabel: "Any time",
     },
-    ...(showOrder ? [{ key: "order", label: "Order", options: [{ value: "priority", label: "Most urgent first" }], allLabel: "Board order" }] : []),
   ];
+  // ticks at once, then follows the address once the page has caught up
+  const fromUrl = params.get("finished") === "1";
+  const [finished, setFinished] = useState(fromUrl);
+  const [lastFromUrl, setLastFromUrl] = useState(fromUrl);
+  if (fromUrl !== lastFromUrl) {
+    setLastFromUrl(fromUrl);
+    setFinished(fromUrl);
+  }
+  const urgentFirst = params.get("order") === "priority";
+  const statusParam = params.get("status");
+  const statusOn = statusParam === "todo" || statusParam === "in_progress" || statusParam === "done" ? statusParam : null;
   // what's on, in words, beside the button
-  const on = fields.flatMap((f) => {
-    const value = params.get(f.key);
-    const option = value ? f.options.find((o) => o.value === value) : undefined;
-    return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
-  });
+  const on = [
+    ...fields.flatMap((f) => {
+      const value = params.get(f.key);
+      const option = value ? f.options.find((o) => o.value === value) : undefined;
+      return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
+    }),
+    ...(finished ? [{ key: "finished", text: "Including finished work" }] : []),
+    // a status from a link (a dashboard chart, "See all finished work") shows here so it can be cleared
+    ...(statusOn ? [{ key: "status", text: `Status: ${statusOn === "done" ? "Finished only" : t(`status.${statusOn}`)}` }] : []),
+  ];
 
   return (
     <div role="search" aria-label="Filters" aria-busy={pending} className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">
@@ -108,7 +115,32 @@ export function FilterBar({
             </select>
           </div>
         ))}
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={finished}
+            onChange={(e) => {
+              setFinished(e.target.checked);
+              set("finished", e.target.checked ? "1" : "");
+            }}
+            className="size-4 accent-[var(--accent)]"
+          />
+          Include finished work
+        </label>
       </FilterMenu>
+      {showOrder ? (
+        <button
+          type="button"
+          aria-pressed={urgentFirst}
+          onClick={() => set("order", urgentFirst ? "" : "priority")}
+          className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 font-heading text-sm font-semibold hover:bg-panel ${
+            urgentFirst ? "border-accent text-accent" : "border-rule"
+          }`}
+        >
+          <ArrowDownWideNarrow aria-hidden className="size-4" />
+          Most urgent first
+        </button>
+      ) : null}
       {on.length ? (
         <>
           <ul aria-label="Filters on" className="flex flex-wrap gap-1.5">
@@ -123,7 +155,7 @@ export function FilterBar({
             size="sm"
             onClick={() => {
               const next = new URLSearchParams(params.toString());
-              fields.forEach((f) => next.delete(f.key));
+              [...fields.map((f) => f.key), "status", "finished"].forEach((k) => next.delete(k));
               startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
             }}
           >

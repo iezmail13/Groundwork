@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getMembers, type OrgContext } from "@/lib/org";
 import { TASK_SELECT, type TaskRow } from "@/lib/queries";
-import { addDays, zonedTimeToUtc } from "@/lib/dates";
+import { addDays, dateInZone } from "@/lib/dates";
 import { assigneeIds } from "@/lib/task-filters";
 import { lower } from "@/lib/terminology/t";
 import { canManageOrg } from "@/lib/roles";
@@ -50,7 +50,12 @@ async function visibleTasks(ctx: OrgContext, projectId: string | null): Promise<
   return (data ?? []) as TaskRow[];
 }
 
-const inRange = (iso: string | null, from: string, to: string) => Boolean(iso) && iso!.slice(0, 10) >= from && iso!.slice(0, 10) <= to;
+/** A timestamp's date in the organization's time zone, within [from, to]. */
+const inRange = (iso: string | null, from: string, to: string, tz: string) => {
+  if (!iso) return false;
+  const day = dateInZone(new Date(iso), tz);
+  return day >= from && day <= to;
+};
 
 export async function buildReport(ctx: OrgContext, params: ReportParams, scopeName: string): Promise<Report | null> {
   const base: Omit<Report, "sections" | "title"> = {
@@ -82,7 +87,7 @@ async function progressSections(ctx: OrgContext, { projectId, from, to }: Report
   const tasks = await visibleTasks(ctx, projectId);
   const open = tasks.filter((x) => x.status !== "done");
   const overdue = open.filter((x) => x.due_date && x.due_date < today);
-  const doneInRange = tasks.filter((x) => x.status === "done" && inRange(x.completed_at, from, to));
+  const doneInRange = tasks.filter((x) => x.status === "done" && inRange(x.completed_at, from, to, ctx.tz));
   const soon = open.filter((x) => x.due_date && x.due_date >= today && x.due_date <= addDays(today, 7));
   const plural = lower(t("task", "other"));
 
@@ -135,7 +140,7 @@ async function progressSections(ctx: OrgContext, { projectId, from, to }: Report
               name,
               list.filter((x) => x.status !== "done").length,
               list.filter((x) => x.status !== "done" && x.due_date && x.due_date < today).length,
-              list.filter((x) => x.status === "done" && inRange(x.completed_at, from, to)).length,
+              list.filter((x) => x.status === "done" && inRange(x.completed_at, from, to, ctx.tz)).length,
               `${Math.round((done / Math.max(1, list.length)) * 100)}%`,
             ];
           }),
@@ -174,7 +179,7 @@ async function resourceSections(ctx: OrgContext, { projectId, from, to }: Report
         open: open.length,
         overdue: open.filter((x) => x.due_date && x.due_date < today).length,
         soon: open.filter((x) => x.due_date && x.due_date >= today && x.due_date <= addDays(today, 7)).length,
-        done: mine.filter((x) => x.status === "done" && inRange(x.completed_at, from, to)).length,
+        done: mine.filter((x) => x.status === "done" && inRange(x.completed_at, from, to, ctx.tz)).length,
       };
     })
     .filter((r) => r.open + r.done > 0)
@@ -278,7 +283,7 @@ async function attendanceSections(ctx: OrgContext, { projectId, from, to }: Repo
   if (programs.length === 0) return null;
   const programId = projectId && programs.some((p) => p.id === projectId) ? projectId : undefined;
   const [marks, names] = await Promise.all([
-    getMarksInRange(org.id, zonedTimeToUtc(from, "00:00", tz).toISOString(), zonedTimeToUtc(addDays(to, 1), "00:00", tz).toISOString(), programId),
+    getMarksInRange(org.id, from, to, tz, programId),
     getParticipantNames(org.id),
   ]);
   const low = (org as { low_attendance_percent?: number }).low_attendance_percent ?? 50;

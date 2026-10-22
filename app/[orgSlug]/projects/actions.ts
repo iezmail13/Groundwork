@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { dbFailure, failure, formObject, invalid, success, type ActionState } from "@/lib/action-state";
-import { id, projectInput } from "@/lib/validation";
+import { id, projectInput, slugInput } from "@/lib/validation";
 import { PROJECT_ROLES } from "@/lib/roles";
 
 function revalidateOrg() {
@@ -72,13 +72,21 @@ export async function setProjectStatus(formData: FormData): Promise<void> {
 }
 
 export async function deleteProject(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ id, orgSlug: z.string().min(1) }).safeParse(formObject(formData));
+  const parsed = z.object({ id, orgSlug: slugInput }).safeParse(formObject(formData));
   if (!parsed.success) return failure("Invalid request.");
   const supabase = await createClient();
-  // participant files kept in this program go with it (D102): the leads who
-  // may delete it release them first, so the stored copies can be removed
-  const { data: rank } = await supabase.rpc("my_project_rank", { project_id: parsed.data.id });
-  if (rank !== 3) return failure("Only the person who created this, or someone who manages the organization, can delete it.");
+  // Checked before anything is removed, so a refused delete loses nothing (D113).
+  const { data: allowed } = await supabase.rpc("can_delete_project", { project_id: parsed.data.id });
+  if (!allowed) return failure("Only the person who created this, or someone who manages the organization, can delete it.");
+  // its documents go with it (D113); their stored files are removed while the
+  // rows still say who may remove them
+  const { data: docs } = await supabase.from("documents").select("storage_path").eq("project_id", parsed.data.id);
+  if (docs?.length) {
+    const { error: storageError } = await supabase.storage.from("documents").remove(docs.map((d) => d.storage_path));
+    if (storageError) console.error("Some stored files could not be removed", parsed.data.id, storageError);
+  }
+  // participant files kept in this program go with it (D102): its leads
+  // release them first, so the stored copies can be removed
   const { data: paths, error: releaseError } = await supabase.rpc("release_program_files", { project_id: parsed.data.id });
   if (releaseError) return dbFailure(releaseError);
   if (paths?.length) {
@@ -151,7 +159,7 @@ export async function changeProjectRole(_prev: ActionState, formData: FormData):
 }
 
 export async function removeProjectMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ projectMemberId: id, orgSlug: z.string().min(1), leaving: z.enum(["true", "false"]) }).safeParse(formObject(formData));
+  const parsed = z.object({ projectMemberId: id, orgSlug: slugInput, leaving: z.enum(["true", "false"]) }).safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data, error } = await supabase.from("project_members").delete().eq("id", parsed.data.projectMemberId).select("id");

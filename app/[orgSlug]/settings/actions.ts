@@ -213,7 +213,7 @@ export async function revokeInvitation(formData: FormData): Promise<void> {
 }
 
 export async function changeRole(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ membershipId: id, orgSlug: z.string().min(1), role }).safeParse(formObject(formData));
+  const parsed = z.object({ membershipId: id, orgSlug: slugInput, role }).safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -237,7 +237,7 @@ export async function changeRole(_prev: ActionState, formData: FormData): Promis
  */
 export async function removeMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = z
-    .object({ membershipId: id, orgSlug: z.string().min(1), reassignTo: id.optional() })
+    .object({ membershipId: id, orgSlug: slugInput, reassignTo: id.optional() })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
@@ -262,7 +262,7 @@ export async function removeMember(_prev: ActionState, formData: FormData): Prom
 
 export async function transferOwnership(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = z
-    .object({ organizationId: id, orgSlug: z.string().min(1), membershipId: z.guid("Choose who takes over.") })
+    .object({ organizationId: id, orgSlug: slugInput, membershipId: z.guid("Choose who takes over.") })
     .safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();

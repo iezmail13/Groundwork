@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { getOrgContext } from "@/lib/org";
 import { buildReport } from "@/lib/reports";
 import { reportParamsSchema } from "@/lib/report-params";
@@ -40,21 +41,17 @@ export async function createShareLink(input: {
   if (!report) return { ok: false, message: "You can't create that report." };
   const token = randomBytes(32).toString("hex");
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("report_shares")
-    .insert({
-      organization_id: ctx.org.id,
-      template: p.template,
-      title: `${report.title}: ${report.scope}`.slice(0, 200),
-      snapshot: report,
-      token_hash: createHash("sha256").update(token).digest("hex"),
-      created_by: ctx.userId,
-      expires_at: new Date(Date.now() + p.days * 86_400_000).toISOString(),
-    })
-    .select("id")
-    .single();
-  if (error || !data) return { ok: false, message: "Couldn't create the link. Try again." };
-  await supabase.rpc("log_report", { org: ctx.org.id, report: data.id, action: "shared", details: { template: p.template, from: p.from, to: p.to } });
+  // the database sets who shared it, when, and for how long (D113)
+  const { data: shareId, error } = await supabase.rpc("create_report_share", {
+    org: ctx.org.id,
+    template: p.template,
+    title: `${report.title}: ${report.scope}`.slice(0, 200),
+    snapshot: report as unknown as Json,
+    token_hash: createHash("sha256").update(token).digest("hex"),
+    days: p.days,
+  });
+  if (error || !shareId) return { ok: false, message: "Couldn't create the link. Try again." };
+  await supabase.rpc("log_report", { org: ctx.org.id, report: shareId, action: "shared", details: { template: p.template, from: p.from, to: p.to } });
   revalidatePath("/[orgSlug]/reports", "page");
   return { ok: true, url: `${await siteOrigin()}/r/${token}` };
 }

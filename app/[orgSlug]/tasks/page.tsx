@@ -42,7 +42,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
   const filters = readFilters(sp);
   const sort = readSort(sp);
   // finished work is hidden unless the Completed filter asks for it (D101)
-  const visible = forStatusView(filterTasks(all, filters, today, ctx.membershipId), filters.status);
+  const visible = forStatusView(filterTasks(all, filters, today, ctx.membershipId), filters.status, filters.finished);
   const byUrgency = sp.order === "priority";
   // a board filtered to one program that has its own steps shows those steps (D107)
   const workflowProject =
@@ -65,7 +65,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
 
   const tabHref = (v: string) => {
     const next = new URLSearchParams();
-    for (const k of ["project", "assignee", "status", "priority", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
+    for (const k of ["project", "assignee", "status", "finished", "priority", "due"]) if (typeof sp[k] === "string") next.set(k, sp[k] as string);
     if (v === "list") next.set("view", "list");
     const qs = next.toString();
     return `${base}/tasks${qs ? `?${qs}` : ""}`;
@@ -115,6 +115,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/[o
             <TaskBoard
               tasks={byUrgency ? [...visible].sort(byPriority) : visible}
               completed={filters.status === "done"}
+              withFinished={filters.finished && !filters.status}
               sortedByPriority={byUrgency}
               base={base}
               today={today}

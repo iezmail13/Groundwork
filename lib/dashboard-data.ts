@@ -114,7 +114,7 @@ export function oversees(inputs: Pick<Inputs, "viewer">) {
   return rankOf(inputs.viewer.role) >= rankOf("manager") || [...inputs.viewer.projectRanks.values()].some((r) => r >= 2);
 }
 
-/** "Mine" is work assigned to the viewer; "everything I oversee" adds the programs they run (all of it for managers and owners). */
+/** "Assigned to me" is work assigned to the viewer; "All work" adds the programs they run (all of it for managers and owners). */
 function scopeTasks(inputs: Inputs, ctx: Ctx, scope: Scope): TaskRow[] {
   if (scope === "mine") return inputs.tasks.filter((x) => isAssignee(x, ctx.membershipId));
   if (rankOf(ctx.role) >= rankOf("manager")) return inputs.tasks;
@@ -300,7 +300,7 @@ async function buildAttendance(
   const high = org.high_attendance_percent;
   const from = addDays(today, -30);
   const [marks, names] = await Promise.all([
-    Promise.all(programs.map((p) => getMarksInRange(org.id, `${from}T00:00:00Z`, `${addDays(today, 1)}T00:00:00Z`, p.id))).then((x) => x.flat()),
+    Promise.all(programs.map((p) => getMarksInRange(org.id, from, today, ctx.tz, p.id))).then((x) => x.flat()),
     getParticipantNames(org.id),
   ]);
   const counted = (list: AttendanceMark[]) => list.filter((m) => m.status !== "excused");

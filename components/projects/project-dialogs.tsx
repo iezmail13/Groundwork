@@ -80,9 +80,9 @@ function DeleteProjectForm({ id, orgSlug, name, onCancel }: { id: string; orgSlu
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="orgSlug" value={orgSlug} />
       <p>
-        <strong>{name}</strong> and all of its {lower(t("task", "other"))} will be deleted.{" "}
-        {t("event", "other")} and {lower(t("document", "other"))} are kept but unlinked. This can&apos;t be undone.
-        Archive it instead if you might need it again.
+        <strong>{name}</strong> and all of its {lower(t("task", "other"))}, {lower(t("event", "other"))} and{" "}
+        {lower(t("document", "other"))} will be deleted. This can&apos;t be undone. Archive it instead if you might need it
+        again.
       </p>
       <FormMessage state={state} />
       <div className="flex justify-end gap-2 border-t border-rule pt-4">

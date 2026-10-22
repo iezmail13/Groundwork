@@ -1,9 +1,6 @@
 // Response-hardening helpers used by proxy.ts. Pure, so they can be unit-tested.
 
 /** Third-party origins the app may talk to. Stripe is listed for the planned billing. */
-const STRIPE_JS = "https://js.stripe.com";
-const STRIPE_API = "https://api.stripe.com";
-const STRIPE_HOOKS = "https://hooks.stripe.com";
 
 function originOrNull(url: string | undefined): string | null {
   if (!url) return null;
@@ -33,17 +30,18 @@ export function buildCsp({
 }): string {
   const supabase = originOrNull(supabaseUrl);
   const supabaseWs = supabase ? supabase.replace(/^http/, "ws") : null;
-  const connect = ["'self'", supabase, supabaseWs, STRIPE_API].filter(Boolean).join(" ");
+  const connect = ["'self'", supabase, supabaseWs].filter(Boolean).join(" ");
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""} ${STRIPE_JS}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' blob: data:${supabase ? ` ${supabase}` : ""}`,
     "font-src 'self'",
     // Realtime keeps its heartbeat in a small inline worker, so background tabs stay connected (D104)
     "worker-src 'self' blob:",
     `connect-src ${connect}`,
-    `frame-src ${STRIPE_JS} ${STRIPE_HOOKS}`,
+    // nothing is framed, and no third party is trusted with scripts or requests (billing is out of scope, D113)
+    "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

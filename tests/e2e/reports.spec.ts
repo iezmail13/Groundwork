@@ -25,7 +25,7 @@ async function showReport(page: Page, report: string, program = "All you can see
   const form = page.getByRole("form", { name: "Report settings" });
   await form.getByLabel("Report").selectOption({ label: report });
   await form.getByLabel("Program").selectOption({ label: program });
-  await form.getByRole("button", { name: "Show report" }).click();
+  await form.getByRole("button", { name: "Preview report" }).click();
   await page.waitForURL(/template=/);
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
 }
@@ -40,6 +40,16 @@ test("a progress report holds only what its author can see, and downloads as CSV
   await expect(overdue.getByRole("rowheader", { name: "Review volunteer police checks" })).toBeVisible();
   await expect(overdue.getByText("Needs attention").first()).toBeVisible();
   await expect(priya.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
+
+  // before downloading, it can be previewed as the PDF page and as the CSV (D112)
+  const previewAs = priya.getByRole("navigation", { name: "Preview as" });
+  await expect(previewAs.getByRole("link", { name: "On screen" })).toHaveAttribute("aria-current", "page");
+  await previewAs.getByRole("link", { name: "PDF page" }).click();
+  await expect(priya.locator(".report-paper").getByRole("heading", { name: "Task progress" })).toBeVisible();
+  await previewAs.getByRole("link", { name: "CSV" }).click();
+  const csvPreview = priya.getByRole("table", { name: "CSV preview" });
+  await expect(csvPreview.getByRole("cell", { name: "Review volunteer police checks" })).toBeVisible();
+  await expect(priya.locator(".report-paper")).toHaveCount(0);
 
   const csvHref = await priya.getByRole("link", { name: "Download CSV" }).getAttribute("href");
   const csv = await (await priya.request.get(csvHref!)).text();

@@ -620,3 +620,71 @@ The owner asked that, when there are several programs, the sidebar's Programs it
 - It opens by itself on the overview or on a program's page, and marks the current one. The overview link matches only its own page, not the programs under it. On the narrow (collapsed) sidebar it is the Programs icon, linking to the overview.
 - The separate "Recent programs" list under the menu is gone: it would have repeated the same names just above it. The `recent_projects` database function stays, unused by the sidebar.
 - The menu area scrolls when the list is long.
+
+## D112. The owner's review: bulk add, simpler filters, plainer scope words, repeating events, profile cards, report previews
+
+After using the app, the owner asked for six changes.
+
+- **Adding participants several at once.**
+  - "Add participants" opens a wide dialog laid out as a table. Each row is one person, with every field on view at once: full name, email, phone, parent or guardian, emergency contact.
+  - Rows can be added, removed, or filled from a pasted list (one person per line, commas or a spreadsheet's tabs, parsed by `lib/people-paste.ts`). Blank rows are skipped, and a row with details but no name is caught on that row.
+  - Everyone is saved together through `add_participants(project, people)`. It is SECURITY DEFINER with the same checks as `add_participant()` (the caller manages participants on that program, and it isn't archived). It runs in one transaction, so one bad row adds nobody, and it returns the new ids.
+  - Adding one person still opens their profile. Adding several returns to the list with "Added N".
+  - Date of birth and medical notes stay on each profile, where fewer people see them.
+  - pgTAP `29_bulk_participants`.
+- **Fewer filters on Tasks.**
+  - The Filters panel holds only what narrows the work: program, assignee, priority, due. Status is the board's columns already, so finished work is one "Include finished work" checkbox. The board's order is a "Most urgent first" toggle beside the button, not a filter.
+  - The quick-add box's program picker, which sat under the filters and read as a second filter, appears only once a title is typed. It is labelled "in program" and starts on the program the list is filtered to.
+- **Plainer scope words.** The dashboard's switch reads "Assigned to me" and "All work", not "Mine" and "Everything I oversee".
+- **Repeating events.**
+  - When adding an event, "Repeats weekly" picks weekdays and a number of weeks (up to 52; for example, every Friday for 5 weeks, 16:00–18:00). A summary ("5 times") updates as it's set.
+  - Each time is stored as its own event sharing `events.series_id`, so it shows, edits, exports to the calendar feed and takes attendance like any other. All are added in one insert.
+  - Editing changes one time. Deleting asks "Only this time" or "Every time it repeats", and the series delete still goes through the events policies.
+  - A trigger stops an event joining another organization's series. pgTAP `28_event_series`; unit tests for `weeklyDates`.
+- **Profile cards on programs.**
+  - On a program's People list, each name (with photo or initials) opens a card: photo, title, online status, email, their role on the program, "Message", and "Full profile".
+  - It reads the same member data as the profile page.
+- **Report previews.**
+  - The report was already shown in full on the page before any download. The button is now "Preview report".
+  - A "Preview as" switch shows it "On screen", as the "PDF page" (an A4 sheet styled exactly as it prints, dark on white in either mode), or as the "CSV" (every row and column, numbered, as a spreadsheet opens it).
+  - Nothing is printed, downloaded or shared until the viewer chooses to.
+
+## D113: Audit fixes for bugs and security
+
+The owner asked for an audit for bugs and security holes. Four reviews covered the database, the server code, the public pages and the app's behaviour. Every finding below was reproduced locally before it was fixed, and every database fix has a pgTAP test (`30_audit_fixes`, with `27_reports` now creating links through the new function).
+
+**Database (one migration per concern, `20261027000100`–`20261027001000`)**
+- **Activity no longer names tasks a reader can't see.** The old check for "this task is deleted" ran under the reader's own RLS, so a task they couldn't see looked deleted and its title showed. `can_view_task_activity()` now checks existence as definer. Once a task is deleted, its history shows only if it was open work at the time; if it was personal, hidden or share-listed, a trigger marks all of its history owner-only.
+- **Finish times are the database's.** `completed_at` is set from status changes only, so "Done this week" can't be back-dated. Attendance gets the same treatment: `recorded_by` and `recorded_at` are stamped on every save. The service-role seed keeps the times it sets.
+- **Memberships come only from creating an org or accepting an invitation.** `memberships_insert` is now `with check (false)`. Before, an owner of any org (anyone can make one) could add any account to it and then read that person's profile or message them.
+- **Share links are created only through `create_report_share()`.** It sets the creator, `created_at` and expiry (7, 30 or 90 days), so a client-chosen `created_at` can no longer make a link last forever. It checks the snapshot is the report type it claims to be, and stamps the organization's real name on it. Only the link's creator and owners can list links, so managers no longer read snapshots of programs they aren't on. A costs link stops working if its creator stops being an owner or manager. Snapshots are text only, and the shared page shows who shared them.
+- **Deleting a program deletes its documents and calendar items.** They used to fall back to the whole organization, so files and events only that program could see became visible to everyone. `can_delete_project()` is checked before any file is removed, so a refused delete never loses participant files. Cascaded documents and events aren't logged one by one, matching how tasks already worked.
+- **Stored documents follow their row.** A stored file with no row is readable only by whoever uploaded it, not by the whole organization. Anyone who may delete the row (`can_delete_document()`) may delete its file. The app now removes the file first and then the row, so a delete never leaves the file behind.
+- **Program rosters respect org ranks.** A program admin or lead can't remove, or change the role of, someone ranked above them in the organization (owners can act on anyone). Anyone can still leave.
+- **A spending decision is final.** `decide_spending()` refuses an entry that is no longer pending, so a manager can't overturn an owner.
+- **Definer helpers answer only within your own organizations.** `mentions_in()` and `fund_pays_for()` check membership. `task_creator_rank()` is no longer callable directly.
+
+**App and public pages**
+- **Proxy matcher.** It now excludes only the exact asset paths. Before, any path ending in an asset name skipped the auth redirect and the CSP.
+- **CSP and Permissions-Policy.** Both drop the unused Stripe allowances (there is no billing, per Scope), and frames are off.
+- **Redirects.** Server actions validate `orgSlug` as a slug before redirecting with it.
+- **CSV safety.** The guard against spreadsheet formulas no longer prefixes plain negative numbers and amounts.
+- **Behaviour fixes.**
+  - "Include finished work" keeps the open columns.
+  - Deleting a repeating event offers "This time and every later time", so earlier times and their attendance stay.
+  - Bulk add closes on success.
+  - Pasted names keep quoted commas and skip a header row.
+  - Attendance is grouped by the organization's local date.
+  - Quick add resets its program.
+
+**Considered and kept as designed**
+- **Anyone on a program may edit its tasks** unless the task's creator outranks them (D80, D89). Owners and managers may edit what they can see, including personal tasks ranked below them.
+- **Moving a program document to the whole organization** is a deliberate share by someone who manages that program's content.
+
+**Left for the owner, since they need production settings or are low risk**
+- **Rate limits** on sign-in emails, set in Vercel's firewall or with a captcha.
+- **Login CSRF** on `/auth/confirm`.
+- **The maintenance bypass token** sits in a query string.
+- **Invitation tokens** are stored in plain text.
+- **Online status** can be spoofed through Realtime presence.
+- **Inline styles** are still allowed in the CSP.

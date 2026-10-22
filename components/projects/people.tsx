@@ -8,13 +8,25 @@ import { canManageProjectMember, grantableProjectRoles, type ProjectRole, type R
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { Badge } from "@/components/ui/badge";
+import { ProfilePeek } from "@/components/people/profile-peek";
 import { Button } from "@/components/ui/button";
 import { DialogButton } from "@/components/ui/modal";
 import { Field, inputClass, Select } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export type PersonRow = { id: string; membershipId: string; role: ProjectRole; orgRole: Role; name: string; email: string };
+export type PersonRow = {
+  id: string;
+  membershipId: string;
+  role: ProjectRole;
+  orgRole: Role;
+  name: string;
+  email: string;
+  userId: string;
+  initials: string;
+  photoUrl: string | null;
+  title: string | null;
+};
 export type Candidate = { membershipId: string; name: string; orgRole: Role };
 
 /** Who is on the project, and controls for the people the viewer outranks. */
@@ -72,9 +84,14 @@ export function ProjectPeople({
                 return (
                   <tr key={p.id} className="border-b border-rule">
                     <th scope="row" className="py-2.5 pr-4 font-normal">
-                      <span className="font-semibold">{p.name}</span>
+                      {/* the name opens their profile card, right here (D112) */}
+                      <ProfilePeek
+                        person={{ ...p, role: t(`project_role.${p.role}`) }}
+                        href={`/${orgSlug}/members/${p.userId}`}
+                        isYou={isYou}
+                      />
                       {isYou ? <span className="ml-2 text-sm text-ink-muted">(you)</span> : null}
-                      <span className="block text-sm text-ink-muted">{p.email}</span>
+                      <span className="block pl-10 text-sm text-ink-muted">{p.email}</span>
                     </th>
                     <td className="py-2.5 pr-4">
                       {manage && roles.length > 1 ? (

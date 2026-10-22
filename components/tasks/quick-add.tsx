@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createTask } from "@/app/[orgSlug]/tasks/actions";
 import { idle } from "@/lib/action-state";
@@ -13,8 +14,9 @@ import type { ProjectOption } from "@/lib/queries";
 import { keepValues } from "@/lib/forms";
 
 /**
- * Inline quick-add: type a title and press Enter. When no project is fixed,
- * a project picker sits beside the title.
+ * Inline quick-add: type a title and press Enter. When no project is fixed, a
+ * project picker appears once there's a title (D112), so it isn't mistaken for
+ * a filter; it starts on the project the list is filtered to.
  */
 export function QuickAddTask({
   organizationId,
@@ -36,6 +38,15 @@ export function QuickAddTask({
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const taskLabel = lower(t("task"));
+  const [typed, setTyped] = useState(false);
+  // a saved task clears the title, so the picker hides again until the next one
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
+    if (state.status === "success") setTyped(false);
+  }
+  const filtered = useSearchParams().get("project");
+  const startProject = projects?.some((p) => p.id === filtered) ? filtered! : projects?.[0]?.id;
 
   useEffect(() => {
     if (state.status === "success") {
@@ -66,19 +77,22 @@ export function QuickAddTask({
           placeholder={`Add a ${taskLabel}…`}
           className={`${inputClass} min-w-0 ${compact ? "basis-full" : "flex-[3]"}`}
           disabled={noProjects}
+          onChange={(e) => setTyped(e.target.value.trim() !== "")}
           aria-invalid={state.fieldErrors?.title ? true : undefined}
         />
         {!projectId && projects ? (
-          <>
-            <label htmlFor={`quick-add-project-${idSuffix}`} className="sr-only">
-              {t("project")}
+          <div className={`flex min-w-0 items-center gap-2 ${compact ? "basis-full" : "flex-[2]"}`} hidden={!typed}>
+            <label htmlFor={`quick-add-project-${idSuffix}`} className="shrink-0 text-sm font-semibold text-ink-muted">
+              in {lower(t("project"))}
             </label>
             <select
+              // starts again on the filtered program whenever the filter changes
+              key={startProject}
               id={`quick-add-project-${idSuffix}`}
               name="projectId"
-              className={`${inputClass} min-w-0 flex-[2]`}
+              className={`${inputClass} min-w-0 flex-1`}
               disabled={noProjects}
-              defaultValue={projects[0]?.id}
+              defaultValue={startProject}
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -86,7 +100,7 @@ export function QuickAddTask({
                 </option>
               ))}
             </select>
-          </>
+          </div>
         ) : null}
         {!compact ? (
           <>

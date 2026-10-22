@@ -22,6 +22,7 @@ export function toEventFormValues(e: EventRow, tz: string, canDelete: boolean, l
     endTime: e.all_day ? "10:00" : timeInZone(end, tz),
     canDelete: canDelete && !locked,
     locked,
+    seriesId: e.series_id,
   };
 }
 
