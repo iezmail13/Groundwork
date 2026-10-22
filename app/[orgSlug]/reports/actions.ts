@@ -11,6 +11,7 @@ import { reportParamsSchema } from "@/lib/report-params";
 import { getProjectOptions } from "@/lib/queries";
 import { siteOrigin } from "@/lib/urls";
 import { id } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
 
 // Sharing reports (D109): a snapshot of the report as its author sees it,
 // behind a long random token whose SHA-256 alone is stored. No email.
@@ -50,6 +51,7 @@ export async function createShareLink(input: {
     token_hash: createHash("sha256").update(token).digest("hex"),
     days: p.days,
   });
+  if (error?.hint === "demo_only") return { ok: false, message: DEMO_ONLY };
   if (error || !shareId) return { ok: false, message: "Couldn't create the link. Try again." };
   await supabase.rpc("log_report", { org: ctx.org.id, report: shareId, action: "shared", details: { template: p.template, from: p.from, to: p.to } });
   revalidatePath("/[orgSlug]/reports", "page");

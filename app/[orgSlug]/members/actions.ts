@@ -5,6 +5,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { dbFailure, failure, formObject, invalid, success, type ActionState } from "@/lib/action-state";
 import { LOGO_EXTENSION, MAX_PHOTO_BYTES, PRESENCE_MODES, id, photoUploadInput, profileInput } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 // Member profiles (D104). People change only their own profile and photo;
 // the database enforces it (profiles RLS, column grants, set_my_photo()).
@@ -57,6 +59,7 @@ export async function requestPhotoUpload(input: { organizationId: string; size: 
   if (!user) return { ok: false, message: "Sign in again to change this." };
   const ext = LOGO_EXTENSION[parsed.data.mimeType];
   const path = `${parsed.data.organizationId}/profiles/${user.id}/${crypto.randomUUID()}.${ext}`;
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "Couldn't start the upload. Try again." };
   return { ok: true, path: data.path, token: data.token };

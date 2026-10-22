@@ -8,6 +8,8 @@ import { failure, formObject, invalid, success, type ActionState } from "@/lib/a
 import { parseCents } from "@/lib/money";
 import { isIsoDate } from "@/lib/dates";
 import { id } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 // Finance (D108). RLS and decide_spending() decide who may submit, see and
 // approve; these validate input.
@@ -48,6 +50,7 @@ export async function requestReceiptUpload(input: { orgSlug: string; size: numbe
   const ctx = await getOrgContext(parsed.data.orgSlug);
   const path = `${ctx.org.id}/${ctx.userId}/${crypto.randomUUID()}.${RECEIPT_TYPES[parsed.data.mimeType]}`;
   const supabase = await createClient();
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "Couldn't start the upload. Try again." };
   return { ok: true, path: data.path, token: data.token };

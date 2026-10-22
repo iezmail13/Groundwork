@@ -220,7 +220,8 @@ describe("security headers", () => {
     expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co;");
     // no third party: billing is out of scope (D113)
     expect(csp).not.toContain("stripe");
-    expect(csp).toContain("frame-src 'none'");
+    // the only frame is the demo's bot check (Cloudflare Turnstile, D115)
+    expect(csp).toContain("frame-src https://challenges.cloudflare.com;");
     expect(csp).toContain("frame-ancestors 'none'");
     // only the app itself and in-page blob workers (Realtime's heartbeat), never other hosts
     expect(csp).toContain("worker-src 'self' blob:;");

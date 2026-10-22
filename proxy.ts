@@ -7,7 +7,7 @@ import { maintenancePageHtml } from "@/lib/maintenance-page";
 
 const BYPASS_COOKIE = "gw_maintenance_bypass";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/security", "/privacy", "/terms", "/auth/callback", "/auth/confirm"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/demo", "/security", "/privacy", "/terms", "/auth/callback", "/auth/confirm"];
 
 function isPublic(pathname: string) {
   // calendar apps can't sign in: the feed's secret URL is its key (D102)

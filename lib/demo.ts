@@ -18,3 +18,11 @@ export function devShortcutEnabled(): boolean {
 export function googleSignInEnabled(): boolean {
   return process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === "true";
 }
+
+/** The Cloudflare Turnstile site key for the demo's captcha; the captcha is off without it (D115). */
+export function turnstileSiteKey(): string | null {
+  return process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null;
+}
+
+/** What a demo visitor is told when they reach for something a demo can't do (D115). */
+export const DEMO_ONLY = "That isn't available in the demo. Start free to use it with your team.";

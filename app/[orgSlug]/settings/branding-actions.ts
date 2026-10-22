@@ -7,6 +7,8 @@ import { dbFailure, failure, formObject, invalid, success, type ActionState } fr
 import { LOGO_EXTENSION, accentInput, id, logoUploadInput, logoVariant } from "@/lib/validation";
 import { THEME_COOKIE, THEME_COOKIE_MAX_AGE, THEME_MODES } from "@/lib/theme/mode";
 import { cookies } from "next/headers";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 // Settings → Branding (owners and managers) and Settings → Profile (everyone).
 // RLS and the column grants are the real guard; these checks give clear
@@ -69,6 +71,7 @@ export async function requestLogoUpload(input: z.input<typeof logoUploadInput>):
   const { supabase, manager } = await permissions(parsed.data.organizationId);
   if (!manager) return { ok: false, message: NOT_ALLOWED };
   const path = `${parsed.data.organizationId}/branding/${crypto.randomUUID()}.${LOGO_EXTENSION[parsed.data.mimeType]}`;
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "Couldn't start the upload. Try again." };
   return { ok: true, path: data.path, token: data.token };

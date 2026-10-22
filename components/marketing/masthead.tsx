@@ -7,6 +7,7 @@ import { MobileMenu } from "./mobile-menu";
 export const SITE_LINKS = [
   { href: "/#benefits", label: "Features" },
   { href: "/security", label: "Security" },
+  { href: "/demo", label: "Try the demo" },
 ] as const;
 
 /** Top bar of the public pages. */

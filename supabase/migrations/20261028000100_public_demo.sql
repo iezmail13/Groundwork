@@ -285,6 +285,10 @@ begin
   if found then
     return org.slug;
   end if;
+  -- a demo that ran out but hasn't been cleaned up yet goes first (the visitor stays)
+  delete from auth.users u
+  where u.raw_app_meta_data ->> 'demo_org' in (select o.id::text from public.organizations o where o.demo_owner = me);
+  delete from public.organizations o where o.demo_owner = me;
 
   insert into public.organizations (name, slug, preset_key, theme, demo_expires_at, demo_owner)
   select 'Riverside Youth Club', 'demo-' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 12), p.key, p.theme,
@@ -292,7 +296,7 @@ begin
   from public.presets p where p.key = 'nonprofit'
   returning * into org;
 
-  update public.profiles p set full_name = 'You (demo)', title = 'Executive director' where p.id = me;
+  update public.profiles p set full_name = 'Alex Morgan', title = 'Executive director' where p.id = me;
   sam := public.demo_person(org.id, 'Sam Okafor', 'Program manager');
   lena := public.demo_person(org.id, 'Lena Brooks', 'Youth worker');
   theo := public.demo_person(org.id, 'Theo Martin', 'Volunteer coordinator');

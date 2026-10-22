@@ -20,6 +20,7 @@ import { PresenceProvider } from "@/components/people/presence";
 import { getUnreadCount, queueDueNotifications } from "@/lib/notifications";
 import { ChatButton, ChatProvider } from "@/components/chat/chat";
 import { getChatUnread } from "@/lib/chat";
+import { DemoBanner } from "@/components/demo/demo-banner";
 
 export async function generateMetadata({ params }: LayoutProps<"/[orgSlug]">): Promise<Metadata> {
   const { orgSlug } = await params;
@@ -100,6 +101,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[org
             initialCollapsed={cookieStore.get("sidebar")?.value === "collapsed"}
           />
           <div className="flex min-w-0 flex-1 flex-col">
+            {ctx.org.demo_expires_at ? <DemoBanner expiresAt={ctx.org.demo_expires_at} /> : null}
             <TopBar actions={actions} notice={<ScheduledMaintenanceBanner setting={maintenance} timeZone={ctx.tz} />} />
             <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-16 focus:outline-none sm:px-8 sm:pt-8">
               <div className="mx-auto max-w-[1400px]">{children}</div>

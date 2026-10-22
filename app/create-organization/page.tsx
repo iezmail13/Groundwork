@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { CreateOrgForm, type PresetOption } from "@/components/auth/create-org-form";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/org";
 import { createTranslator, lower, toLabelMap } from "@/lib/terminology/t";
 
@@ -9,6 +10,8 @@ export const metadata: Metadata = { title: "Create an organization" };
 
 export default async function CreateOrganizationPage() {
   const { supabase, user } = await requireUser();
+  // a demo visitor can't make a real organization (D115)
+  if (user.is_anonymous) redirect("/demo");
   const [{ data: presets }, { data: profile }, { count }, { data: pending }] = await Promise.all([
     supabase.from("presets").select("key, name, labels").order("name"),
     supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
