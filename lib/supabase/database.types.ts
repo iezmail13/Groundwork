@@ -563,14 +563,14 @@ isOneToOne: false
                   ]
                 },"organizations": {
                   Row: {
-                    "accent": string | null,"accounting_name": string | null,"accounting_url": string | null,"allow_personal_accent": boolean,"created_at": string,"high_attendance_percent": number,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
+                    "accent": string | null,"accounting_name": string | null,"accounting_url": string | null,"allow_personal_accent": boolean,"created_at": string,"demo_expires_at": string | null,"demo_owner": string | null,"high_attendance_percent": number,"id": string,"logo_dark_path": string | null,"logo_path": string | null,"low_attendance_percent": number,"name": string,"preset_key": string,"show_illustrations": boolean,"slug": string,"terminology_overrides": NonNullable<Json>,"theme": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"demo_expires_at"?: string | null,"demo_owner"?: string | null,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name": string,"preset_key"?: string,"show_illustrations"?: boolean,"slug": string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Update: {
-                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
+                    "accent"?: string | null,"accounting_name"?: string | null,"accounting_url"?: string | null,"allow_personal_accent"?: boolean,"created_at"?: string,"demo_expires_at"?: string | null,"demo_owner"?: string | null,"high_attendance_percent"?: number,"id"?: string,"logo_dark_path"?: string | null,"logo_path"?: string | null,"low_attendance_percent"?: number,"name"?: string,"preset_key"?: string,"show_illustrations"?: boolean,"slug"?: string,"terminology_overrides"?: NonNullable<Json>,"theme"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -1223,6 +1223,8 @@ isOneToOne: false
 "accounting_url": string | null,
 "allow_personal_accent": boolean,
 "created_at": string,
+"demo_expires_at": string | null,
+"demo_owner": string | null,
 "high_attendance_percent": number,
 "id": string,
 "logo_dark_path": string | null,
@@ -1250,6 +1252,9 @@ isOneToOne: false
 "decline_invitation":
 { Args: { "token": string }; Returns: undefined
                            },
+"demo_person":
+{ Args: { "full_name": string,"org_id": string,"title": string }; Returns: string
+                           },
 "discussion_audience":
 { Args: { "discussion": string }; Returns: {
               "user_id": string
@@ -1257,6 +1262,12 @@ isOneToOne: false
                            },
 "document_has_row":
 { Args: { "object_name": string }; Returns: boolean
+                           },
+"end_demo":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"expire_demos":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "first_step":
 { Args: { "k": Database["public"]['Enums']["step_kind"],"project": string }; Returns: string
@@ -1279,6 +1290,9 @@ isOneToOne: false
                            },
 "in_channel":
 { Args: { "channel": string }; Returns: boolean
+                           },
+"is_demo_user":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "is_member":
 { Args: { "org_id": string }; Returns: boolean
@@ -1347,6 +1361,9 @@ isOneToOne: false
               "mime_type": string,"name": string,"storage_path": string
             }[]
                            },
+"org_is_live":
+{ Args: { "org_id": string }; Returns: boolean
+                           },
 "outranked_by_creator":
 { Args: { "creator": string,"creator_role": Database["public"]['Enums']["member_role"],"org_id": string }; Returns: boolean
                            },
@@ -1366,6 +1383,9 @@ isOneToOne: false
                            },
 "project_role_rank":
 { Args: { "role": Database["public"]['Enums']["project_role"] }; Returns: number
+                           },
+"purge_demo":
+{ Args: { "org_id": string }; Returns: undefined
                            },
 "queue_my_due_notifications":
 { Args: { "org": string,"today": string }; Returns: undefined
@@ -1426,6 +1446,9 @@ isOneToOne: false
 { Args: { "project": string }; Returns: {
               "currency": string,"id": string,"name": string
             }[]
+                           },
+"start_demo":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "storage_org_id":
 { Args: { "object_name": string }; Returns: string
