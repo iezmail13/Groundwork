@@ -7,8 +7,8 @@ export function AuthFrame({ title, subtitle, children }: { title: ReactNode; sub
     <div className="flex min-h-dvh flex-col bg-canvas">
       <header className="flex items-center gap-3 bg-rail px-4 py-3 text-rail-ink sm:px-6">
         <span className="logo-link inline-flex items-center gap-2">
-          <Logo size={38} dark />
-          <Wordmark dark className="text-xl" />
+          <Logo size={48} dark />
+          <Wordmark dark height={22} />
         </span>
       </header>
       <main className="flex flex-1 items-start justify-center px-4 py-12 sm:py-20">

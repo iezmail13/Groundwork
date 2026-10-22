@@ -11,7 +11,13 @@ const sourceSans = Source_Sans_3({ subsets: ["latin"], variable: "--font-source-
 export const metadata: Metadata = {
   title: { default: "Groundwork", template: "%s · Groundwork" },
   description: "One central place for your team's work, files and calendar.",
-  icons: { icon: [{ url: "/logo.svg", type: "image/svg+xml" }] },
+  icons: {
+    icon: [
+      { url: "/brand/icon-light.png", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/brand/icon-dark.png", type: "image/png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/brand/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
