@@ -85,6 +85,8 @@ export type SmtpSettings = {
 
 /** Google sign-in for Supabase Auth: an OAuth client from Google Cloud. */
 export type GoogleSettings = { clientId?: string; secret?: string };
+/** Cloudflare Turnstile, the bot check on the demo and email sign-in (D115). */
+export type CaptchaSettings = { siteKey?: string; secret?: string };
 
 export type EmailTemplate = { subject: string; html: string };
 export type EmailTemplates = { magicLink?: EmailTemplate; confirmation?: EmailTemplate };
@@ -106,6 +108,7 @@ export function buildAuthSettings(
   smtp: SmtpSettings = {},
   extraRedirects: string[] = [],
   google: GoogleSettings = {},
+  captcha: CaptchaSettings = {},
 ) {
   const origin = normalizeAppUrl(appUrl);
   const allow = [`${origin}/**`, ...extraRedirects.map((u) => u.trim()).filter(Boolean)];
@@ -114,6 +117,8 @@ export function buildAuthSettings(
     uri_allow_list: Array.from(new Set(allow)).join(","),
     external_email_enabled: true,
     mailer_otp_exp: 3600,
+    // the public demo signs visitors in with temporary anonymous accounts (D115)
+    external_anonymous_users_enabled: true,
   };
 
   if (hasSmtp(smtp)) {
@@ -150,6 +155,26 @@ export function buildAuthSettings(
       external_google_client_id: clientId,
       external_google_secret: secret,
     });
+  }
+
+  // The bot check needs both halves: the site key in the app (built in) and
+  // the secret here. With only one, every email sign-in would fail, so that
+  // is refused; with neither, it stays off and demos rely on rate limits.
+  const siteKey = captcha.siteKey?.trim();
+  const captchaSecret = captcha.secret?.trim();
+  if (siteKey || captchaSecret) {
+    if (!siteKey || !captchaSecret) {
+      throw new Error(`The bot check is partly configured; missing: ${siteKey ? "TURNSTILE_SECRET_KEY" : "TURNSTILE_SITE_KEY"}.`);
+    }
+    Object.assign(body, {
+      security_captcha_enabled: true,
+      security_captcha_provider: "turnstile",
+      security_captcha_secret: captchaSecret,
+      // behind the bot check, a busy hour of demos shouldn't hit the per-address limit
+      rate_limit_anonymous_users: 300,
+    });
+  } else {
+    Object.assign(body, { security_captcha_enabled: false, rate_limit_anonymous_users: 30 });
   }
   return body;
 }

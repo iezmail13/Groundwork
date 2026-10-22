@@ -688,3 +688,29 @@ The owner asked for an audit for bugs and security holes. Four reviews covered t
 - **Invitation tokens** are stored in plain text.
 - **Online status** can be spoofed through Realtime presence.
 - **Inline styles** are still allowed in the CSP.
+
+## D115: The public demo
+
+The owner asked for a demo anyone can use without an account. It must never affect anyone else, and nothing from it may be kept. They approved turning on Supabase's anonymous sign-ins, a Cloudflare Turnstile bot check, and a two-hour limit.
+
+- **Starting.** "Try the demo" (masthead, homepage, sign-in page) leads to `/demo`. "Start the demo" signs the visitor in with a temporary anonymous Supabase account, passing the bot check's token when it's set up. `start_demo()` then gives them their own private organization ("Riverside Youth Club"), which they own, with three programs, work, a calendar, participants and attendance, a fund with spending, chat and a discussion. The three pretend teammates are accounts that can't sign in. Starting again during the same demo returns the same one.
+- **Kept apart.** A demo is an ordinary organization, so the same RLS that keeps organizations apart keeps demos apart. Visitors see only their own demo and nothing real, and real people never see demos (pgTAP `31_public_demo`, e2e `demo.spec.ts` with two visitors at once).
+- **What a demo can't do.** A demo has no way out to the world. Restrictive policies and triggers refuse:
+  - uploads to any bucket;
+  - invitations;
+  - report share links;
+  - calendar feeds;
+  - creating real organizations.
+
+  The app says "That isn't available in the demo" for each.
+- **Nothing kept.**
+  - **When it's deleted.** "End demo", or signing out, deletes the demo at once. Otherwise a `pg_cron` job (`end-expired-demos`, every minute) deletes it once its two hours are up.
+  - **What's deleted.** The organization and every row in it, the pretend teammates, the temporary account and its sign-in records. Temporary accounts that never started a demo go after two hours too.
+  - **Locked on expiry.** An expired demo is locked before the cleanup runs, because every organization table has a restrictive `demo_live` policy. pgTAP checks that every org-scoped table has it, so a new table can't forget.
+  - **Limits.** Supabase's own platform logs (request logs, kept for a limited time) are outside the app and can't be cleared from it. Paid-plan database backups taken while a demo is running would include it until those backups expire.
+- **Bot check.**
+  - **Where it applies.** With `TURNSTILE_SITE_KEY` (a GitHub variable) and `TURNSTILE_SECRET_KEY` (a GitHub secret) both set, the deploy turns Supabase's captcha on. The widget then shows on `/demo` and on every email sign-in form, which also limits sign-in email abuse (D113).
+  - **Half-configured.** Setting only one key is refused, because it would block every sign-in.
+  - **Without the keys.** The check stays off, and demos are limited per address by Supabase (30 an hour). With the check on, the limit is 300 an hour, since the check protects it.
+  - **CSP.** Only Turnstile's frame is allowed. Its script loads from the app's own code under `'strict-dynamic'`.
+- **Also fixed.** Deleting an organization that had attendance failed, because clearing participants' notes ran after the organization row was gone.

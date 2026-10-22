@@ -57,6 +57,7 @@ jobs:
       SMTP_USER: ${{ vars.SMTP_USER }}
       SMTP_FROM: ${{ vars.SMTP_FROM }}
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
     steps:
       - name: Check configuration
         id: cfg
@@ -172,6 +173,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           # the Google button shows only when both halves of the OAuth client are set
           NEXT_PUBLIC_GOOGLE_SIGN_IN: ${{ (vars.GOOGLE_CLIENT_ID != '' && secrets.GOOGLE_CLIENT_SECRET != '') && 'true' || 'false' }}
+          # the bot check shows only when both halves are set, matching Supabase (D115)
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ (vars.TURNSTILE_SITE_KEY != '' && secrets.TURNSTILE_SECRET_KEY != '') && vars.TURNSTILE_SITE_KEY || '' }}
         run: npx --yes vercel@62 build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to production
@@ -203,6 +206,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: npx tsx scripts/deploy/configure-auth.ts "$PRODUCTION_URL"
 
       - name: Smoke-test the live site

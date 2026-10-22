@@ -102,8 +102,8 @@ select is((select count(*)::int from public.tasks), 0, 'an expired demo is locke
 reset role;
 select is(public.expire_demos(), 1, 'the cleanup ends expired demos');
 select is(tests.rows_left((select id from demo_two)), 0, 'leaving nothing behind');
-select is((select count(*)::int from auth.users where is_anonymous), 0,
-  'and removes temporary accounts that never started a demo once their time is up');
+select is((select count(*)::int from auth.users where id in ('d0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000003')), 0,
+  'and removes their temporary accounts, and those that never started a demo once their time is up');
 select is((select count(*)::int from cron.job where jobname = 'end-expired-demos' and schedule = '* * * * *'), 1,
   'and runs every minute');
 
