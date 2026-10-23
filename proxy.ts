@@ -154,5 +154,5 @@ async function bypassMaintenance(request: NextRequest, https: boolean): Promise<
 // extension would let any page path ending in ".png" skip the maintenance gate,
 // the auth redirect and the CSP (D113).
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico$|logo.svg$|maintenance.js$|marketing/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico$|logo.svg$|maintenance.js$|marketing/|brand/).*)"],
 };

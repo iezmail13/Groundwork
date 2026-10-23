@@ -321,7 +321,7 @@ export function LogoUploader({
             </span>
           ) : (
             <span className="flex items-center gap-2 text-sm text-rail">
-              <Logo size={28} />
+              <Logo size={40} />
               Groundwork logo
             </span>
           )}

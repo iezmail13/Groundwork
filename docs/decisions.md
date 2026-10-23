@@ -635,7 +635,7 @@ After using the app, the owner asked for six changes.
 - **Fewer filters on Tasks.**
   - The Filters panel holds only what narrows the work: program, assignee, priority, due. Status is the board's columns already, so finished work is one "Include finished work" checkbox. The board's order is a "Most urgent first" toggle beside the button, not a filter.
   - The quick-add box's program picker, which sat under the filters and read as a second filter, appears only once a title is typed. It is labelled "in program" and starts on the program the list is filtered to.
-- **Plainer scope words.** The dashboard's switch reads "Assigned to me" and "All work", not "Mine" and "Everything I oversee".
+- **Plainer scope words.** The dashboard's switch reads "My work" (renamed from "Assigned to me" at the owner's request) and "All work", not "Mine" and "Everything I oversee".
 - **Repeating events.**
   - When adding an event, "Repeats weekly" picks weekdays and a number of weeks (up to 52; for example, every Friday for 5 weeks, 16:00–18:00). A summary ("5 times") updates as it's set.
   - Each time is stored as its own event sharing `events.series_id`, so it shows, edits, exports to the calendar feed and takes attendance like any other. All are added in one insert.
@@ -689,6 +689,19 @@ The owner asked for an audit for bugs and security holes. Four reviews covered t
 - **Online status** can be spoofed through Realtime presence.
 - **Inline styles** are still allowed in the CSP.
 
+## D114: The groundhog logo
+
+The owner sent new brand files: the primary logo (the groundhog mascot peeking from its burrow, with "ground" in navy and "work" in blue), a dark banner, and light and dark app icons. They replace the hard-hat figure everywhere the Groundwork logo appears.
+
+- **The source files.** They are PNG images wrapped in SVG. Each was trimmed and its background made transparent, giving a mascot and a wordmark for light backgrounds and, from the dark banner, white-ringed versions for navy ones. They live in `components/brand/` and are shown with `next/image`.
+- **Where they appear.**
+  - The masthead of the public pages, in light and dark.
+  - The sign-in header.
+  - The app sidebar, including the "Powered by Groundwork" mark under an organization's own logo.
+  - The branding settings' fallback.
+  - The shared-report page.
+- **Favicons.** The light icon in light mode and the dark icon in dark mode, plus an Apple touch icon (`public/brand/`). `/logo.svg` now holds the light icon, so the maintenance page, which can't use the app's components, shows it too.
+- **Illustrations.** The empty-state illustrations (D99) still show the earlier figure. They are separate art and can be redrawn around the mascot later.
 ## D115: The public demo
 
 The owner asked for a demo anyone can use without an account. It must never affect anyone else, and nothing from it may be kept. They approved turning on Supabase's anonymous sign-ins, a Cloudflare Turnstile bot check, and a two-hour limit.

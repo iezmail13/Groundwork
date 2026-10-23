@@ -16,7 +16,7 @@ export function Masthead() {
     <header className="relative border-b border-rule bg-canvas">
       <nav aria-label="Site" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link href="/" className="logo-link inline-flex items-center rounded-md" aria-label="Groundwork home">
-          <Brand size={40} wordmarkClassName="text-xl sm:text-2xl" />
+          <Brand size={46} />
         </Link>
         <div className="hidden items-center gap-6 md:flex">
           {SITE_LINKS.map((l) => (

@@ -70,7 +70,7 @@ test("a chart mark opens the editable view for an editor and a read-only panel f
 test("people who oversee others switch between their own work and everything they oversee", async ({ browser }) => {
   const priya = await signIn(browser, "Priya Shah");
   const scope = priya.getByRole("navigation", { name: "Dashboard scope" });
-  await expect(scope.getByRole("link", { name: "Assigned to me" })).toHaveAttribute("aria-current", "page");
+  await expect(scope.getByRole("link", { name: "My work" })).toHaveAttribute("aria-current", "page");
   const mine = Number(await priya.locator('li[data-widget="tasks"] .text-3xl').first().innerText());
   await scope.getByRole("link", { name: "All work" }).click();
   await expect(priya).toHaveURL(/scope=all/);
