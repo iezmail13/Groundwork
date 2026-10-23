@@ -568,8 +568,12 @@ test("reduced motion disables animation", async ({ browser }) => {
     .first()
     .evaluate((el) => getComputedStyle(el).animationName);
   expect(animation).toBe("none");
-  const swing = await page.locator(".logo-briefcase").first().evaluate((el) => getComputedStyle(el).animationName);
-  expect(swing).toBe("none");
+  // nothing on the page is left animating (the logo's own motion went with the old mark, D114)
+  await page.waitForLoadState("networkidle");
+  const running = await page.evaluate(() =>
+    document.getAnimations().filter((a) => a.playState === "running" && a instanceof CSSAnimation).length,
+  );
+  expect(running).toBe(0);
   await context.close();
 });
 

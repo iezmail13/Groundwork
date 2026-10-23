@@ -1,11 +1,17 @@
-// The Groundwork mark (D86, D99): a figure in a yellow hard hat with a
-// briefcase, redrawn as SVG from the owner's brand sheet. The logo keeps its
-// own colours. The helmet tips up on hover of a surrounding .logo-link and the
-// briefcase swings every few seconds; both stop under reduced motion
-// (app/globals.css).
+import Image from "next/image";
+import mascot from "@/components/brand/mascot.png";
+import mascotDark from "@/components/brand/mascot-dark.png";
+import wordmark from "@/components/brand/wordmark.png";
+import wordmarkWhite from "@/components/brand/wordmark-white.png";
+import iconLight from "@/components/brand/icon-light.png";
+import iconDark from "@/components/brand/icon-dark.png";
+
+// The Groundwork logo (D86, D114): the groundhog mascot peeking from its
+// burrow and the "groundwork" wordmark, from the owner's brand files. The logo
+// keeps its own colours. The empty-state illustrations (D99) below are drawn
+// separately as SVG.
 
 const NAVY = "#15223D";
-const SLATE = "#3B5378";
 const YELLOW = "#F6B533";
 const WHITE = "#FFFFFF";
 
@@ -48,41 +54,41 @@ function Briefcase() {
   );
 }
 
-/** The mark on its own. `dark` outlines the figure in white for navy backgrounds. */
+/** The mascot on its own, sized by width. `dark` gives the white-ringed version for navy backgrounds. */
 export function Logo({ size = 32, dark = false, className }: { size?: number; dark?: boolean; className?: string }) {
+  const src = dark ? mascotDark : mascot;
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width={size} height={size} className={className} aria-hidden="true" focusable="false">
-      <ellipse cx="30" cy="60.5" rx="21" ry="2" fill={dark ? WHITE : NAVY} opacity={dark ? 0.25 : 0.12} />
-      <Figure dark={dark} />
-      <Helmet />
-      <Briefcase />
-    </svg>
+    <Image
+      src={src}
+      alt=""
+      width={size}
+      height={Math.round((size * src.height) / src.width)}
+      className={`shrink-0 ${className ?? ""}`}
+      aria-hidden="true"
+    />
   );
 }
 
-/** The app icon: the mark on a rounded square, white (default) or navy. */
+/** The app icon: the mascot on a rounded square, white (default) or navy. */
 export function LogoBadge({ size = 36, dark = false }: { size?: number; dark?: boolean }) {
+  const src = dark ? iconDark : iconLight;
+  return <Image src={src} alt="" width={size} height={Math.round((size * src.height) / src.width)} className="shrink-0" aria-hidden="true" />;
+}
+
+/** The wordmark: "ground" in navy and "work" in blue, or all white on navy. Sized by height. */
+export function Wordmark({ dark = false, height = 22, className = "" }: { dark?: boolean; height?: number; className?: string }) {
+  const src = dark ? wordmarkWhite : wordmark;
   return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-[22%]"
-      style={{ width: size, height: size, background: dark ? NAVY : WHITE, border: dark ? undefined : `1px solid ${NAVY}1f` }}
-    >
-      <Logo size={Math.round(size * 0.86)} dark={dark} />
-    </span>
+    <Image
+      src={src}
+      alt="groundwork"
+      height={height}
+      width={Math.round((height * src.width) / src.height)}
+      className={`min-w-0 shrink object-contain object-left ${className}`}
+    />
   );
 }
 
-/** The wordmark: "ground" in navy and "work" in slate, or all white on navy. */
-export function Wordmark({ dark = false, className = "" }: { dark?: boolean; className?: string }) {
-  return (
-    <span className={`font-heading font-extrabold tracking-tight lowercase ${className}`}>
-      <span style={{ color: dark ? WHITE : NAVY }}>ground</span>
-      <span style={{ color: dark ? WHITE : SLATE }}>work</span>
-    </span>
-  );
-}
-
-/** The six section illustrations from the brand sheet. */
 export type IllustrationKind = "projects" | "tasks" | "schedule" | "documents" | "team" | "settings";
 
 function Prop({ kind }: { kind: IllustrationKind }) {
@@ -157,22 +163,24 @@ export function Illustration({ kind, size = 96, className }: { kind: Illustratio
 }
 
 /**
- * The mark and wordmark for the canvas, drawn for whichever mode is in force:
- * navy on light, outlined in white with a white wordmark on dark.
+ * The mascot and wordmark for the canvas, drawn for whichever mode is in force:
+ * navy on light, white on dark.
  */
-export function Brand({ size = 36, wordmarkClassName = "text-xl" }: { size?: number; wordmarkClassName?: string }) {
+export function Brand({ size = 36 }: { size?: number }) {
+  const mark = Math.round(size * 1.4);
+  const word = Math.round(size * 0.6);
   return (
     <>
       <span className="only-light">
         <span className="flex items-center gap-2">
-          <Logo size={size} />
-          <Wordmark className={wordmarkClassName} />
+          <Logo size={mark} />
+          <Wordmark height={word} />
         </span>
       </span>
       <span className="only-dark">
         <span className="flex items-center gap-2">
-          <Logo size={size} dark />
-          <Wordmark dark className={wordmarkClassName} />
+          <Logo size={mark} dark />
+          <Wordmark dark height={word} />
         </span>
       </span>
     </>

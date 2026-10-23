@@ -688,3 +688,17 @@ The owner asked for an audit for bugs and security holes. Four reviews covered t
 - **Invitation tokens** are stored in plain text.
 - **Online status** can be spoofed through Realtime presence.
 - **Inline styles** are still allowed in the CSP.
+
+## D114: The groundhog logo
+
+The owner sent new brand files: the primary logo (the groundhog mascot peeking from its burrow, with "ground" in navy and "work" in blue), a dark banner, and light and dark app icons. They replace the hard-hat figure everywhere the Groundwork logo appears.
+
+- **The source files.** They are PNG images wrapped in SVG. Each was trimmed and its background made transparent, giving a mascot and a wordmark for light backgrounds and, from the dark banner, white-ringed versions for navy ones. They live in `components/brand/` and are shown with `next/image`.
+- **Where they appear.**
+  - The masthead of the public pages, in light and dark.
+  - The sign-in header.
+  - The app sidebar, including the "Powered by Groundwork" mark under an organization's own logo.
+  - The branding settings' fallback.
+  - The shared-report page.
+- **Favicons.** The light icon in light mode and the dark icon in dark mode, plus an Apple touch icon (`public/brand/`). `/logo.svg` now holds the light icon, so the maintenance page, which can't use the app's components, shows it too.
+- **Illustrations.** The empty-state illustrations (D99) still show the earlier figure. They are separate art and can be redrawn around the mascot later.

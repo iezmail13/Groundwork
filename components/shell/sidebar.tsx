@@ -136,8 +136,8 @@ function HomeLink({ org, logo, collapsed }: { org: ShellOrg; logo: OrgLogo | nul
   }
   return (
     <Link href={href} className="logo-link flex min-w-0 items-center gap-2" aria-label="Groundwork home">
-      <Logo size={40} dark />
-      {collapsed ? null : <Wordmark dark className="truncate text-xl" />}
+      <Logo size={52} dark />
+      {collapsed ? null : <Wordmark dark height={22} />}
     </Link>
   );
 }
@@ -149,7 +149,7 @@ function PoweredBy({ collapsed }: { collapsed: boolean }) {
       className={`flex items-center gap-1.5 px-3 pt-2 text-xs text-rail-ink-muted ${collapsed ? "justify-center px-0" : ""}`}
       title={collapsed ? "Powered by Groundwork" : undefined}
     >
-      <Logo size={18} dark />
+      <Logo size={22} dark />
       {collapsed ? <span className="sr-only">Powered by Groundwork</span> : <span>Powered by Groundwork</span>}
     </p>
   );
