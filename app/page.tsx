@@ -39,7 +39,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     .eq("user_id", user.id)
     .order("created_at");
   const slugs = (memberships ?? []).map((m) => m.organization?.slug).filter((s): s is string => Boolean(s));
-  if (slugs.length === 0) redirect("/create-organization");
+  if (slugs.length === 0) redirect(user.is_anonymous ? "/demo?ended=1" : "/create-organization");
   const last = (await cookies()).get("last_org")?.value;
   redirect(`/${last && slugs.includes(last) ? last : slugs[0]}/dashboard`);
 }

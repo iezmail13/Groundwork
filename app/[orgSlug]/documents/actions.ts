@@ -13,6 +13,8 @@ import {
   sanitizeFileName,
   uploadRequestInput,
 } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 const BUCKET = "documents";
 
@@ -41,6 +43,7 @@ export async function requestUpload(input: {
   if (!member) return { ok: false, message: "You don't have permission to upload here." };
 
   const path = `${parsed.data.organizationId}/${crypto.randomUUID()}-${sanitizeFileName(parsed.data.fileName)}`;
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "Couldn't start the upload. Try again." };
   return { ok: true, path: data.path, token: data.token };

@@ -11,6 +11,8 @@ import { getOrgContext } from "@/lib/org";
 import { PROJECT_ROLES, ROLES } from "@/lib/roles";
 import { lower } from "@/lib/terminology/t";
 import { setAssignee } from "@/lib/task-assignees";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 function revalidateOrg() {
   revalidatePath("/[orgSlug]", "layout");
@@ -124,6 +126,7 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
   }
   const { supabase, allowed } = await requireManager(parsed.data.organizationId);
   if (!allowed) return failure(NOT_ALLOWED);
+  if (await inDemo(supabase)) return failure(DEMO_ONLY);
   const d = parsed.data;
 
   const { data: existing } = await supabase

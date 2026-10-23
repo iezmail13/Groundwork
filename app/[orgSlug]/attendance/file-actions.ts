@@ -5,6 +5,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { dbFailure, failure, formObject, invalid, success, type ActionState } from "@/lib/action-state";
 import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, id, participantFileInput, participantUploadRequestInput } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 // Participant files (D56, D102). The database decides who may upload, open
 // and delete them, and records each of those; these actions validate input,
@@ -36,6 +38,7 @@ export async function requestParticipantUpload(input: {
   const d = parsed.data;
   const supabase = await createClient();
   const path = `${d.organizationId}/${d.projectId}/${d.participantId}/${crypto.randomUUID()}`;
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(PARTICIPANT_BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "You can't add files for them there." };
   return { ok: true, path: data.path, token: data.token };

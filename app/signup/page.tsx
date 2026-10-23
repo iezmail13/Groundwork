@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Start free" };
 export default async function SignupPage() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (data.user) redirect("/");
+  if (data.user && !data.user.is_anonymous) redirect("/");
 
   return (
     <AuthFrame

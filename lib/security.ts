@@ -40,8 +40,9 @@ export function buildCsp({
     // Realtime keeps its heartbeat in a small inline worker, so background tabs stay connected (D104)
     "worker-src 'self' blob:",
     `connect-src ${connect}`,
-    // nothing is framed, and no third party is trusted with scripts or requests (billing is out of scope, D113)
-    "frame-src 'none'",
+    // only the demo's bot check is framed (Cloudflare Turnstile, D115); its script loads from
+    // our own nonce'd code, which 'strict-dynamic' allows. Billing is out of scope (D113).
+    "frame-src https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

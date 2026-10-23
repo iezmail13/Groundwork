@@ -58,6 +58,11 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
   const { supabase, user } = await requireUser();
 
   const { data: org } = await supabase.from("organizations").select("*").eq("slug", slug).maybeSingle();
+  // a demo visitor whose demo has ended (gone, or locked) goes back to the demo page (D115)
+  if (!org && user.is_anonymous) {
+    const { count } = await supabase.from("organizations").select("id", { count: "exact", head: true });
+    if (!count) redirect("/demo?ended=1");
+  }
   if (!org) notFound();
 
   const [{ data: membership }, { data: preset }, tz] = await Promise.all([

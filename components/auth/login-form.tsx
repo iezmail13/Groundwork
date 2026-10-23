@@ -9,6 +9,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { keepValues } from "@/lib/forms";
 import { GoogleButton } from "./google-button";
+import { Turnstile } from "@/components/demo/turnstile";
+import { turnstileSiteKey } from "@/lib/demo";
 
 export function LoginForm({
   next,
@@ -24,6 +26,7 @@ export function LoginForm({
 }) {
   const [state, action, pending] = useActionState(sendMagicLink, idle);
   const sent = state.status === "success";
+  const siteKey = turnstileSiteKey();
   return (
     <div className="flex flex-col gap-5">
       {google ? (
@@ -50,6 +53,8 @@ export function LoginForm({
           invalid={Boolean(state.fieldErrors?.email)}
         />
       </Field>
+      {/* Supabase asks for the bot check on every email sign-in once it's set up (D115) */}
+      {siteKey ? <Turnstile siteKey={siteKey} resetKey={state} /> : null}
       <SubmitButton pending={pending} pendingLabel="Sending link…">
         <Mail aria-hidden className="size-4" />
         {sent ? "Send another link" : submitLabel}

@@ -32,6 +32,9 @@ export function Hero({ headline, subheading, imageAlt }: { headline: string; sub
             Start free
             <ArrowRight aria-hidden className="size-4" />
           </ButtonLink>
+          <ButtonLink href="/demo" variant="secondary" data-grid-avoid className="h-12 w-full px-7 text-base sm:w-auto">
+            Try the demo
+          </ButtonLink>
         </div>
         <div className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-xl border border-rule bg-panel p-1.5 sm:p-2">
           <Image

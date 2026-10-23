@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failure, invalid, success, type ActionState } from "@/lib/action-state";
-import { DEMO_USERS, devShortcutEnabled } from "@/lib/demo";
+import { DEMO_USERS, devShortcutEnabled, turnstileSiteKey } from "@/lib/demo";
 import { safeNext } from "@/lib/safe-next";
 import { siteOrigin } from "@/lib/urls";
 
@@ -22,6 +22,8 @@ export async function sendMagicLink(_prev: ActionState, formData: FormData): Pro
   if (!parsed.success) return invalid(parsed.error);
 
   const next = safeNext(parsed.data.next);
+  const captchaToken = String(formData.get("cf-turnstile-response") ?? "").trim() || undefined;
+  if (turnstileSiteKey() && !captchaToken) return failure("Complete the check that you're not a bot, then try again.");
   const origin = await siteOrigin();
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
@@ -30,6 +32,7 @@ export async function sendMagicLink(_prev: ActionState, formData: FormData): Pro
       // the email template appends &token_hash=...&type=email to this URL
       emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
       shouldCreateUser: true,
+      captchaToken,
     },
   });
   if (error) {

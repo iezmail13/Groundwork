@@ -34,6 +34,8 @@ const HINTS: Record<string, string> = {
   outranked_by_creator: "Someone ranked above you made this, so only they or someone at or above their rank can change it.",
   // the task model (D100)
   claim_limit: "Every spot on this is taken.",
+  // the public demo (D115)
+  demo_only: "That isn't available in the demo. Start free to use it with your team.",
   not_claimable: "This was given to specific people, so it can't be claimed.",
   task_done: "This is already done.",
   appointed_cannot_leave: "They were appointed to this, so only the person who appointed them, or someone ranked above that person, can take them off.",

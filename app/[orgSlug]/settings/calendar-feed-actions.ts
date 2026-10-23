@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/urls";
+import { DEMO_ONLY } from "@/lib/demo";
 
 export type FeedResult = { ok: true; url: string | null } | { ok: false; message: string };
 
@@ -14,6 +15,7 @@ export type FeedResult = { ok: true; url: string | null } | { ok: false; message
 export async function makeCalendarFeed(): Promise<FeedResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("regenerate_calendar_feed");
+  if (error?.hint === "demo_only") return { ok: false, message: DEMO_ONLY };
   if (error || !data) return { ok: false, message: "Couldn't make a calendar link. Try again." };
   revalidatePath("/[orgSlug]/settings", "page");
   return { ok: true, url: `${await siteOrigin()}/api/calendar/${data}.ics` };

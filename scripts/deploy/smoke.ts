@@ -23,6 +23,8 @@ async function attempt(origin: string): Promise<string[]> {
   const cookie = await bypassCookie(origin);
   const login = await fetch(`${origin}/login`, cookie ? { headers: { cookie } } : undefined);
   problems.push(...checkLoginPage(login.status, await login.text()).problems);
+  const demo = await fetch(`${origin}/demo`, cookie ? { headers: { cookie } } : undefined);
+  if (demo.status !== 200 || !(await demo.text()).includes("Start the demo")) problems.push(`/demo doesn't offer the demo (HTTP ${demo.status})`);
   const logo = await fetch(`${origin}/logo.svg`);
   if (logo.status !== 200) problems.push(`/logo.svg returned HTTP ${logo.status}`);
   return problems;

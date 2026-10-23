@@ -104,6 +104,31 @@ describe("buildAuthSettings: Google", () => {
   });
 });
 
+describe("buildAuthSettings: demo and bot check (D115)", () => {
+  it("always turns on the demo's temporary sign-in", () => {
+    expect(buildAuthSettings("https://a.example")).toMatchObject({ external_anonymous_users_enabled: true });
+  });
+
+  it("keeps the bot check off without its keys, with the default per-address demo limit", () => {
+    expect(buildAuthSettings("https://a.example")).toMatchObject({ security_captcha_enabled: false, rate_limit_anonymous_users: 30 });
+  });
+
+  it("turns the bot check on with both keys", () => {
+    const body = buildAuthSettings("https://a.example", {}, [], {}, { siteKey: " 0x4AAA ", secret: "s3cret" });
+    expect(body).toMatchObject({
+      security_captcha_enabled: true,
+      security_captcha_provider: "turnstile",
+      security_captcha_secret: "s3cret",
+      rate_limit_anonymous_users: 300,
+    });
+  });
+
+  it("refuses half a bot check, which would block every email sign-in", () => {
+    expect(() => buildAuthSettings("https://a.example", {}, [], {}, { siteKey: "0x4AAA" })).toThrow(/missing: TURNSTILE_SECRET_KEY/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], {}, { secret: "s" })).toThrow(/missing: TURNSTILE_SITE_KEY/);
+  });
+});
+
 describe("buildAuthSettings", () => {
   it("allows redirects only back to this app", () => {
     const body = buildAuthSettings("https://groundwork.vercel.app/");
@@ -220,7 +245,8 @@ describe("security headers", () => {
     expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co;");
     // no third party: billing is out of scope (D113)
     expect(csp).not.toContain("stripe");
-    expect(csp).toContain("frame-src 'none'");
+    // the only frame is the demo's bot check (Cloudflare Turnstile, D115)
+    expect(csp).toContain("frame-src https://challenges.cloudflare.com;");
     expect(csp).toContain("frame-ancestors 'none'");
     // only the app itself and in-page blob workers (Realtime's heartbeat), never other hosts
     expect(csp).toContain("worker-src 'self' blob:;");

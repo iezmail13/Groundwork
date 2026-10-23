@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
@@ -24,7 +25,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (data.user) redirect(next);
+  if (data.user && !data.user.is_anonymous) redirect(next);
 
   return (
     <AuthFrame
@@ -37,6 +38,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </p>
       ) : null}
       <LoginForm next={next === "/" ? undefined : next} google={googleSignInEnabled()} />
+      <p className="mt-6 text-sm text-ink-muted">
+        Just looking?{" "}
+        <Link href="/demo" className="font-semibold text-accent underline underline-offset-2">
+          Try the demo
+        </Link>{" "}
+        without an account.
+      </p>
 
       {devShortcutEnabled() ? (
         <section aria-labelledby="dev-signin" className="mt-8 border-t border-dashed border-rule pt-5">
