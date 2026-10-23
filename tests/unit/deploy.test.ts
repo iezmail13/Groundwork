@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   buildAuthSettings,
   buildTemplateConfig,
+  checkLandingPage,
   checkLoginPage,
   isAttachedDomain,
   isSkippableTemplateRefusal,
@@ -12,6 +13,7 @@ import {
   pickVercelScope,
   productionRedirects,
 } from "@/scripts/deploy/lib";
+import { buildCsp, canonicalRedirect } from "@/lib/security";
 
 describe("pickPublishableKey", () => {
   it("prefers the new publishable key", () => {
@@ -76,8 +78,54 @@ describe("Vercel domains", () => {
 
   it("checks that APP_URL is attached to the project", () => {
     expect(isAttachedDomain(domains, "https://app.northside.org")).toBe(true);
-    expect(isAttachedDomain(domains, "www.northside.org")).toBe(true);
+    expect(isAttachedDomain(domains, "app.northside.org")).toBe(true);
+    // www redirects to the app domain, so it can't be APP_URL
+    expect(isAttachedDomain(domains, "www.northside.org")).toBe(false);
     expect(isAttachedDomain(domains, "https://typo.northside.org")).toBe(false);
+  });
+});
+
+describe("buildAuthSettings: Google", () => {
+  const id = "1234-abc.apps.googleusercontent.com";
+
+  it("leaves Google alone when it isn't configured", () => {
+    expect(buildAuthSettings("https://a.example")).not.toHaveProperty("external_google_enabled");
+  });
+
+  it("turns Google on with both halves of the OAuth client", () => {
+    const body = buildAuthSettings("https://a.example", {}, [], { clientId: ` ${id} `, secret: "s3cret" });
+    expect(body).toMatchObject({ external_google_enabled: true, external_google_client_id: id, external_google_secret: "s3cret" });
+  });
+
+  it("refuses half a configuration or a malformed client id", () => {
+    expect(() => buildAuthSettings("https://a.example", {}, [], { clientId: id })).toThrow(/missing: GOOGLE_CLIENT_SECRET/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], { secret: "s3cret" })).toThrow(/missing: GOOGLE_CLIENT_ID/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], { clientId: "not-a-client", secret: "s" })).toThrow(/apps\.googleusercontent\.com/);
+  });
+});
+
+describe("buildAuthSettings: demo and bot check (D115)", () => {
+  it("always turns on the demo's temporary sign-in", () => {
+    expect(buildAuthSettings("https://a.example")).toMatchObject({ external_anonymous_users_enabled: true });
+  });
+
+  it("keeps the bot check off without its keys, with the default per-address demo limit", () => {
+    expect(buildAuthSettings("https://a.example")).toMatchObject({ security_captcha_enabled: false, rate_limit_anonymous_users: 30 });
+  });
+
+  it("turns the bot check on with both keys", () => {
+    const body = buildAuthSettings("https://a.example", {}, [], {}, { siteKey: " 0x4AAA ", secret: "s3cret" });
+    expect(body).toMatchObject({
+      security_captcha_enabled: true,
+      security_captcha_provider: "turnstile",
+      security_captcha_secret: "s3cret",
+      rate_limit_anonymous_users: 300,
+    });
+  });
+
+  it("refuses half a bot check, which would block every email sign-in", () => {
+    expect(() => buildAuthSettings("https://a.example", {}, [], {}, { siteKey: "0x4AAA" })).toThrow(/missing: TURNSTILE_SECRET_KEY/);
+    expect(() => buildAuthSettings("https://a.example", {}, [], {}, { secret: "s" })).toThrow(/missing: TURNSTILE_SITE_KEY/);
   });
 });
 
@@ -187,5 +235,49 @@ describe("checkLoginPage", () => {
     const r = checkLoginPage(200, "Email me a sign-in link <h2>Development shortcut</h2>");
     expect(r.ok).toBe(false);
     expect(r.problems[0]).toMatch(/shortcut/);
+  });
+});
+
+describe("security headers", () => {
+  it("allows only this app and Supabase, with a per-request nonce", () => {
+    const csp = buildCsp({ nonce: "abc123", supabaseUrl: "https://ref.supabase.co", dev: false, https: true });
+    expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic';");
+    expect(csp).toContain("connect-src 'self' https://ref.supabase.co wss://ref.supabase.co;");
+    // no third party: billing is out of scope (D113)
+    expect(csp).not.toContain("stripe");
+    // the only frame is the demo's bot check (Cloudflare Turnstile, D115)
+    expect(csp).toContain("frame-src https://challenges.cloudflare.com;");
+    expect(csp).toContain("frame-ancestors 'none'");
+    // only the app itself and in-page blob workers (Realtime's heartbeat), never other hosts
+    expect(csp).toContain("worker-src 'self' blob:;");
+    expect(csp).toContain("upgrade-insecure-requests");
+    expect(csp).not.toContain("unsafe-eval");
+  });
+  it("allows eval only in development, and upgrades requests only over https", () => {
+    const csp = buildCsp({ nonce: "n", supabaseUrl: "http://127.0.0.1:54321", dev: true, https: false });
+    expect(csp).toContain("'unsafe-eval'");
+    expect(csp).toContain("ws://127.0.0.1:54321");
+    expect(csp).not.toContain("upgrade-insecure-requests");
+  });
+  it("forwards only vercel.app hosts to the custom domain", () => {
+    expect(canonicalRedirect("groundwork-nine-black.vercel.app", "https://yourgroundwork.ca", "/login?next=%2F")).toBe(
+      "https://yourgroundwork.ca/login?next=%2F",
+    );
+    expect(canonicalRedirect("yourgroundwork.ca", "https://yourgroundwork.ca", "/")).toBeNull();
+    expect(canonicalRedirect("www.yourgroundwork.ca", "https://yourgroundwork.ca", "/")).toBeNull();
+    expect(canonicalRedirect("groundwork-nine-black.vercel.app", undefined, "/")).toBeNull();
+    expect(canonicalRedirect("a.vercel.app", "https://groundwork-nine-black.vercel.app", "/")).toBeNull();
+    expect(canonicalRedirect("localhost:3000", "http://localhost:3000", "/")).toBeNull();
+  });
+});
+
+describe("checkLandingPage", () => {
+  it("passes the landing page", () => {
+    expect(
+      checkLandingPage(200, '<h1>Tasks, files and deadlines for your nonprofit, in one place.</h1><a href="/signup">Start free</a><a href="/login">Log in</a>').ok,
+    ).toBe(true);
+  });
+  it("fails when / redirects or lost its content", () => {
+    expect(checkLandingPage(307, "").problems).toHaveLength(4);
   });
 });

@@ -6,7 +6,7 @@ import { idle } from "@/lib/action-state";
 import { PROJECT_COLORS, DEFAULT_PROJECT_COLOR } from "@/lib/palette";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { Button } from "@/components/ui/button";
@@ -17,19 +17,17 @@ export type ProjectFormValues = {
   name: string;
   description: string | null;
   color: string | null;
-  owner_membership_id: string | null;
   start_date: string | null;
   end_date: string | null;
+  tracks_participants?: boolean;
 };
 
 export function ProjectForm({
   organizationId,
-  members,
   project,
   onDone,
 }: {
   organizationId: string;
-  members: { id: string; name: string }[];
   project?: ProjectFormValues;
   onDone: () => void;
 }) {
@@ -60,16 +58,6 @@ export function ProjectForm({
         <Textarea id="project-description" name="description" maxLength={4000} defaultValue={project?.description ?? ""} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Owner" htmlFor="project-owner" error={errors.ownerMembershipId}>
-          <Select id="project-owner" name="ownerMembershipId" defaultValue={project?.owner_membership_id ?? ""}>
-            <option value="">No owner</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <fieldset>
           <legend className="mb-1.5 font-heading text-sm font-semibold">Colour</legend>
           <div className="flex flex-wrap gap-2">
@@ -105,6 +93,24 @@ export function ProjectForm({
           />
         </Field>
       </div>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name="tracksParticipants"
+          defaultChecked={project?.tracks_participants ?? false}
+          className="mt-1 size-4 accent-[var(--accent)]"
+          aria-describedby="project-tracks-hint"
+        />
+        <span>
+          <span className="block font-heading text-sm font-semibold">
+            Keeps a {lower(t("participant"))} roster and {lower(t("section.attendance"))}
+          </span>
+          <span id="project-tracks-hint" className="block text-sm text-ink-muted">
+            Its {lower(t("event", "other"))} become check-ins under {t("section.attendance")}. Only its {lower(t("project_role.admin", "other"))},{" "}
+            {lower(t("project_role.lead", "other"))} and {lower(t("role.owner", "other"))} see the people on it.
+          </span>
+        </span>
+      </label>
       <FormMessage state={state} />
       <div className="flex justify-end gap-2 border-t border-rule pt-4">
         <Button variant="secondary" onClick={onDone}>

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { filterTasks, readFilters, readSort, sortTasks } from "@/lib/task-filters";
-import type { TaskRow } from "@/lib/queries";
+import { byPriority, filterTasks, forStatusView, readFilters, readSort, sortTasks } from "@/lib/task-filters";
+import type { TaskAssignee, TaskRow } from "@/lib/queries";
 
 const P1 = "11111111-1111-4111-8111-111111111111";
 const P2 = "22222222-2222-4222-8222-222222222222";
 const ME = "33333333-3333-4333-8333-333333333333";
 const YOU = "44444444-4444-4444-8444-444444444444";
 const today = "2026-10-07";
+const member = (id: string): TaskAssignee => ({ membership_id: id, invitation_id: null, kind: "appointed", done_at: null });
+const invitee = (id: string): TaskAssignee => ({ membership_id: null, invitation_id: id, kind: "appointed", done_at: null });
 
 function task(id: string, patch: Partial<TaskRow>): TaskRow {
   return {
@@ -17,18 +19,27 @@ function task(id: string, patch: Partial<TaskRow>): TaskRow {
     due_date: null,
     position: 0,
     project_id: P1,
-    assignee_membership_id: null,
+    kind: "general",
+    priority: "medium",
+    hidden: false,
+    claim_limit: null,
+    completion: "any",
+    assignees: [],
+    needs_assignee: false,
     completed_at: null,
+    step_id: null,
+    link_url: null,
     created_by: null,
+    created_by_role: null,
     project: { id: P1, name: "Alpha", color: null, status: "active" },
     ...patch,
   };
 }
 
 const tasks = [
-  task("late", { due_date: "2026-10-01", assignee_membership_id: ME }),
+  task("late", { due_date: "2026-10-01", assignees: [member(ME)] }),
   task("late-but-done", { due_date: "2026-10-01", status: "done" }),
-  task("today", { due_date: today, assignee_membership_id: YOU, project_id: P2, project: { id: P2, name: "Beta", color: null, status: "active" } }),
+  task("today", { due_date: today, assignees: [member(YOU)], project_id: P2, project: { id: P2, name: "Beta", color: null, status: "active" } }),
   task("soon", { due_date: "2026-10-10", status: "in_progress" }),
   task("later", { due_date: "2026-11-20" }),
   task("undated", {}),
@@ -44,6 +55,22 @@ describe("task filters", () => {
     expect(ids(filterTasks(tasks, { due: "none" }, today, ME))).toEqual(["undated"]);
   });
 
+  it("matches any of a task's assignees", () => {
+    const shared = [task("both", { assignees: [member(YOU), member(ME)] })];
+    expect(ids(filterTasks(shared, { assignee: "me" }, today, ME))).toEqual(["both"]);
+    expect(ids(filterTasks(shared, { assignee: YOU }, today, ME))).toEqual(["both"]);
+    expect(filterTasks(shared, { assignee: "none" }, today, ME)).toHaveLength(0);
+  });
+
+  it("treats a pending invitee as an assignee", () => {
+    const INVITE = "55555555-5555-4555-8555-555555555555";
+    const withInvitee = [...tasks, task("pending", { assignees: [invitee(INVITE)] })];
+    expect(ids(filterTasks(withInvitee, { assignee: INVITE }, today, ME))).toEqual(["pending"]);
+    expect(ids(filterTasks(withInvitee, { assignee: "none" }, today, ME))).not.toContain("pending");
+    const names = new Map([[INVITE, "Alex Rivera (pending)"]]);
+    expect(ids(sortTasks(withInvitee, { key: "assignee", dir: "asc" }, names))[0]).toBe("pending");
+  });
+
   it("filters by assignee, project and status", () => {
     expect(ids(filterTasks(tasks, { assignee: "me" }, today, ME))).toEqual(["late"]);
     expect(ids(filterTasks(tasks, { assignee: YOU }, today, ME))).toEqual(["today"]);
@@ -53,13 +80,41 @@ describe("task filters", () => {
   });
 
   it("ignores malformed URL parameters", () => {
-    expect(readFilters({ project: "x; drop table", assignee: "everyone", status: "bogus", due: "yesterday" })).toEqual({
+    expect(readFilters({ project: "x; drop table", assignee: "everyone", status: "bogus", due: "yesterday", finished: "yes" })).toEqual({
       project: undefined,
       assignee: undefined,
       status: undefined,
+      finished: false,
+      priority: undefined,
       due: undefined,
     });
+    expect(readFilters({ finished: "1" }).finished).toBe(true);
+    expect(readFilters({ priority: "urgent" }).priority).toBeUndefined();
+    expect(readFilters({ priority: "high" }).priority).toBe("high");
     expect(readSort({ sort: "nope", dir: "sideways" })).toEqual({ key: "due", dir: "asc" });
+  });
+});
+
+describe("priority and completed work", () => {
+  const ranked = [
+    task("low", { priority: "low", due_date: "2026-10-08" }),
+    task("critical-later", { priority: "critical", due_date: "2026-10-20" }),
+    task("critical-sooner", { priority: "critical", due_date: "2026-10-09" }),
+    task("medium", {}),
+  ];
+  it("filters by priority", () => {
+    expect(ids(filterTasks(ranked, { priority: "critical" }, today, ME))).toEqual(["critical-later", "critical-sooner"]);
+  });
+  it("sorts most urgent first, then soonest due", () => {
+    expect(ids([...ranked].sort(byPriority))).toEqual(["critical-sooner", "critical-later", "medium", "low"]);
+    expect(ids(sortTasks(ranked, { key: "priority", dir: "asc" }, new Map()))[0]).toMatch(/^critical/);
+  });
+  it("shows open work by default and finished work only under Completed", () => {
+    expect(ids(forStatusView(tasks, undefined))).not.toContain("late-but-done");
+    expect(ids(forStatusView(tasks, "done"))).toEqual(["late-but-done"]);
+    // "Include finished work" keeps the open work and adds the finished (D112)
+    expect(ids(forStatusView(tasks, undefined, true))).toEqual(ids(tasks));
+    expect(ids(forStatusView(tasks, "done", true))).toEqual(["late-but-done"]);
   });
 });
 

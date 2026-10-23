@@ -2,8 +2,8 @@
 set client_min_messages = warning;
 -- Everything happens inside the test's transaction and is rolled back.
 --
--- Organization A: alice (admin), mia (member)
--- Organization B: bob (admin), bea (member)
+-- Organization A: alice (owner), mia (staff)
+-- Organization B: bob (owner), bea (staff)
 -- oscar: signed up, belongs to no organization
 
 create extension if not exists pgtap with schema extensions;
@@ -50,31 +50,38 @@ $$;
 
 grant execute on all functions in schema tests to authenticated, anon;
 
-insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+-- every fixture user has confirmed their email, as a real sign-in does
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
 values
-  ('a0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'alice@a.test', '{"full_name":"Alice Admin"}', now(), now()),
-  ('a0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'mia@a.test', '{"full_name":"Mia Member"}', now(), now()),
-  ('b0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bob@b.test', '{"full_name":"Bob Admin"}', now(), now()),
-  ('b0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bea@b.test', '{"full_name":"Bea Member"}', now(), now()),
-  ('c0000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'oscar@c.test', '{"full_name":"Oscar Outsider"}', now(), now());
+  ('a0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'alice@a.test', '{"full_name":"Alice Admin"}', now(), now(), now()),
+  ('a0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'mia@a.test', '{"full_name":"Mia Member"}', now(), now(), now()),
+  ('b0000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bob@b.test', '{"full_name":"Bob Admin"}', now(), now(), now()),
+  ('b0000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bea@b.test', '{"full_name":"Bea Member"}', now(), now(), now()),
+  ('c0000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'oscar@c.test', '{"full_name":"Oscar Outsider"}', now(), now(), now());
 
 insert into public.organizations (id, name, slug, preset_key) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Org A', 'org-a', 'nonprofit'),
   ('bbbbbbbb-0000-0000-0000-000000000000', 'Org B', 'org-b', 'business');
 
 insert into public.memberships (id, organization_id, user_id, role) values
-  ('aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'admin'),
-  ('aaaaaaaa-1111-0000-0000-00000000000b', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000b', 'member'),
-  ('bbbbbbbb-1111-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000a', 'admin'),
-  ('bbbbbbbb-1111-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000b', 'member');
+  ('aaaaaaaa-1111-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000a', 'owner'),
+  ('aaaaaaaa-1111-0000-0000-00000000000b', 'aaaaaaaa-0000-0000-0000-000000000000', 'a0000000-0000-0000-0000-00000000000b', 'staff'),
+  ('bbbbbbbb-1111-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000a', 'owner'),
+  ('bbbbbbbb-1111-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000000', 'b0000000-0000-0000-0000-00000000000b', 'staff');
 
 insert into public.invitations (id, organization_id, email, role, token, invited_by) values
-  ('aaaaaaaa-2222-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'newbie@a.test', 'member', 'token-a', 'a0000000-0000-0000-0000-00000000000a'),
-  ('bbbbbbbb-2222-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'oscar@c.test', 'member', 'token-b', 'b0000000-0000-0000-0000-00000000000a');
+  ('aaaaaaaa-2222-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'newbie@a.test', 'staff', 'token-a', 'a0000000-0000-0000-0000-00000000000a'),
+  ('bbbbbbbb-2222-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'oscar@c.test', 'staff', 'token-b', 'b0000000-0000-0000-0000-00000000000a');
 
 insert into public.projects (id, organization_id, name, created_by) values
   ('aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'A project', 'a0000000-0000-0000-0000-00000000000a'),
   ('bbbbbbbb-3333-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000', 'B project', 'b0000000-0000-0000-0000-00000000000a');
+
+-- mia and bea are on their organization's project; alice and bob own theirs
+-- (the creator trigger adds them as lead)
+insert into public.project_members (organization_id, project_id, membership_id, role) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000b', 'staff'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-3333-0000-0000-000000000000', 'bbbbbbbb-1111-0000-0000-00000000000b', 'staff');
 
 insert into public.tasks (id, organization_id, project_id, title, created_by) values
   ('aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'A task', 'a0000000-0000-0000-0000-00000000000a'),

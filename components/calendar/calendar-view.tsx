@@ -108,7 +108,7 @@ export function CalendarView({
       <Modal
         open={dialog?.type === "create" || dialog?.type === "edit"}
         onClose={close}
-        title={dialog?.type === "edit" ? `Edit ${eventLabel}` : `New ${eventLabel}`}
+        title={dialog?.type === "edit" ? (dialog.values.locked ? dialog.values.title : `Edit ${eventLabel}`) : `New ${eventLabel}`}
       >
         {dialog?.type === "create" ? (
           <EventForm organizationId={organizationId} projects={projects} event={newEventValues(dialog.date)} onDone={close} />
@@ -183,7 +183,7 @@ function MonthGrid({
                     <div className="flex items-center justify-between">
                       <span
                         className={`inline-flex size-7 items-center justify-center rounded-full font-heading text-sm ${
-                          isToday ? "bg-primary font-bold text-on-primary" : inMonth ? "font-semibold" : "text-ink-muted"
+                          isToday ? "bg-accent font-bold text-on-accent" : inMonth ? "font-semibold" : "text-ink-muted"
                         }`}
                       >
                         <span aria-hidden>{Number(day.slice(8))}</span>
@@ -236,7 +236,7 @@ function ItemChip({ item, onOpen }: { item: CalendarItem; onOpen: (item: Calenda
       <Link
         href={item.href}
         className={`flex items-center gap-1 truncate rounded px-1 py-0.5 text-xs hover:bg-panel ${
-          item.overdue ? "bg-primary font-semibold text-on-primary hover:bg-primary" : ""
+          item.overdue ? "bg-accent font-semibold text-on-accent hover:bg-accent" : ""
         } ${item.done ? "text-ink-muted line-through" : ""}`}
         title={item.title}
       >
@@ -300,7 +300,7 @@ function Agenda({
         <li key={day} className="grid gap-2 border-b border-rule py-3 sm:grid-cols-[180px_1fr]" aria-current={day === today ? "date" : undefined}>
           <h2 className="font-heading font-bold">
             {day === today ? (
-              <span className="mr-2 rounded-full bg-primary px-2 py-0.5 text-xs text-on-primary">Today</span>
+              <span className="mr-2 rounded-full bg-accent px-2 py-0.5 text-xs text-on-accent">Today</span>
             ) : null}
             {formatDate(day, { weekday: "short", month: "short", day: "numeric" })}
             {day !== today ? <span className="block text-sm font-normal text-ink-muted">{formatRelativeDate(day, today)}</span> : null}
@@ -347,7 +347,7 @@ function ItemList({ items, onOpen }: { items: CalendarItem[]; onOpen: (item: Cal
               </span>
               <span className={item.done ? "text-ink-muted line-through" : "font-semibold"}>{item.title}</span>
               {item.overdue ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 font-heading text-xs font-semibold text-on-primary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 font-heading text-xs font-semibold text-on-accent">
                   <TriangleAlert aria-hidden className="size-3" />
                   Overdue
                 </span>

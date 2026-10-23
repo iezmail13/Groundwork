@@ -113,3 +113,617 @@ A multi-agent review looked for things that would break on Vercel and hosted Sup
 **D48. Uploads carry the type they were approved for.** `storage-js` ignores the `contentType` option when the body is a `File` and sends the browser's own type. Browsers report an empty type for some files (Markdown on Windows), which arrived as `application/octet-stream` and was refused by the bucket. The form now works out the type from the extension when the browser's isn't on the allow-list (`mimeTypeFor`, which maps every accepted extension) and uploads a copy of the file with that type.
 
 **D49. The database password reaches `supabase db push` through the environment.** As a `--password` argument, a password starting with `-` is read as flags. One containing `h` or `v` then prints help or the version and exits 0, so the deploy carried on against an empty database. The CLI reads `SUPABASE_DB_PASSWORD` from the environment itself, which also keeps the password out of the process list. `--yes` answers the confirmation prompt explicitly.
+
+**D50. Security headers, and the vercel.app address forwards to the custom domain.** Every response carries HSTS (two years, subdomains), `nosniff`, `X-Frame-Options: DENY`, a strict referrer policy and a Permissions-Policy that turns off camera, microphone, location and topics (`next.config.ts`). `proxy.ts` sets a per-request Content-Security-Policy with a nonce, which Next.js adds to its own scripts (`'strict-dynamic'`). It allows this app, the Supabase project (API, storage uploads, realtime) and Stripe's script, API and frames for the planned billing. Style attributes stay allowed because React renders them inline. `frame-ancestors 'none'` stops clickjacking, and `upgrade-insecure-requests` applies only over https, so a local production build on plain http still works. A production build was clicked through (sign-in, every page, a document upload) with no CSP violations. When `NEXT_PUBLIC_SITE_URL` names a custom domain, GET and HEAD requests on any `*.vercel.app` host get a 308 to the same path there, so the old address isn't indexed as a duplicate. Only vercel.app hosts are redirected, so an apex/www setup can't loop, which is what ruled out the general canonical-host redirect in D41. `APP_URL` must now be a domain that serves the site, not one Vercel redirects.
+
+**D51. `/` is a public landing page.** `/` is now in `PUBLIC_PATHS`, and `app/page.tsx` checks the session without redirecting. Signed-out visitors get the landing page (`components/marketing/`); signed-in people go to their last-used organization's dashboard, or to `/create-organization`, as before. The page is built in this repo's own style from two third-party layout references (a hero and a tabbed features section): navy and bone tokens only, a fine ruled grid instead of colour washes, no shadows, and CSS-only animation that stops under reduced motion. It adds no packages: the features tabs are a hand-built ARIA tablist with arrow, Home and End keys, and the mobile menu is a disclosure button. Copy takes primitive words from the default translator, because there is no organization. The screenshots in `public/marketing/` are the seeded demo organization, captured by `scripts/capture-marketing.ts`, so they can be regenerated after UI changes. They show the Nonprofit preset's words ("Programs", "Sessions"), which also shows relabelling at work. Two claims from the brief were reworded to match the app. Tasks move across a board or are sorted and filtered in a list (there is no table view). Reminders are in-app: overdue and due-soon work is flagged on every page and in the dashboard's Reminders strip, and nothing is sent by email or push. Testimonials, logos and stats are left out because there are none yet. The deploy's smoke test now checks the landing page instead of a redirect.
+
+## Standing rules for accounts, roles, participants and calendar (owner's decision)
+
+The owner changed the standing rules in CLAUDE.md before the accounts, permissions, participants and calendar build. Each change is theirs; the build follows it.
+
+**D52. Scope adds participants, email invitations and an ICS feed.** Participant rosters with their files and attendance are in scope, but only on projects whose type turns them on. Invitations go out by email, and each person gets a read-only ICS calendar feed. Everything else on the forbidden list stays forbidden: finance, communications, automations and other integrations.
+
+**D53. Google sign-in alongside the magic link.** Auth is Supabase Auth with Google sign-in plus the existing email magic link. Only verified emails are trusted, for example when matching invitations.
+
+**D54. A ranked role ladder replaces admin/member.** Org roles are owner (4) > manager (3) > admin (2) > staff (1), with project roles lead > admin > staff under the org role as a ceiling. `has_role` becomes the rank-based `has_permission(org, role)`, still security-definer and non-recursive, reading the rank live from the membership row. "The last admin can never be removed or demoted" becomes the same rule for the last owner. "Members see everything in their org" is replaced by project membership: off a project, you can't see it or anything in it, and `can_view_task()` is the single source of truth for task visibility.
+
+**D55. Terminology covers the new words.** Label keys are added for the new roles (and the participant and attendance words when they reach UI copy), and `check:labels` checks them, so a relabelled organization never shows a hard-coded role name.
+
+**D56. A second private bucket for participant files.** It has the same signed-URL, 25 MB and allow-list rules as `documents`, with paths keyed on organization and project.
+
+**D57. Packages.** Google sign-in is configured in Supabase Auth and needs no package. The ICS feed is plain text written by a route handler, so it needs none either. If either turns out to need one, the reason is recorded here first.
+
+
+## Roles (Part B, phase 1)
+
+**D58. Existing roles map onto the ladder by power, not by name.** The old `admin` (full control) became `owner` and the old `member` became `staff`, by renaming the enum values, so every existing membership and invitation keeps what it could do. `manager` and `admin` are new values between them. The new values are added in their own migration because PostgreSQL can't use an enum value in the transaction that adds it. Custom role labels move with their roles: an organization that had renamed "Admin" now has that label on Owner.
+
+**D59. What each rank can do at the organization level, for now.** Owners and managers change settings, invite people, see pending invitations and delete anyone's projects, tasks, events and documents. Only owners delete the organization or the activity log. Admins have no organization-level powers beyond staff yet; their extra powers come with project roles in phase 3, where a project admin manages that project. Managers can invite, promote, demote and remove only people ranked below them (admins and staff) and can't change their own role; owners can do all of it, including making other owners. The database enforces this (`can_grant_role`, `can_manage_member`), and the settings page offers only the choices it will accept. Anyone can leave, except the last owner.
+
+**D60. Ownership transfer promotes first, then steps the owner down to manager.** `transfer_ownership` runs both updates in one transaction, so the last-owner guard always sees an owner. The old owner becomes a manager rather than staff so they keep running things day to day; the new owner can change that. Ownership can't go to someone outside the organization or to yourself. Because the person who started it is no longer an owner, the page reloads with a status line instead of a dialog message.
+
+**D61. `can_view_task()` exists now and every task read goes through it.** In this phase it returns true for any member of the task's organization, which matches today's rules, and the `tasks` select policy calls it. Phase 3 narrows it to project membership and phase 4 adds personal and shared tasks, including "owners see each other's work; nobody else has equal-rank visibility". Every task in this phase belongs to a project, so there are no personal tasks for that rule to apply to yet.
+
+**D62. A project's "owner" field is now labelled "Lead".** "Owner" is now a role name, and `check:labels` rejects role names written into UI copy. The field is the person responsible for a project, which is what phase 3's project lead role is, so the label anticipates it. The column (`owner_membership_id`) is unchanged.
+
+## Settings (owner's decisions)
+
+**D63. No Terminology tab.** The owner removed it as not needed. Each organization's words now come from its preset alone. `t()` still applies any custom labels saved before the change, but they can't be edited, so applying a preset clears them. The `terminology_overrides` column stays, so nothing is deleted by a migration; dropping it is a separate, destructive step for the owner to approve. The e2e step that saved and cleared a custom label is gone with the feature.
+
+**D64. No Theme tab; the base navy is fixed at #163260.** The owner removed the theme setting and chose #163260 (it was #1F2D4D). There is no dark mode any more, because it was only reachable from that tab. Every token is still derived from the navy (`lib/theme/theme.ts`) and written into `app/globals.css`, so the org shell no longer sets inline colours; a unit test checks that the CSS matches the derived values and that every text pair passes 4.5:1 (the lowest is secondary sidebar text at 5.1:1). The `theme` columns on `organizations` and `presets` are no longer read and stay in place for the same reason as D63. The logo keeps its own colours.
+
+**D65. Project colours follow the new navy.** The project palette is re-derived from #163260 (same tints, same names), and a migration moves each stored project colour to the matching new value, so projects keep their look and the edit form still recognises them.
+
+## Accounts, invitations and project membership (Part B, phase 2)
+
+**D66. Existing members join existing projects, so nobody loses access.** Before this phase every member saw every project. The migration puts every non-owner member on every existing project as staff, and the person each project named as its lead joins with the highest project role their org role allows. Owners need no row: they see every project and act as its lead. New projects add their creator the same way (managers and owners lead, admins become project admins).
+
+**D67. What each project role can do.** Leads (and owners) manage everyone on the project, including other leads, and can delete it. Project admins edit, archive and restore it, delete anyone's items in it, and add, re-level or remove staff. Staff add and edit items and delete their own. Org managers on a project can edit, reassign and delete anything in it, as CLAUDE.md asks, but change its roster only if they lead it, which is how this build reads "managers hold maximum permission only on projects they lead". Creating a project needs org admin or above; before this phase any member could. "Add all admins" adds every org admin not yet on the project as a project admin.
+
+**D68. What follows the project.** Tasks always belong to a project, so `can_view_task()` is now "can see its project". Calendar items and files attached to a project follow it; ones with no project stay visible to the whole organization. Stored files follow their document row, so a file attached to a project can't be fetched by path by someone off it. Activity entries follow the project they're about, and owners still see the history of deleted projects.
+
+**D69. Archived projects are read-only.** Their details, tasks, calendar items and files can't be changed or deleted until a project admin or lead restores them. They stay visible to the people on them. The UI hides the edit controls and says why.
+
+**D70. Assignees must be able to see the work.** A task can only be assigned to someone on its project, or an owner, or a pending invitee whose invitation grants the project. When someone leaves a project or the organization, or an invitation is declined, withdrawn or loses that project, their open tasks there are unassigned and flagged **Needs assignee** until someone takes them. Finished tasks aren't flagged.
+
+**D71. Invitations.** An invitation has an optional name, an org role, and project grants, each capped by the invited role and limited to projects where the inviter is a project admin or lead. Re-inviting an address updates its pending invitation in place, so the link and any work already assigned to it stay. Status is derived (pending, accepted, expired) rather than stored. Invitations are listed and accepted only for a verified email address (`email_confirmed_at`): a magic link someone opened, or Google confirming the address. After sign-in, `/` shows pending invitations first, worded with the organization's preset, since its custom labels aren't readable before joining. Accepting puts the invited name on an account that has none.
+
+**D72. The Add member drawer.** On a task, owners and managers who are a project admin or lead there see **Add member** beside the assignee picker. It opens a drawer over the form (a `<dialog>` rendered into `<body>`, so its form doesn't nest inside the task's), invites someone with this project granted, and selects them as "Name (pending)" without losing what was typed. The assignee list follows the project chosen on the form. Pending invitees appear as "Name (pending)" wherever tasks are listed.
+
+**D73. Removing someone keeps their history.** `remove_member()` hands each of their open tasks to the person chosen, where that person can see it, flags the rest, and removes the membership, all in one transaction, so the last-owner guard rolls everything back. Activity entries store the name of whoever made them, so the log still reads "Sofia completed …" after Sofia leaves. Finished tasks lose their assignee, as before. The page reports what was handed over, because the dialog disappears with the person's row.
+
+**D74. Google sign-in needs no package.** It's Supabase Auth's Google provider, started from the browser with `signInWithOAuth` and finished at `/auth/callback`, which already exchanges codes. The button shows only when `NEXT_PUBLIC_GOOGLE_SIGN_IN` is true; the deploy sets it, and turns the provider on, only when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. The button is text only, because Google's multicolour mark would break the two-scale palette. Locally Google isn't configured; the e2e test checks the hand-off to Supabase and the error path, not Google itself.
+
+**D75. Not in this phase.** The project type with `tracks_participants` and `tracks_attendance` toggles (brief B3) waits for phase 4, because nothing would use the toggles yet and CLAUDE.md doesn't allow placeholders. The leak-path test "a lower rank never sees a higher rank's personal task" waits for personal tasks in phase 3; this phase covers "off the project means zero rows" for projects, tasks, calendar items, files, stored files, rosters and activity.
+
+**D76. New projects aren't read back on insert.** Postgres checks `INSERT … RETURNING` against the select policy inside the insert, before the new project is visible to the helpers and before its creator joins it, so it was refused. The app chooses the project's id itself, inserts without `RETURNING`, and then redirects to it.
+
+**D77. Project rosters use the org's word for role names.** Project roles get their own label keys (`project_role.lead`, `.admin`, `.staff`), and `check:labels` now rejects "lead" in UI copy as well.
+
+## Landing hero background (owner's decisions)
+
+**D78. The hero has an interactive grid, in navy tints, drawn by JavaScript.** The owner added a third-party "grid pulse" component behind the landing hero (`components/ui/grid-pulse.tsx`): a fine hairline grid whose cells light up where the pointer passes and fade a moment later, with a couple of cells lighting on their own so it is alive on touch screens. It replaces the hero's static ruled grid. Three adaptations, each chosen by the owner:
+
+- **Colours.** The original lights cells in a full spectrum, yellow through green. Here each lit cell is a tint of the navy over the bone ground (12–48% navy, deepening down the field), derived with `mix()` from the two scales, so the palette rule holds. The hairlines are 7% navy, and the component reads `--color-ink` / `--color-canvas` where the original expected shadcn's `--color-foreground` / `--color-background`, which this app doesn't have.
+- **An exception to "animation is CSS only".** It's a canvas animation driven by `requestAnimationFrame`. It's decoration only (hidden from assistive tech, transparent to the pointer), draws nothing under `prefers-reduced-motion` (the hairlines stay), and stops when the hero is off screen or the tab is hidden. While the hero is on screen the ambient cells keep the loop running most frames, at about 4 ms of script per second with no long tasks. Nothing else in the app uses JavaScript animation.
+- **No new packages.** The component imports `cn` from `@/lib/utils`, as shadcn components do. This repo isn't a shadcn project (no `components.json`, by the landing brief's own instruction), so `lib/utils.ts` has a dependency-free `cn` that joins class names. It doesn't merge conflicting Tailwind classes, which nothing here needs. The app's primitives already live in `components/ui`, so the component sits there unchanged in path.
+
+The headline, subhead and the two buttons carry `data-grid-avoid`, so cells behind them go faint, and the headline and subhead have a halo in the page colour. The copy, layout, buttons and links are unchanged.
+
+## Invite from a task (owner's request)
+
+**D79. Inviting from a task opens Settings → Members instead of a drawer.** The owner asked for the assign button to lead to the invite section. Under a task's assignee picker, owners and managers who are a project admin or lead there see **Invite someone to assign**, which opens the invite form with the task's project ticked (at the lowest project role, and it can't be unticked) and a note naming the task. Inviting there also assigns the task to the new invitee, who shows as "Name (pending)" until they join, as before; the result offers the invite link to copy and a link back to the task. The task's saved project is the one granted, so the form under the picker asks people to save first. The Add member drawer (D72) is removed. Invitations are still not emailed: the link is copied and sent by hand.
+
+## Creator protection (owner's request)
+
+**D80. Lower ranks can't change what a higher rank made.** The owner asked that people can't edit tasks, calendar items and other work created by someone ranked above them. Projects, tasks, calendar items and documents now store `created_by_role`, the org role their creator held when they made them; the database stamps it from the membership on insert (whatever the client sends) and it can't be changed. A trigger, `guard_creator_rank`, refuses an edit or delete by anyone ranked below that role who isn't the creator. The creator, equal ranks and higher ranks are allowed, and because the role is kept on the row the protection survives the creator being demoted or leaving. It narrows D67: a project admin or an org manager can no longer edit or delete items in their project that someone ranked above them made.
+
+- **The assignee exception.** A task's assignee may change its status and board position (mark it done, move it between columns) whatever its creator's rank. Nothing else.
+- **Saving without changes is allowed**, so an unchanged form never errors.
+- **The app's own bookkeeping isn't blocked.** The guard applies to the `authenticated` role, which is who runs a person's own edits. Security-definer functions (member removal, accepting or declining an invitation, roster changes) and foreign-key cascades run as their owner, so unassigning someone who leaves still works. pgTAP checks both.
+- **Existing rows** took their creator's current role, since the role at creation wasn't recorded. Rows whose creator had already left have no role and stay unprotected.
+- **Org rank, not project role**, decides: project roles are capped by the org role anyway.
+- **In the app** the item is shown read-only with a note naming the creator's role ("An admin made this, so only they or someone ranked admin or above can change it."); board cards lose their drag handle and move buttons and show a lock; list checkboxes are disabled unless the viewer is the assignee. If the database refuses anyway, the error says why.
+- **Tests changed with the rule.** Five older pgTAP assertions said staff could edit and pin an owner's items and that a project admin or lead could edit or delete an owner's project or items. They now assert the new rule, and each is paired with a new assertion showing the same power on items made by an equal or lower rank, so the project-role coverage is kept.
+
+## Participants and attendance (owner's request)
+
+**D81. An Attendance tab, built on programs and their sessions.** The owner asked for a sidebar tab for attendance, participation and participant information. Participants are people a program serves; they never sign in. The build reuses what exists instead of adding parallel tables: a program is a project and a session is a calendar item on it (the Nonprofit preset already calls them Program and Session). New tables: `participants` (organization-wide, so one person can be in several programs), `participant_programs` (enrollment) and `attendance` (one mark per participant per session: present, late, absent or excused, with an optional note). Every table has `organization_id`, RLS in the same migration, and pgTAP coverage (`14_participants_attendance`).
+
+- **Programs opt in.** A project has a "Keeps a participant roster" switch (`tracks_participants`), set in its edit form by its project admins and leads. This is CLAUDE.md's "only on projects whose type turns them on"; a full project-type setting (brief B3) can replace the switch later without changing the data.
+- **Who sees it** (the owner chose this): owners, and project admins and leads of a program the participant is enrolled in, as CLAUDE.md requires. Project staff and org managers who aren't on the program see none of it, not even in the activity feed. The sidebar shows Attendance to anyone who manages a roster, and to owners and managers so they can find the switch. Because only admins and above see participants at all, contact, date of birth, emergency contact and medical and accessibility notes have no separate permission tier; they're grouped as "Private details" on the profile.
+- **Adding** goes through `add_participant(program, name)`, which creates and enrolls in one step, so the new person is never invisible to whoever added them; direct inserts are refused.
+- **Archiving** (the default way to remove someone) sets `archived_at`: they leave rosters, search and check-in (the database refuses a mark for them), keep their history, still count in reports, and can be restored from the Archived list. Several can be archived at once from the list.
+- **Permanent deletion** is for privacy requests (PIPEDA) and needs owner or manager, confirmed by typing the person's name. It deletes the participant row, erases the notes on their marks, keeps the marks themselves with no participant (shown as "Removed participants") so session counts and program rates don't change, removes their name from earlier activity entries, and records the deletion without it.
+- **Activity.** Adding, editing (by field name, never the values), archiving, restoring and deleting a participant are logged. Individual check-in marks aren't, to keep the feed readable.
+- **Reports.** Rate = (present + late) ÷ (present + late + absent); excused is left out of both sides. Reports cover a date range and optionally one program, show a bar per participant, tables per program and per participant, and download as CSV (formula-safe: cells starting with =, +, - or @ are prefixed).
+- **Check-in** is one screen per session with four large choices per person, "Mark the rest present", optional notes and one Save, sized for a phone. It defaults to the latest session that has started by the end of today.
+- **Words.** New label keys: `participant` (Participant, Attendee in Business, Student in Tutoring, added to each preset without touching its other words), `section.attendance` and the four marks. `check:labels` now also rejects hard-coded participant, attendee, student and attendance words and the capitalised mark names.
+- **Not in this change:** participant files (the second storage bucket in D56) and the ICS feed. Both came later, in D102.
+
+## Funds (owner's request)
+
+**D82. Funds are in scope, as planning rather than accounting.** CLAUDE.md forbade finance. The owner asked for a money tab and approved changing the rule, so CLAUDE.md now allows funds: an amount of money (a grant, a donation drive, a budget) split into labelled allocations, each optionally linked to the project it pays for, with charts. Accounting, payments, payroll, invoices, bank data and donor management stay out of scope.
+
+- **Tables.** `funds` (name, notes, total, currency, optional linked project) and `fund_allocations` (label, amount, optional linked project, order). Amounts are whole cents in `bigint`, so totals are exact. Currency is per fund (CAD by default, or USD, EUR, GBP); amounts show with a plain symbol ("$10,000.00") and the fund names its currency once beside the total.
+- **Never over-allocated.** A trigger refuses any insert or update that would make a fund's allocations add up to more than its total, including lowering the total below what's allocated. The app turns that refusal into a field message.
+- **Who sees it** (the owner chose this): owners and managers only, in RLS on both tables. Fund entries in the activity log are hidden from everyone else too. The sidebar shows Funds, the dashboard shows the Funding widget, and project pages show Funding only for owners and managers; for anyone else the Funds pages return Not found.
+- **Charts** are plain HTML and CSS, so no package. A fund is one bar split into its parts, with the unallocated rest as an outlined gap. Parts are told apart by shade and pattern (solid, stripes, dots), not colour alone, and every part is listed with its amount and share; screen readers get the whole split as text.
+- **Where funding shows.** The Funds list shows every fund with its total, allocated, left and a split bar. Each fund has its own page with the full chart and its parts, which can be added, edited and removed. A project page shows a Funding section for funds linked to it or with a part allocated to it. The dashboard has a Funding widget, movable and hideable like the others, showing each fund's split and percentage allocated. The owner asked not to make the dashboard switch per project yet.
+- **Activity.** Creating, editing and deleting a fund, and changing its parts, are logged as entries about the fund for signed-in people; seed and script writes aren't.
+
+## Standing rules for the next update (owner's decisions)
+
+The owner changed the standing rules in CLAUDE.md before the maintenance, website, theme, tasks, notifications, people, chat, dashboards, finance, reports and demo work. Each change is theirs; the build follows it.
+
+**D83. Colour: an accent and fixed status and priority colours.** "Two colour scales only" is replaced. The white/bone background stays, and navy #163260 stays for text and the sidebar. An accent (#0006BF by default) is for buttons, links, active states and focus. Status colours are fixed for everyone: green for good or done, amber for middle, red for bad or overdue. Priority colours are fixed too: red for critical and high, orange for medium-high, yellow for medium, blue for low. Neutral chart data uses the accent and its tints. Brighter colours are kept for charts, dots, badges and icons, so large surfaces stay calm. "Never colour alone" and "no drop shadows" stay.
+
+**D84. Theming: dark mode, org accent and logo, personal accent.** Dark mode returns as a per-user setting, reversing D64. Orgs can set a logo and an accent colour, and users can override the accent on their own screen. Status and priority colours are never themeable.
+
+**D85. Contrast in both modes.** Text must reach 4.5:1 and chart marks, dots and icons 3:1, in light and dark mode. Whatever accent is chosen is lightness-adjusted automatically until it passes. `lib/theme/theme.ts` and its unit tests enforce this.
+
+**D86. Branding.** Inside an org, its logo can replace the Groundwork logo. Groundwork branding stays on the public pages, sign-in pages, emails and the maintenance page, and a small "Powered by Groundwork" mark stays in the sidebar.
+
+**D87. Maintenance mode is in scope, outside the database.** A site-wide maintenance switch and scheduled-maintenance notices are in scope. The switch lives in Vercel Edge Config (with environment variables as a fallback), not Supabase, so the maintenance page works while the database is being migrated or is unreachable. It adds no global table.
+
+**D88. Notifications are in-app only.** In-app notifications are in scope. Email, SMS and push notifications are not.
+
+**D89. The task model grows.** Tasks can have several assignees, a kind (general, appointed or personal), a priority, a "hide from collaborators" flag and a share list, and can live outside a project as personal or org-level tasks. Visibility still has one source of truth, `can_view_task()`, which now applies these rules; this replaces D68's "can see its project".
+
+**D90. People and chat.** Member profiles, online status and an internal chat hub are in scope. Direct messages are the one place owners can't see what isn't theirs.
+
+**D91. Finance: budget and grant tracking.** Budgets per fund or grant, and spending entries with receipts and approval, are in scope. This extends D82's "no transactions" to spending entries only. Budgets, totals and charts stay visible to owners and managers only, as D82 decided. Real accounting stays out: no bank feeds, tax, payroll, invoices, double-entry or accounting-software sync.
+
+**D92. Dashboards are read-only and filtered in the database.** Dashboards are read-only summaries, filtered by permission in the database, whose marks link to editable views (or a read-only detail for people who can only view). Each project page gets its own dashboard section, reversing D82's note that the owner didn't want per-project dashboards yet.
+
+**D93. Templated reports.** PDF and CSV reports (attendance, task and project progress, funder spending) are in scope. They only contain what the person generating them can see.
+
+**D94. Packages: still prefer none.** Charts are hand-built SVG or HTML. Live updates and chat use Supabase Realtime, which `@supabase/supabase-js` already includes. Any package that is truly needed gets its reason written here first.
+
+**D95. The public website grows.** The marketing site gains Pricing, Security, About, Privacy, Terms, Use cases, Compare and Resources pages, a "Start free" sign-up path and a read-only public demo. Payments, email capture and marketing emails stay out.
+
+**D96. Terminology covers the new words.** Label keys are added for new primitive words that reach UI copy (priority levels, task kinds), and `check:labels` checks them.
+
+## Maintenance mode (Part 1)
+
+**D97. How maintenance mode works.** It follows D87: the switch is outside the database.
+
+- **Where the setting lives.** One Vercel Edge Config item, `maintenance`, holding `{ "active", "message", "starts_at", "ends_at" }`. The proxy reads it with a plain `fetch` to Edge Config's read endpoint (no package), using the `EDGE_CONFIG` connection string Vercel adds when an Edge Config is connected to the project, and caches it for 10 seconds per server instance. If Edge Config isn't configured, or can't be reached and nothing is cached, the `MAINTENANCE_MODE`, `MAINTENANCE_MESSAGE`, `MAINTENANCE_STARTS_AT` and `MAINTENANCE_ENDS_AT` environment variables apply (changing those needs a redeploy). A malformed setting counts as "no maintenance", so a typo can never take the site down.
+- **Switching it.** The **Maintenance** workflow (Actions → Maintenance → Run workflow, which works from GitHub's mobile app) writes the item through the Vercel API with the existing `VERCEL_TOKEN`, and summarises what it set. "Off" with a future start schedules a notice without taking the site down. It needs the `EDGE_CONFIG_ID` repository variable.
+- **While it's on.** Every app route gets the maintenance page with HTTP 503 and `Retry-After` (until the expected end, else five minutes), at the URL the person asked for. The page is plain HTML written by the proxy, so it needs no database, session or React; its one script is the static `/maintenance.js` (with the request's CSP nonce), which shows the expected end in the visitor's time zone and checks `/maintenance/status` every minute, reloading when maintenance is over. The check pauses while the tab is hidden and, under reduced motion, is replaced by a "Check now" button. The landing page stays up with a banner and doesn't touch auth or the database. `/maintenance` itself answers 200 while maintenance is on and redirects home when it's off.
+- **Owner bypass.** `?bypass=<MAINTENANCE_BYPASS_TOKEN>` on any URL sets an httpOnly, same-site session cookie holding a SHA-256 hash of the token (never the token) and reloads without the parameter. Tokens are compared in constant time and never logged. Tokens shorter than 16 characters are ignored. The token is a secret in Vercel (for the app) and GitHub (for the deploy smoke test).
+- **Scheduled notices.** From 48 hours before `starts_at`, signed-in people see a slim banner ("Scheduled maintenance: Sun, Oct 25, 10:00–11:00 pm EDT. Groundwork will be unavailable.") in their own time zone, dismissible for the browser session; the landing page shows the same sentence quietly.
+- **Deploys behind maintenance.** Running CI by hand with "Deploy behind maintenance mode" ticked, or a commit message containing `[maintenance]`, switches maintenance on before the migrations and off after the smoke test, including when a step fails. The smoke test uses the bypass token. Without the input, deploys behave exactly as before.
+- **Contact email.** The owner chose to keep groundworkceo@gmail.com for now.
+- **Testing.** In development only, and only when the end-to-end setup sets `E2E_MAINTENANCE_OVERRIDE=1`, a request header can set the maintenance state for one browser, so the tests can check both states against one dev server. Production never reads that header.
+
+
+## Website quick fixes (Part 2)
+
+**D98. What the public site says, and what it leaves out.** The owner's audit asked for a clearer headline and call to action, proof, pricing and a fuller footer. Only what's true and approved ships.
+
+- **Headline and actions.** The headline is now "Tasks, files and deadlines for your nonprofit, in one place." (primitive words through `t()`). The one primary action is **Start free**, which leads to `/signup`: the same Google or email-link sign-in, worded for a new account ("Create your free Groundwork account"), after which `/` sends a new person to create their organization. "Log in" stays a small masthead link. There's no "Book a demo" button, because the owner has no booking link yet.
+- **Homepage, in the audit's order:** hero with one product image, "Sound familiar?", three benefits each with one real screenshot (replacing the feature tabs), how it works in three steps, an FAQ, and a final call to action. The proof strip and pricing teaser are left out: the owner hasn't approved any pilot names or quotes, and chose not to publish pricing yet.
+- **FAQ facts, as verified with the owner.** Data and files are stored with Supabase in its **US East** region (the owner checked the dashboard); the app is served by Vercel. The Supabase project is on the **Free** plan, so the site makes no backup claims and says plainly that restorable backups aren't offered yet. Uploads are one file at a time up to 25 MB, read from the code. Cost: free to start, no credit card, larger organizations email.
+- **New public pages:** `/security` (who can see what, files, sign-in, the activity log, hosting, accurate to the code), `/privacy` and `/terms` (plain-language drafts written for PIPEDA). They're public routes in `proxy.ts` and keep the security headers. **The privacy policy and terms need a lawyer's review before they're relied on**, including the governing-law line in the terms. Dark mode for these pages comes with Part 3's theme tokens.
+- **Not built yet:** `/pricing` (no pricing chosen), `/about` (the owner will supply the story), and the masthead links to them.
+- **Contact email.** The owner chose to keep groundworkceo@gmail.com in the footer for now, so the brief's "no Gmail address in the footer" check doesn't apply until a domain address exists.
+- **Open audit suggestions, kept as they are:** the accent stays #0006BF (Part 3), the fonts stay Archivo and Source Sans 3, and icons stay lucide.
+- **Logo at favicon size.** At 16 px the figure logo is a thin, barely readable shape (it reads at 24 px and up). A simpler mark for small sizes is the owner's or a designer's call; it hasn't been redrawn.
+
+## Look and feel (Part 3)
+
+**D99. Theme, dark mode, branding and the new logo.** It follows D83–D86.
+
+- **The logo.** The owner's brand sheet (a figure in a yellow hard hat with a briefcase, and the two-tone "groundwork" wordmark) is redrawn as SVG in `components/logo.tsx` and replaces the old mark everywhere: the sidebar (outlined in white on navy), the public masthead and sign-in pages (navy on light, white on dark), the favicon (`public/logo.svg`, the white app icon) and the maintenance page. The logo keeps its own colours (#15223D, #3B5378, #F6B533). The owner asked for the brand sheet's six illustrations "wherever necessary but not redundant", without imposing them on organizations that value their own look: they are the default artwork on empty pages that invite a first step (no programs, tasks, documents, sessions or participants yet), not on "no results" states, and **Settings → Branding → Show illustrations** turns them off for an organization, leaving the plain icon. In dark mode they sit on a light backing.
+- **Tokens.** `lib/theme/theme.ts` derives every token for light and dark mode: surfaces and text (`canvas`, `panel`, `rule`, `ink`, `ink-muted`, `rail…`), the accent (`accent`, `on-accent`, `accent-tint`), status (`good`, `warn`, `bad`, each with `-ink` for text and `-tint` for backgrounds), priority (`prio-critical`, `prio-high`, `prio-medium`, `prio-low`, plus `prio-medium-ink`, the outline and label that always go with yellow) and five neutral chart series from the accent. `app/globals.css` holds them as custom properties (`npm run theme:sync` writes them) and `tests/unit/theme.test.ts` checks the two agree and that every pair passes: 4.5:1 for text and 3:1 for marks, in both modes, with every preset and with awkward custom colours (pure yellow, white, black, grey, magenta).
+- **Where the starting values moved, to pass:** the dark accent is #8084FF rather than about #6B72FF (#6B70FF is 4.37:1 on the dark canvas and less on panels); green, amber and red keep their starting values for marks, with darker text versions in light mode (#147A3A, #A35A04, #B91C1C), because #16A34A and #D97706 are only about 3:1 on bone; in dark mode the marks are light enough to be text too. The priority colours are mapped critical = red, high = orange, medium = yellow (with a navy outline and label in light mode), low = blue. The sidebar is now navy #163260 itself, as D83 says, rather than a 76% tint; the current item is a light bar with its icon in the accent.
+- **Any accent passes.** An org or personal accent keeps its hue; only its lightness is moved (darker in light mode, lighter in dark mode) until it reaches 4.5:1 as text on the canvas, on panels and on its own tint, with 4.5:1 text on it. A colour that can't pass at any lightness falls back to the text colour. Status and priority colours are never changed by an accent.
+- **Dark mode.** `profiles.theme_mode` (light, dark or system; system by default) is the source of truth. The `theme` cookie mirrors it, and the root layout renders `<html data-theme>` from the cookie, so the first paint is right; "system" follows the device through `prefers-color-scheme` in CSS. The sun/moon button in the top bar changes it at once and saves it to the profile and the cookie. On a device with no cookie yet, the first page follows the device and the saved mode takes over as soon as the page loads (the cookie is then set for every page after). Reading the cookie makes every page render per request; the public pages already did, because the proxy sets a per-request nonce.
+- **Accents in force.** Personal accent (if the org allows it and the person set one) → org accent → #0006BF. The org layout adds a small style sheet that overrides only the accent and chart tokens, for both modes; the default accent adds nothing.
+- **Who changes what.** People change only their own mode and accent (`profiles` RLS plus column grants). Owners and managers change the org accent, logos and the illustrations switch (the existing `organizations_update` policy); only owners turn personal accents on or off, enforced by the `organizations_personal_accent_owner_only` trigger. Staff can open Settings → Branding read-only.
+- **Org logos.** PNG, JPG or WebP only (never SVG, which can carry scripts), up to 2 MB, checked in the browser, in the server action (zod) and by the bucket itself. They live in their own private `branding` bucket at `{organization_id}/branding/{uuid}.{ext}`, not in `documents`, because stored documents follow their document rows (D68) and a logo has none. Every member can read their organization's logos; owners and managers upload, replace and delete them (pgTAP `16_theme_branding`). Links are signed for 12 hours and re-signed on every page. Saving a new logo deletes the file it replaces; removing it brings Groundwork's logo back. The sidebar is navy in both modes, so it shows the dark-mode version when there is one and otherwise the logo on a white backing, with "Powered by Groundwork" at its foot. On wide screens the top bar sits beside the sidebar, so it doesn't repeat the logo; on small screens the top bar is the sidebar's bar and carries it. Public pages, sign-in pages, emails and the maintenance page always use Groundwork's logo.
+- **Activity.** Changing the accent, a logo, the personal-accent switch or the illustrations switch adds an entry about the organization (`entity_type = 'organization'`) that everyone in it can read, e.g. "Priya Shah changed the accent colour". A person's own mode and accent are private and aren't logged.
+- **Top bar.** A bar across the top of the work area holds the viewer's controls as a toolbar: the theme toggle now, the notification bell (Part 6) and chat (Part 9) later. The scheduled-maintenance banner sits beneath it.
+- **Colour in the existing screens.** Overdue is now red with a dot, a warning icon and the word "Overdue"; due soon is amber with a clock; done is green; in progress is an accent badge; attendance marks are green (present), amber (late), red (absent) and quiet (excused); destructive buttons are outlined in red. Every one keeps its icon and word. Links in running text and the current sidebar item use the accent. Project colours are unchanged (they're stored per project); a migration to accent-based colours can follow if the owner wants one.
+
+## Tasks, part 4a: the data model and its rules
+
+**D100. How the new task model works in the database.** It follows D89. The owner split Part 4 in two: 4a (this) is the data, the rules and their tests, with today's screens kept working; 4b is the new board, task form, filters and Undo.
+
+- **Assignees** live in `task_assignees`, one row per person: a member, or a pending invitee (so D70 and D79's "Name (pending)" keep working). Each is `claimed` (they took it) or `appointed` (someone above them gave it to them), and has its own `done_at` for tasks that need everyone to finish. The old `tasks.assignee_*` columns are gone. People change assignees only through `claim_task`, `unclaim_task`, `appoint_to_task`, `remove_task_assignee` and `set_task_done`, which check the rules; direct writes are refused.
+- **Moving existing work over.** Every assignee moved with nothing lost (checked on the seeded data: 22 members and one pending invitee). Someone who had assigned themselves is a claimer on a general task; anyone else is appointed, and their task is an appointed task. Assigned work is In progress, unassigned work is To do, finished work stays done, and everything starts at medium priority.
+- **Claiming.** Only general tasks can be claimed, by anyone who can see them, until `claim_limit` assignees are on it (claimed and appointed both count). Appointing someone onto a general task keeps it general, so others can still claim the open spots. An appointed task (one created by giving it to people) isn't open to claims.
+- **Appointing** needs someone ranked above the person, the project's lead, or a manager or owner. **Coming off:** a claimer can take only themselves off, and the task's creator, the people who manage the project's content, and managers and owners can take a claimer off too, so a stale claim can be tidied up. An appointed person can't leave; only whoever appointed them, someone ranked above that person, or an owner can take them off.
+- **Status follows the people on it.** Someone on it means In progress; nobody means To do; done is a tick. When the last person leaves by choice the task goes back to To do. When they're taken off by something else (leaving the project or organization, or an invitation withdrawn or declined), it's also flagged **Needs assignee**, and that move isn't logged as anyone's work. Until 4b replaces the board, dragging a card between columns still works for tasks that need only one tick.
+- **Completion.** With `any`, one tick by someone on the task (or by someone who can edit it) finishes it. With `all`, each person ticks their own part, the task is done when everyone has, and unticking one part reopens it without touching the others. Nobody can force an `all` task done around the parts.
+- **Personal tasks** belong to their creator, who is their only assignee. They're visible to the creator, anyone ranked above them (by their current role, or the one they held when they made it if they've left), anyone they're shared with, and owners. Owners see each other's; nobody else gets equal-rank visibility. A personal task stays personal: it can't be turned into shared work or back. Anyone can make one, in a project or outside any project.
+- **Org-level tasks** (no project, not personal) can be created by managers and owners. Everyone in the organization sees them until a share list narrows them, after which they're visible to the creator, its assignees, the people on the list, anyone ranked above the creator, and owners.
+- **Hidden tasks** (only project leads, managers and owners can tick "Hide from other collaborators") are visible to their assignees, creator, people they're shared with, anyone ranked above one of the assignees, the project's leads and owners.
+- **Share lists.** The creator, anyone ranked above them, the project's lead or an owner can add or remove people. On a project task a share only matters within project access: someone off the project still sees nothing.
+- **One source of truth.** `can_view_task()` applies all of this, and the tasks, assignees, shares and activity log policies all go through it. An activity entry about a deleted personal or hidden task is marked restricted when it's written, and afterwards only owners see it.
+- **pgTAP** (`17_task_model`, 58 tests) returns zero rows for every leak case named in the brief (a collaborator and a hidden task; someone else's personal task; a lower rank and a superior's personal task, the test D75 deferred; someone off a project; a member outside a narrowed share list). It also covers claim limits, appointed people unable to leave, several assignees, both completion rules, share lists, hiding and org-level creation rights, and keeps organizations apart on both new tables. The older suites were updated to the new table with the same assertions.
+- **The screens in 4a** still offer one assignee per task. Choosing yourself claims an open task; choosing someone else appoints them, so staff can no longer hand work to a colleague of the same rank (they can claim it themselves). Inviting someone from a task appoints the new invitee in place of whoever was on it, as before. The tick box goes through `set_task_done`.
+- **Deploy behind maintenance mode** (D97): the migration drops the old assignee columns, so the old app version would fail against the new database for the minute between the two deploys.
+
+## Tasks, part 4b: the screens
+
+**D101. How the new task screens work.** They are built on D100's model.
+
+- **Two board columns.** The board has To do (nobody on it yet) and In progress (someone on it). Done isn't a column: a round tick on every card, row and dashboard item finishes a task, or finishes the viewer's own part of one that needs everyone ("My part … (1 of 3 done)"). Cards reorder only within their column, by dragging or with the keyboard, since status now follows the people on a task. Claiming moves a card to In progress and unclaiming moves it back.
+- **Undo, not confirm.** Ticking hides the work from everyday views, so a toast says "“Title” is done." (or "Your part of … is done.") with an Undo button for five seconds. The timer pauses while the pointer or focus is on the toast. The toast is a live status region and stops its slide-in under reduced motion.
+- **Finding finished work.** Status filters to Open (the default: To do and In progress), To do, In progress or Completed. Completed shows a single Done column on the board, and done rows in the list and on a program's page.
+- **Priority everywhere.** Every task has a priority (Critical, High, Medium, Low; Medium by default) shown as a flag plus a word, apart from the status badge, in the colours D83 fixes. Critical has a filled red flag, High an outlined orange one, Medium a yellow flag with a navy outline, and Low an outlined blue one. Fill, outline and the word all carry the meaning, so it never relies on colour. The board's Order menu can show the most urgent first (critical to low, then by due date; dragging is off while sorted). The list and a program's tasks sort by a Priority column, and a program's tasks start sorted by priority. The priority and kind names are terminology keys (`priority.*`, `task_kind.*`); `check:labels` now also flags those words written as whole labels in UI code.
+- **Kinds in plain words.** General tasks read "Open to claim", appointed tasks "Appointed" and personal tasks "Personal". A personal task's creator claims it (a small change to `claim_task`, covered by pgTAP), so it starts In progress with them on it.
+- **One task form** at Tasks → New task, also used for editing on a task's page. It covers title, description, kind, program (or "No program"), priority, due date, the people on it (checkboxes, with pending invitees and an invite link), the claim limit for open tasks, "When it's done" (anyone's tick or everyone's) once two or more people are on it, "Hide from other collaborators" for those allowed, and "Share with specific people". The form mirrors the database's rules: staff choosing "No program" for shared work see why they can't and the submit button is disabled, and a personal task's kind is locked. Quick add on the board and list still makes a task in one line, now with a priority.
+- **Cards and rows** show the priority flag, the program (or "No program", or "Personal"), Hidden, the due badge, "n of m done" for everyone-finishes tasks, the people on it as stacked initials (three, then "+N"), and Claim (with open spots) or Unclaim.
+- **e2e** (`tests/e2e/tasks.spec.ts`): claiming up to a limit and unclaiming; appointed people locked on; any and all completion; hiding then sharing; a personal task hidden from a lower rank and visible to a higher one; an org-level task claimed by staff (with staff blocked from making one); a tick with Undo; and priority filter and sort. That a same-rank colleague can't see someone's personal task is covered by pgTAP (`17_task_model`) rather than e2e, because the seed has no two members of equal rank below owner on the same program.
+
+## Carry-overs, part 5: participant files and the calendar feed
+
+**D102. Participant files and the private calendar feed.** Both were deferred in D81 and wait on Part 4's visibility rules.
+
+Participant files:
+- **Where they live.** A second private bucket, `participant-files`, with the same 25 MB limit and allowed types as `documents` (copied from it in the migration, so the two can't drift). Paths are `{organization}/{program}/{participant}/{uuid}`, with no file name, so nothing personal sits in a storage path or in the record that names it. The name people see is kept on the row and used as the download name.
+- **What's kept.** `participant_files` rows record the participant, the program the file was added in, its kind (waiver, medical form, consent form, ID or other), name, size, type, uploader and date. A file is never edited; to change one, delete it and add another.
+- **Who sees them.** The same people who see the participant (D81): owners, plus the admins and leads of any program the participant is enrolled in. Adding a file needs the admin or lead role on an active program the participant is in. Deleting needs that role on the file's own program, or owner. Project staff, and managers who aren't on the program, see nothing.
+- **Every upload, view, download and deletion is recorded** in `participant_file_events`, which only owners and the leads of the file's program can read. Nobody can write, change or erase entries directly: database functions write them.
+- **Storage enforces the record.** Opening a file goes through `open_participant_file()`, which records the view or download and returns what's needed to sign a one-minute link. Storage serves an object only to someone who recorded a view or download of it in the last two minutes and can still see the participant. So even calling the storage API directly leaves an entry. The uploader can read their own object only until it's recorded as a file (to finish or abandon the upload). Deleting removes the row first, which records the deletion; that record lets the same person remove the stored copy in the next two minutes.
+- **Privacy deletion.** Permanently deleting a participant (D81) deletes their files: the rows cascade, each deletion is recorded, and the stored copies are removed straight after. Their entries in the access record keep the action, the person who did it and the date, but lose the file names and the link to the participant.
+- **Deleting a program** releases its participant files first (`release_program_files()`, which only the program's leads and owners can run), so the stored copies are removed before the program goes.
+- **Screens.** The participant's page has a Files table (name, kind, program, who added it and when, with Open, Download and Delete) and, for owners and the program's leads, a File access table.
+
+The calendar feed:
+- **One private feed per person**, turned on, replaced or turned off in Settings → Profile. Turning it on makes a 256-bit random token (43 characters, base64url). The link is shown once, with Copy and with links to add it to Apple Calendar, Google Calendar and Outlook. Only the token's SHA-256 digest is stored, on the person's profile, in a column nobody can read through the API, not even its owner. Profiles are the global per-user table, so no new global table was needed.
+- **Revoking is immediate.** Making a new link replaces the digest, and turning the feed off clears it. Either way the old link returns 404 on the next request. Responses are `Cache-Control: no-store` so no proxy keeps a copy.
+- **What's in it:** titles and dates only. It holds open work assigned to the person with a due date (shown as an all-day entry on that day, and only while their own part isn't ticked). It also holds calendar items on the programs they're on, from 90 days back to a year ahead. It never holds descriptions, locations, notes, people or anything about participants. Organization-wide items with no program aren't included, because the brief limits the feed to the person's programs. It covers every organization the person belongs to.
+- **Same visibility as the app.** `calendar_feed()` runs without a session, because calendar apps can't sign in. It finds the person from the token's digest, sets the request's identity to them while it gathers rows through `can_view_task()` and `can_view_project()`, then restores the caller's identity. An owner's feed is still only their own work and their own programs' items, not everything they can see.
+- **The token is a secret.** Lookup compares SHA-256 digests, so its timing reveals nothing about the token (the brief's constant-time requirement). The app never logs the token. The route doesn't send it to the sign-in page, because `/api/calendar/` is public in `proxy.ts`. Unknown, malformed and revoked tokens all get the same plain 404. Hosting request logs (Vercel) still record request paths, which is unavoidable for a subscription URL; anyone who suspects a link was seen can make a new one.
+- **Format.** iCalendar written by hand in `lib/ics.ts` (no package, per D57), with CRLF line endings, escaped text, lines folded at 75 octets without splitting characters, a stable UID per item, and an hourly refresh hint. Unit tests cover the format; pgTAP (`19_calendar_feed`) covers exactly what each person's feed holds, someone else's hidden or personal work never appearing, and new or revoked links stopping the old one.
+- **Tests.** pgTAP `18_participant_files` covers cross-organization isolation, project staff and outsiders getting nothing, storage policies matching the table policies, the access record and privacy deletion. e2e `tests/e2e/carry-overs.spec.ts` covers an upload and download being recorded, project staff blocked, the owner reading the record, a deletion recorded, the feed's contents, a new link replacing the old one, and a revoked link returning 404.
+
+## Notifications and the activity log, part 6
+
+**D103. In-app notifications, mutes, and the finished activity log.** In-app only, as the owner decided: no email, SMS or push.
+
+Notifications:
+- **What notifies.**
+  - Being given (appointed to) work.
+  - Someone claiming work you made.
+  - Work you made, or non-personal work on a program you lead, being finished. This goes to its creator and the program's leads, never to whoever finished it.
+  - Your work being due tomorrow or overdue: once per due date, never repeated.
+  - An invitation you sent being accepted.
+  - A participant's attendance in a program falling below the organization's low mark. This goes to owners and the program's admins and leads.
+  
+  Nothing else notifies: no edits, renames, uploads or other status changes. Nobody is told about their own actions.
+- **The low mark** is a new organization setting, `low_attendance_percent` (75% by default), under Settings → Organization. A rate needs at least three counted sessions (excused ones don't count, as in D81) before it can alert. Each spell below the mark alerts once: its key is released when the rate recovers, so falling again alerts again. Saving many marks at once can't send duplicates.
+- **Due and overdue work** is checked when the person opens the app (the org layout calls `queue_my_due_notifications()` with today's date where they are), not by a scheduled job. Notifications are in-app only, so they appear at the same moment a scheduler's would, with no extension (pg_cron) and no service-role job. Each one is keyed on the task and its due date, so it's sent once, and again only if the due date changes.
+- **The table.** `notifications` holds `organization_id`, `recipient_id`, `type`, `subject_type` (task, participant or invitation), `subject_id`, `actor_id`, `data`, `dedupe_key`, `read_at` and `created_at`.
+  - Recipients select and update only their own rows, and only `read_at` is granted.
+  - Clients can't insert or delete.
+  - Rows are written only by `notify()`, which is called from security-definer triggers and functions.
+- **Visibility first.** `notify()` checks, as the recipient, that they can see what it's about: `can_view_task()` for work and `can_view_participant()` for participants. It sets the request's identity to the recipient for that one check, then restores it. A creator who has since lost access to the program isn't told.
+- **Titles are read live.** Notifications store ids, never titles or names. The bell reads them through the viewer's own access, so something they can no longer see is described without naming it.
+- **One mute check.** `notification_muted(org, recipient, type, actor)` is the only place that decides. Today it reads per-type mutes (`notification_mutes`) set in Settings → Notifications, a switch per kind (all on by default). Parts 7 and 9 add per-person and per-channel mutes to the same function.
+- **Screens.**
+  - **Bell:** in the top bar on wide screens and in the small-screen bar on phones. It shows an unread count, as a number badge and in the button's name.
+  - **Panel:** a popover on wide screens, a full-height sheet on phones. It lists the latest 20, each with an icon, a sentence, a relative time and a link, plus Mark all read. Unread items are bold with a dot and an "Unread" label for screen readers. Following one marks it read.
+  - **Full Notifications page:** All and Unread views, and Mark read or Mark unread per item.
+  - **Freshness:** the count refreshes every minute while the page is open. Part 8 brings live updates.
+
+The activity log:
+- **Append-only, now enforced.** RLS used to let members insert entries attributed to themselves and let owners delete entries. Both are now refused. Entries are written only by the logging triggers, which are all security definer. pgTAP checks both.
+- **Recent activity has left the dashboard.** Saved layouts drop the widget automatically. The log has its own page, Activity, in the sidebar for everyone. Each entry shows who, what (with an icon for the kind of item), where (the item, linked, and its program) and when.
+- **Filters:** person, program, kind of change (created, uploaded, changed, moved, finished, archived, restored, pinned, unpinned, deleted) and a date range in the viewer's time zone. Filters live in the URL, and the page shows 100 entries at a time with "Show older".
+- **Export is owner-only.** CSV of the filtered entries (up to 10,000), formula-safe like the attendance export. Anyone else gets a 404, and the button only shows for owners.
+- **Visibility is unchanged:** the same RLS as before. Owners see everything; others see their programs' activity filtered by `can_view_task()`; fund entries are for owners and managers (D82); participant entries follow D81.
+
+Tests: pgTAP `20_notifications` covers each event, never notifying the actor, a creator who lost access, personal work, due and overdue sent once, mutes (including not muting for someone else), low attendance (alert, once per spell, recovery, batches), recipients reading and marking only their own, organizations kept apart, and the append-only log. e2e `tests/e2e/notifications.spec.ts` covers the completion notification reaching the creator and lead but not the finisher, Mark all read, a mute stopping and resuming a kind, the activity filters, and owner-only export.
+
+## People, part 7: member profiles and online status
+
+**D104. Member profiles, photos, muting a person, and online status.**
+
+- **The name is the display name.** The brief asks for `profiles.display_name`. The existing `full_name` already is that: it's set from Google (`full_name` in the sign-in metadata) at sign-up, from the invite form at acceptance, and shown everywhere. Following "change what's there, don't build a parallel version", it stays as the one name column, labelled Name. `title` (up to 120 characters) and `bio` (up to 1,000) are new. People edit their own name, title and bio in Settings → Profile. Email comes from sign-in and is shown read-only (no column grant allows changing it). Roles still change only in Settings → Members.
+- **Photos belong to a membership**, not the global profile, because the brief stores them under the organization (`{organization_id}/profiles/{user_id}/…`) and only that organization's members should see them. A person in two organizations can have a different photo in each.
+  - Storage: the private `profile-photos` bucket (PNG, JPG or WebP, 5 MB; never SVG), read by the organization's members. Each person writes and deletes only in their own folder.
+  - Setting a photo: `memberships.photo_path` is set only through `set_my_photo()`, which checks the file was uploaded by the caller and hands back the photo it replaced. The app then deletes that file. A check constraint keeps the path inside the caller's own folder.
+  - Display: links are signed per request. Initials show when there's no photo.
+- **The profile page**, `/{org}/members/{userId}`, shows photo, name, title, email, org role, online status and bio. It also lists the programs they're on and their open work, both read through the viewer's own access (project membership RLS and `can_view_task()`), so two viewers of different rank can see different lists on the same profile. Profiles are linked from Settings → Members, the avatars on task cards, and the names on a task's page. Chat (Part 9) and the workload chart (Part 8) will link there too.
+- **Muting a person.** Someone else's profile has a "Mute notifications from [name]" switch that only the viewer sees. It adds a `notification_mutes` row naming the person, and only people in the same organization can be muted (RLS). `notification_muted()`, the one mute check from D103, now also returns true when the actor is muted or when the recipient has Do not disturb on. Part 9 adds channels.
+- **Online status** uses Supabase Realtime Presence on a private channel per organization, `org:{id}:presence`.
+  - Who can join: only that organization's members can listen or announce on it, through `can_use_realtime_topic()` in policies on `realtime.messages`. Realtime now runs locally and in CI, because Parts 8 and 9 need it too.
+  - States: Online while Groundwork is open, and Away after five minutes without input or while the tab is hidden. When someone has several tabs, the most active one counts. Offline when nothing is announced.
+  - Personal setting: Settings → Profile offers Automatic, Do not disturb (shown to others, and it mutes notifications) or Appear offline (announces nothing). It's stored as `profiles.presence_mode`, so the database can honour Do not disturb.
+  - Staying connected: each browser tab keeps one presence channel, and announces its status again after every reconnect. Its heartbeat runs in a small inline worker (`realtime: { worker: true }`), so background tabs aren't throttled into looking offline. The CSP gains `worker-src 'self' blob:` for that worker, and no other host.
+  - Where it shows: a dot plus a word, never colour alone (green Online, amber Away, red Do not disturb, outlined Offline), in Settings → Members, the task form's people picker, and profiles. Part 9 adds chat.
+- **Tests.** pgTAP `21_member_profiles` covers:
+  - editing only your own profile, email not editable, photos set only through `set_my_photo`;
+  - storage per folder and per organization;
+  - two viewers seeing different work and programs on one profile;
+  - person mutes (only within the organization, not yourself) and Do not disturb;
+  - presence topics limited to members.
+  
+  e2e `tests/e2e/people.spec.ts` covers editing your profile and uploading, refusing and removing a photo, the same profile showing a lead and a staff member different work, muting one person while another still notifies, and live status changes (online, Do not disturb, Appear offline, closing the app).
+
+## Dashboards, part 8
+
+**D105. One dashboard design for everyone, filtered by the database, with live updates.**
+
+- **Read-only summaries.** The dashboard no longer edits anything: Quick add, the My tasks checkboxes and the old list widgets are gone. Rearranging, resizing and hiding widgets (layout only) stay. Saved layouts drop the retired widgets automatically.
+- **Rendered on the server.** Every number comes from queries through RLS (`can_view_task()`, D81 for attendance, D82 for funds), so nothing the viewer can't see is loaded or sent to the browser. Charts are hand-built SVG and HTML (no package), rendered on the server and handed to the layout grid.
+- **The widgets, by role.**
+  - Everyone gets:
+    - **Tasks**: a donut of to do / in progress / done this week, using the existing `completed_at`.
+    - **Deadlines**: a stacked bar per program of overdue / due within 3 days / on track, with symbols as well as colours.
+    - **Priority**: open work by priority, with the flags.
+    - **Program progress**: share of work done, red with "n overdue", amber "behind", green "on pace".
+    - **Coming up**: a seven-day timeline of due work and calendar items, with overdue work first.
+  - Admins and leads of a program that keeps a roster, and owners, get **Attendance**: lowest participant rates and a per-session trend line.
+  - Managers and owners also get **Workload** (open work per person ranked below them) and **Funding** (the existing split bars). Budget versus actual arrives with Part 10.
+  - Each widget has an icon, a short title, one big number and its chart.
+- **Mine / Everything I oversee.** Anyone who oversees others (managers, owners, and program admins and leads) can switch between their own work and the work they run: all visible work for managers and owners, or their programs' work for admins and leads. Others always see their own.
+- **Click to act.** Every segment, bar and point is a keyboard-focusable link with a full label, such as "3 tasks overdue in Homework Club, open the list".
+  - `canEdit(target, viewer)` in `lib/can-edit.ts` mirrors the database rules: project page and project work for its admins and leads (owners everywhere), participants per D81, funds and workload for managers and owners, and your own work always.
+  - If it's true, the mark opens the editable view (the filtered board or list, the program page, the participant record, the fund).
+  - If not, it opens a read-only "View details" panel on the same page listing what's behind the mark.
+  - `canEdit` checks future per-person grants first, so adding them later won't change callers. The grants themselves aren't built, as decided.
+  - The task board gains two due filters to match the buckets ("Within 3 days", "More than 3 days away") and a "no program" project filter.
+- **Charts are accessible.** Each chart is a `<figure>` with a caption, a visually hidden data table, and its values visible on the marks. Values on coloured segments sit on a canvas chip, so they read on any colour. Bars and rings animate to new values with CSS transitions, which stop under reduced motion.
+- **Attendance marks.** `low_attendance_percent` (now 50 by default) and a new `high_attendance_percent` (80) are org settings for owners and managers (Settings → Organization). They're whole numbers with 0 ≤ low < high ≤ 100, checked by zod and by a database CHECK. Below low is red ("Poor"), below high amber ("Fair"), at or above high green ("Good"). The Attendance tab's rate bars use the same marks. The low mark still drives the notification from D103.
+- **Live updates.**
+  - Your own actions show at once through the existing revalidation.
+  - Other people's changes to work, assignees, calendar items or attendance make the database send a Realtime broadcast (`realtime.send`). The broadcast carries only the program's id, on a private channel `project:{id}:changes`, or `org:{id}:changes` for work outside any program.
+  - Only people who can see a program may listen on its channel (`can_use_realtime_topic`). Nobody can send a change signal themselves: clients may only announce presence.
+  - Dashboards subscribe to the programs the viewer can see (all of them for owners), debounce bursts for a second, then re-fetch their own filtered numbers through the server.
+- **Program dashboard.** "At a glance" at the top of each program page shows:
+  - that program's Tasks donut, Priority and Deadlines;
+  - Attendance, when it keeps a roster and the viewer runs it;
+  - Funding, moved up from further down the page, for owners and managers;
+  - "Latest on this program", the last five activity entries, with a link to the filtered activity log.
+  
+  It reuses the tasks the page already loads (no second task query), adding only the attendance and latest-activity reads. Marks follow the same canEdit and detail rules, and the section has its own live updates.
+- **Tests.**
+  - pgTAP `22_dashboards`: the marks' ordering and permissions; signals naming only the program, never the change; who may listen; that nobody can fake a signal, while presence still works.
+  - Unit tests for `canEdit`, including the grant extension point.
+  - e2e `tests/e2e/dashboards.spec.ts`: read-only dashboards with labelled marks; click-through as an editor (opens the program) versus a viewer (View details); the scope switch and workload; the marks' validation; and a live update in a second browser, while someone off the program gets no signal and no change.
+
+## D106. Communication: chat, discussion boards, comments on work, and change notifications (Part 9, expanded)
+
+The owner made communication the priority of the next three areas (communication, Kanban workflows, reporting). It covers message boards and discussion threads, comments, and notifications whenever work changes, on top of Part 9's chat.
+
+- **Text only.** No attachments, reactions, calls, meeting links, transcripts or AI summaries (scope rules). There's no email or push: everything notifies in the app (D103).
+- **Chat.**
+  - A chat icon next to the bell opens a side panel over the current page.
+    - Its left edge is a drag handle (also keyboard-operable: arrow keys and Home) that resizes it from 420 px up to half the screen.
+    - The width is kept per person in `localStorage` (inside try/catch, falling back to the default).
+    - On phones the panel is full screen.
+  - Channels: one for the organization ("Everyone"), one per program (made automatically, membership following the program's), and direct messages between any two members, opened from the panel or a profile's "Message" button.
+  - `can_view_channel()` is the one source of truth, as a security-definer, non-recursive function:
+    - program channels: the people on the program, plus owners (through `can_view_project`);
+    - the organization channel: every member;
+    - direct messages: only the two people in them, with **no owner exception**. This is the one place an owner can't see what isn't theirs (D90), and it's commented in the migration.
+  - **History starts at the original join date.** On a program channel it starts when the person first joined the program; `project_first_joins` keeps that date if they leave and come back. On the organization channel it starts when they joined the organization. Owners read program channels in full, as they see every program.
+  - Each message shows a photo or initials, the name, the text and a timestamp on the side. Senders edit their own messages (shown as "(edited)") or delete them (leaving "message deleted"). Rows are never removed.
+  - "Name is typing…" is a Realtime broadcast on `chat:{id}:typing` (not Presence state) and clears four seconds after typing stops.
+  - New messages reach open conversations through a database broadcast on `chat:{id}:messages`, and each person's chat badge through `user:{id}:chat`. Only people who can see the conversation may listen; clients may send only presence and typing.
+- **Mentions.** Written as `<@user-id>` in the stored text and shown as "@Name", read live. The database works out who is mentioned (`mentions_in`), keeping only the organization's people. The picker offers only people who can see the conversation, task or thread (`chat_channel_people`, `task_audience`, `discussion_audience`). A mention links to the person's profile and notifies them.
+- **Comments on work.** Every task page has a Comments thread. Anyone who can see the task (`can_view_task`) reads and comments. Edit and delete work as in chat.
+- **Discussion boards.** Titled threads with replies, on the organization's board or a program's, at `/discussions` (a new sidebar item) and in a Discussions section on each program page.
+  - `can_view_discussion()` decides who sees a thread: everyone for the organization's board, `can_view_project` for a program's.
+  - Authors edit their own posts. The author, or whoever runs the board (program admins and leads, or owners and managers for the organization's board), can remove a whole thread.
+- **Notifications (D103) gain six kinds.** Each can be turned off in Settings → Notifications:
+  - `direct_message`: the other person.
+  - `channel_message`: the channel's own people, once until they open it.
+  - `mention`: every time, in chat, comments and threads.
+  - `task_comment`: the task's people, meaning its creator, the people on it, and earlier commenters.
+  - `task_changed`: the task's people, when its title, due date, priority, status or program changes. Finishing it keeps its own D103 notification. A run of edits notifies once until it's read.
+  - `discussion`: the people on a program when a thread starts there, and a thread's author and repliers on each reply.
+  
+  Nobody hears about their own actions, and every notification is checked against the recipient's access (as that person).
+- **Three mute layers.** All decided in `notification_muted()`: by kind (Settings), by person (their profile, D104), and by conversation (a Mute button in the channel header). Any "off" wins, and Do not disturb silences everything. Unread counts and dots keep working while muted; a muted conversation's count is outlined rather than filled and isn't added to the badge.
+- **Opening a chat notification** opens the panel on that conversation (`?chat=<id>` on any page). Opening a conversation marks it read and clears its waiting notification.
+- **Online status** (D104) shows in the direct-message list, the mention picker, a direct conversation's header and a channel's "People here" list.
+
+## D107. Kanban workflows: a program's own steps
+
+The owner asked for "workflows to manage work on a visual board through sequential steps", with custom steps per program (asked and answered in the session).
+
+- **Steps belong to a program.** A program can give its board its own ordered steps (2 to 12): Intake → Review → Approved, say. Each step is **open** or **done**, so everything built on a task's status (dashboards, notifications, the calendar, reports) keeps working.
+  - A program without steps keeps the standard board from D101.
+  - Three templates help people start: "Backlog, doing, review, finished", "Intake and approval", and "Planning a gathering". A workflow can also be built from scratch.
+  - "Use the standard board" turns the steps off. Every card keeps its status.
+- **Who.**
+  - The people who run a program (its admins and leads, owners, and managers on it, as `can_manage_project_content`) set its steps, all at once, through `save_workflow()`.
+  - Anyone who may tick work off may move its card through `move_task_to_step()`: someone who can edit it, or someone on it. The creator-rank rule (D80) still applies.
+  - A direct update of a task's step is refused for anyone else, by RLS and `guard_creator_rank`.
+- **Done follows the step, and the step follows done.**
+  - Moving a card into a done step finishes the work through `set_task_done()`, so "everyone ticks their own part" still holds. If that doesn't finish it, the card stays put.
+  - Moving it back to an open step reopens it.
+  - Ticking work off anywhere else moves its card to the first done step; reopening it moves it to the last open step.
+  - New work starts at the first open step.
+  - Removing a step moves its cards to the first remaining step of the same kind. Changing a step's kind changes its cards' status.
+- **Limits are marked, not enforced.** An open step may have a work-in-progress limit. Over it, the column gets an amber top rule and the words "Over its limit of N" (never colour alone), and its count reads "2 / 1". Cards can still be moved in, because blocking moves would stall real work.
+- **The board.**
+  - Filter the board to one program (`/tasks?project=<id>`, linked from the program's new Workflow section) and it shows that program's steps as columns, finished work included in the done steps (the latest 15, with a link to the rest).
+  - Cards move by dragging, by keyboard (Space, then Left/Right moves exactly one step and Up/Down reorders within a step), or with each card's Step menu.
+  - Moves are announced, and refused moves explain why.
+- **Notifications.** A card moving between open steps tells the task's people, through D106's "task changed" (once until read).
+- **Tests.** pgTAP `25_workflows` (33 tests) and e2e `workflows.spec.ts` (4 tests).
+
+## D108. Finance: spending against budgets, with approval (Part 10)
+
+Tracking, not accounting (D82, D91): no bank feeds, tax, payroll, invoices, double-entry or sync. "Your official books stay in your accounting software. This page tracks budgets and grant spending."
+
+- **Placement.** A new **Spending** page (sidebar, for everyone), beside Funds. Funds stays for owners and managers and now opens with **Budget against actual**. Each fund's page lists its spending.
+- **Budgets build on funds.** A fund's total is its budget. A new optional **spend-by date** marks time-limited money. The programs it pays for are the fund's own program plus its allocations' programs (`fund_pays_for`).
+- **Spending entries.**
+  - Each entry has an amount in whole cents, a category (suggestions offered, free text allowed), the date it was spent, a note and an optional receipt (photo or PDF, up to 10 MB). It's recorded against a fund and a program.
+  - Each entry records who submitted it, its status (waiting, approved or rejected), who decided, when, and an optional note.
+- **Who sees and does what.**
+  - Anyone on a program can submit spending for it, against a fund that pays for it. They see the fund names they can choose from (`spendable_funds`) and only their own entries, never budgets, totals or anyone else's spending.
+  - People correct or withdraw their own entry while it waits; a decided entry is fixed.
+  - Owners and managers see every entry and decide through `decide_spending()`. Nobody decides on their own entry, and the approver must rank above the submitter. Owners, whom nobody outranks, are decided by another owner.
+  - Only approved spending counts as spent.
+- **Receipts.** A private `receipts` bucket at `{org}/{uploader}/{uuid}.{ext}`. People upload into their own folder. The uploader and owners and managers can read, through short-lived signed links.
+- **Budget against actual** (`lib/budget.ts`, unit-tested). It has fixed status colours, always with a word and an icon:
+  - **On pace**: green.
+  - **Near the limit**: amber, at 85% spent.
+  - **Deadline soon**: amber, within 30 days of spend-by with a little left.
+  - **Over budget**: red.
+  - **At risk of going unspent**: red, within 30 days of spend-by (or past it) with more than a quarter left.
+  
+  Approved spending fills the bar; waiting spending is hatched after it. It shows on Funds, on each fund's page and in the dashboard's Funding widget.
+- **CSV export.** Approved entries for one fund and date range, with a total. Owners and managers only, and formula-safe like the attendance export.
+- **Bookkeeping work** stays ordinary work. Tasks gain an optional **link** (http or https, up to 500 characters), shown as "Open the link for this work".
+- **Settings → Finance** (owners and managers see it; only owners change it, enforced by a database guard). Pick QuickBooks, Xero, Wave, Sage or Other and an https link. Owners and managers then get an "Open …" button on the Spending page. It's a plain link: no OAuth, credentials or API calls.
+- **Tests.** pgTAP `26_spending` (38 tests: isolation, staff seeing only their own, self-approval refused, rank checks, receipts, the owner-only link). e2e `finance.spec.ts` (3 tests). Unit tests for budget status.
+
+## D109. Reports: templated, printable, downloadable and shareable by link (Part 11, expanded)
+
+The owner asked for reporting "on time, costs and resources to oversee progress, spot potential problems, and update your clients". In the session they chose costs from Funds, resources from workload, and sending by share link plus download, not email. There is no time logging.
+
+- **One Reports page** (sidebar) with four templates. Each takes a program (or everything you can see) and a date range.
+  - **Task progress**:
+    - open, overdue, due within 7 days, and finished in the period;
+    - a table by priority;
+    - a table by program, with the share done;
+    - the overdue list, most overdue first.
+  - **People and workload** (resources): each person's open, overdue, due-soon and finished work. It also gives the open work nobody is on and a one-line summary of who carries the most.
+  - **Costs against budget** (owners and managers): totals, budget against actual per fund with its D108 status, approved spending by category, and each approved entry in the period.
+  - **Attendance** (whoever can see a roster, as D81): sessions, the overall rate, everyone's rate lowest first, and who is below the low mark.
+- **Only what its author can see.** Every template reads through the same RLS and helpers as the rest of the app (`can_view_task` through the task query, the spending and funds rules, the attendance rules). Two people get different reports from the same settings.
+- **One model, four outputs.** `lib/report-model.ts` holds a report as a title, scope and sections of figures and tables. Each state is shown as a word with an icon ("On track", "Watch", "Needs attention"), never colour alone.
+  - The page renders it.
+  - **PDF** comes from the browser's print dialog ("Print or save as PDF"). Print styles drop the app's chrome and print dark on white. This needs **no package**: a PDF library would add weight for what the browser already does well.
+  - **CSV** lays out the same figures and tables, formula-safe.
+  - A **share link** shows the same model.
+- **Share links, not email.**
+  - "Create share link" stores a snapshot of the report as its author sees it now, behind a 64-character random token. Only the token's SHA-256 is stored, like the calendar feed (D102).
+  - The link is shown once and lasts 7, 30 or 90 days, never more. The author, or an owner or manager, can revoke it, and revoking is final.
+  - `/r/<token>` is public, read-only and unindexed. It uses Groundwork branding (D86) and says who shared it, from which organization and when it expires. It stops working once the link expires, is revoked, or its author leaves the organization. Nothing else is reachable through it.
+  - A snapshot is the author's statement, like a PDF they send. Viewers see whose it is.
+- **Attendance reports are never shared by link**, because they hold participant details (D81). The database refuses it. They can be printed or downloaded.
+- **Recorded.** Generating, printing, downloading and sharing reports, and revoking links, go into the activity log as "report" entries, with the template and dates but never the contents. Only owners and managers can read those entries.
+- **Tests.** pgTAP `27_reports` (22 tests: snapshots, expiry limit, no attendance or staff costs sharing, nobody sharing in someone else's name, anonymous opening, revoking, isolation, activity visibility). Unit tests for the CSV layout and formula safety. e2e `reports.spec.ts` (3 tests).
+
+## D110. The shell after the owner's review: accent sidebar, Finances group, Activity menu, filter menus, no accounting link
+
+After using Parts 8–11, the owner asked for five changes to the shell.
+
+- **A chosen accent colours the sidebar, in both modes.** Before this, an org's or person's accent changed only buttons, links and the current sidebar item's icon, and the sidebar stayed navy.
+  - `deriveRail()` in `lib/theme/theme.ts` takes the chosen colour and only lowers its lightness, never its hue, until the sidebar's text and secondary text reach 4.5:1 on it, its hover state does too, and the current item's accent icon reaches 3:1.
+  - In dark mode it starts no lighter than 30%, so the sidebar stays a deep version of the colour beside the dark canvas.
+  - A colour that can't pass at any lightness keeps the default sidebar.
+  - The default accent (#0006BF) keeps the navy sidebar from the brand sheet, so an organization that never picks a colour looks as before. Picking the Navy or Slate preset gives a navy or slate sidebar.
+  - The sidebar tokens join the accent's per-organization style sheet (light and dark). The unit tests run every preset and some awkward colours through the contrast checks in both modes. Settings → Branding's preview now shows a strip of the sidebar.
+  - This widens D83 ("navy for the sidebar"); large surfaces still stay calm because the sidebar is always a deep version of the colour.
+- **Finances.** Funds (owners and managers) and Spending (everyone) sit under one "Finances" heading in the sidebar.
+  - It is a button that opens and closes them (`aria-expanded`), and it opens by itself when one of its pages is current.
+  - On the narrow (collapsed) sidebar there's no room for a heading, so its pages show as icons.
+- **Activity moved to the top bar.** It is a menu beside the notifications bell, in the same kind of panel: it shows the latest 10 changes the viewer can see and links to the full log, which keeps its filters and owner export. The bell and the menu share `components/shell/top-bar-panel.tsx`.
+- **Filters behind one button.** Tasks (and each program's task list), Activity, Documents, Attendance and Spending put their filters in a "Filters" dropdown (`components/ui/filter-menu.tsx`).
+  - The button shows how many filters are on. The task lists also show them in words beside it, with Clear filters.
+  - Search boxes stay out on the page.
+  - The panel stays in the page while closed, so a search still sends the chosen filters.
+- **No accounting software link for now.** The Settings → Finance section and the "Open QuickBooks/Xero…" button on Spending are removed.
+  - The `organizations.accounting_name` and `accounting_url` columns and their owner-only guard (D108) stay in the database, unused. Dropping them would delete what an owner may already have saved in production, and the owner may want the link back later.
+  - Their pgTAP tests still hold.
+
+## D111. Programs open to list each program in the sidebar
+
+The owner asked that, when there are several programs, the sidebar's Programs item become a heading that opens to list them, like Finances (D110).
+
+- With two or more active programs the viewer can see, "Programs" (or the org's word for them) is a heading that opens and closes. It lists "All programs" (the overview page) and then each active program, A to Z. With none or one, it stays a plain link to the overview.
+- The list comes from the same query as every other program picker (`getProjectOptions`), so RLS keeps it to the programs the viewer can see. Archived programs aren't listed; they stay on the overview's Archived tab.
+- It opens by itself on the overview or on a program's page, and marks the current one. The overview link matches only its own page, not the programs under it. On the narrow (collapsed) sidebar it is the Programs icon, linking to the overview.
+- The separate "Recent programs" list under the menu is gone: it would have repeated the same names just above it. The `recent_projects` database function stays, unused by the sidebar.
+- The menu area scrolls when the list is long.
+
+## D112. The owner's review: bulk add, simpler filters, plainer scope words, repeating events, profile cards, report previews
+
+After using the app, the owner asked for six changes.
+
+- **Adding participants several at once.**
+  - "Add participants" opens a wide dialog laid out as a table. Each row is one person, with every field on view at once: full name, email, phone, parent or guardian, emergency contact.
+  - Rows can be added, removed, or filled from a pasted list (one person per line, commas or a spreadsheet's tabs, parsed by `lib/people-paste.ts`). Blank rows are skipped, and a row with details but no name is caught on that row.
+  - Everyone is saved together through `add_participants(project, people)`. It is SECURITY DEFINER with the same checks as `add_participant()` (the caller manages participants on that program, and it isn't archived). It runs in one transaction, so one bad row adds nobody, and it returns the new ids.
+  - Adding one person still opens their profile. Adding several returns to the list with "Added N".
+  - Date of birth and medical notes stay on each profile, where fewer people see them.
+  - pgTAP `29_bulk_participants`.
+- **Fewer filters on Tasks.**
+  - The Filters panel holds only what narrows the work: program, assignee, priority, due. Status is the board's columns already, so finished work is one "Include finished work" checkbox. The board's order is a "Most urgent first" toggle beside the button, not a filter.
+  - The quick-add box's program picker, which sat under the filters and read as a second filter, appears only once a title is typed. It is labelled "in program" and starts on the program the list is filtered to.
+- **Plainer scope words.** The dashboard's switch reads "My work" (renamed from "Assigned to me" at the owner's request) and "All work", not "Mine" and "Everything I oversee".
+- **Repeating events.**
+  - When adding an event, "Repeats weekly" picks weekdays and a number of weeks (up to 52; for example, every Friday for 5 weeks, 16:00–18:00). A summary ("5 times") updates as it's set.
+  - Each time is stored as its own event sharing `events.series_id`, so it shows, edits, exports to the calendar feed and takes attendance like any other. All are added in one insert.
+  - Editing changes one time. Deleting asks "Only this time" or "Every time it repeats", and the series delete still goes through the events policies.
+  - A trigger stops an event joining another organization's series. pgTAP `28_event_series`; unit tests for `weeklyDates`.
+- **Profile cards on programs.**
+  - On a program's People list, each name (with photo or initials) opens a card: photo, title, online status, email, their role on the program, "Message", and "Full profile".
+  - It reads the same member data as the profile page.
+- **Report previews.**
+  - The report was already shown in full on the page before any download. The button is now "Preview report".
+  - A "Preview as" switch shows it "On screen", as the "PDF page" (an A4 sheet styled exactly as it prints, dark on white in either mode), or as the "CSV" (every row and column, numbered, as a spreadsheet opens it).
+  - Nothing is printed, downloaded or shared until the viewer chooses to.
+
+## D113: Audit fixes for bugs and security
+
+The owner asked for an audit for bugs and security holes. Four reviews covered the database, the server code, the public pages and the app's behaviour. Every finding below was reproduced locally before it was fixed, and every database fix has a pgTAP test (`30_audit_fixes`, with `27_reports` now creating links through the new function).
+
+**Database (one migration per concern, `20261027000100`–`20261027001000`)**
+- **Activity no longer names tasks a reader can't see.** The old check for "this task is deleted" ran under the reader's own RLS, so a task they couldn't see looked deleted and its title showed. `can_view_task_activity()` now checks existence as definer. Once a task is deleted, its history shows only if it was open work at the time; if it was personal, hidden or share-listed, a trigger marks all of its history owner-only.
+- **Finish times are the database's.** `completed_at` is set from status changes only, so "Done this week" can't be back-dated. Attendance gets the same treatment: `recorded_by` and `recorded_at` are stamped on every save. The service-role seed keeps the times it sets.
+- **Memberships come only from creating an org or accepting an invitation.** `memberships_insert` is now `with check (false)`. Before, an owner of any org (anyone can make one) could add any account to it and then read that person's profile or message them.
+- **Share links are created only through `create_report_share()`.** It sets the creator, `created_at` and expiry (7, 30 or 90 days), so a client-chosen `created_at` can no longer make a link last forever. It checks the snapshot is the report type it claims to be, and stamps the organization's real name on it. Only the link's creator and owners can list links, so managers no longer read snapshots of programs they aren't on. A costs link stops working if its creator stops being an owner or manager. Snapshots are text only, and the shared page shows who shared them.
+- **Deleting a program deletes its documents and calendar items.** They used to fall back to the whole organization, so files and events only that program could see became visible to everyone. `can_delete_project()` is checked before any file is removed, so a refused delete never loses participant files. Cascaded documents and events aren't logged one by one, matching how tasks already worked.
+- **Stored documents follow their row.** A stored file with no row is readable only by whoever uploaded it, not by the whole organization. Anyone who may delete the row (`can_delete_document()`) may delete its file. The app now removes the file first and then the row, so a delete never leaves the file behind.
+- **Program rosters respect org ranks.** A program admin or lead can't remove, or change the role of, someone ranked above them in the organization (owners can act on anyone). Anyone can still leave.
+- **A spending decision is final.** `decide_spending()` refuses an entry that is no longer pending, so a manager can't overturn an owner.
+- **Definer helpers answer only within your own organizations.** `mentions_in()` and `fund_pays_for()` check membership. `task_creator_rank()` is no longer callable directly.
+
+**App and public pages**
+- **Proxy matcher.** It now excludes only the exact asset paths. Before, any path ending in an asset name skipped the auth redirect and the CSP.
+- **CSP and Permissions-Policy.** Both drop the unused Stripe allowances (there is no billing, per Scope), and frames are off.
+- **Redirects.** Server actions validate `orgSlug` as a slug before redirecting with it.
+- **CSV safety.** The guard against spreadsheet formulas no longer prefixes plain negative numbers and amounts.
+- **Behaviour fixes.**
+  - "Include finished work" keeps the open columns.
+  - Deleting a repeating event offers "This time and every later time", so earlier times and their attendance stay.
+  - Bulk add closes on success.
+  - Pasted names keep quoted commas and skip a header row.
+  - Attendance is grouped by the organization's local date.
+  - Quick add resets its program.
+
+**Considered and kept as designed**
+- **Anyone on a program may edit its tasks** unless the task's creator outranks them (D80, D89). Owners and managers may edit what they can see, including personal tasks ranked below them.
+- **Moving a program document to the whole organization** is a deliberate share by someone who manages that program's content.
+
+**Left for the owner, since they need production settings or are low risk**
+- **Rate limits** on sign-in emails, set in Vercel's firewall or with a captcha.
+- **Login CSRF** on `/auth/confirm`.
+- **The maintenance bypass token** sits in a query string.
+- **Invitation tokens** are stored in plain text.
+- **Online status** can be spoofed through Realtime presence.
+- **Inline styles** are still allowed in the CSP.
+
+## D114: The groundhog logo
+
+The owner sent new brand files: the primary logo (the groundhog mascot peeking from its burrow, with "ground" in navy and "work" in blue), a dark banner, and light and dark app icons. They replace the hard-hat figure everywhere the Groundwork logo appears.
+
+- **The source files.** They are PNG images wrapped in SVG. Each was trimmed and its background made transparent, giving a mascot and a wordmark for light backgrounds and, from the dark banner, white-ringed versions for navy ones. They live in `components/brand/` and are shown with `next/image`.
+- **Where they appear.**
+  - The masthead of the public pages, in light and dark.
+  - The sign-in header.
+  - The app sidebar, including the "Powered by Groundwork" mark under an organization's own logo.
+  - The branding settings' fallback.
+  - The shared-report page.
+- **Favicons.** The light icon in light mode and the dark icon in dark mode, plus an Apple touch icon (`public/brand/`). `/logo.svg` now holds the light icon, so the maintenance page, which can't use the app's components, shows it too.
+- **Illustrations.** The empty-state illustrations (D99) still show the earlier figure. They are separate art and can be redrawn around the mascot later.
+## D115: The public demo
+
+The owner asked for a demo anyone can use without an account. It must never affect anyone else, and nothing from it may be kept. They approved turning on Supabase's anonymous sign-ins, a Cloudflare Turnstile bot check, and a two-hour limit.
+
+- **Starting.** "Try the demo" (masthead, homepage, sign-in page) leads to `/demo`. "Start the demo" signs the visitor in with a temporary anonymous Supabase account, passing the bot check's token when it's set up. `start_demo()` then gives them their own private organization ("Riverside Youth Club"), which they own, with three programs, work, a calendar, participants and attendance, a fund with spending, chat and a discussion. The three pretend teammates are accounts that can't sign in. Starting again during the same demo returns the same one.
+- **Kept apart.** A demo is an ordinary organization, so the same RLS that keeps organizations apart keeps demos apart. Visitors see only their own demo and nothing real, and real people never see demos (pgTAP `31_public_demo`, e2e `demo.spec.ts` with two visitors at once).
+- **What a demo can't do.** A demo has no way out to the world. Restrictive policies and triggers refuse:
+  - uploads to any bucket;
+  - invitations;
+  - report share links;
+  - calendar feeds;
+  - creating real organizations.
+
+  The app says "That isn't available in the demo" for each.
+- **Nothing kept.**
+  - **When it's deleted.** "End demo", or signing out, deletes the demo at once. Otherwise a `pg_cron` job (`end-expired-demos`, every minute) deletes it once its two hours are up.
+  - **What's deleted.** The organization and every row in it, the pretend teammates, the temporary account and its sign-in records. Temporary accounts that never started a demo go after two hours too.
+  - **Locked on expiry.** An expired demo is locked before the cleanup runs, because every organization table has a restrictive `demo_live` policy. pgTAP checks that every org-scoped table has it, so a new table can't forget.
+  - **Limits.** Supabase's own platform logs (request logs, kept for a limited time) are outside the app and can't be cleared from it. Paid-plan database backups taken while a demo is running would include it until those backups expire.
+- **Bot check.**
+  - **Where it applies.** With `TURNSTILE_SITE_KEY` (a GitHub variable) and `TURNSTILE_SECRET_KEY` (a GitHub secret) both set, the deploy turns Supabase's captcha on. The widget then shows on `/demo` and on every email sign-in form, which also limits sign-in email abuse (D113).
+  - **Half-configured.** Setting only one key is refused, because it would block every sign-in.
+  - **Without the keys.** The check stays off, and demos are limited per address by Supabase (30 an hour). With the check on, the limit is 300 an hour, since the check protects it.
+  - **CSP.** Only Turnstile's frame is allowed. Its script loads from the app's own code under `'strict-dynamic'`.
+- **Also fixed.** Deleting an organization that had attendance failed, because clearing participants' notes ran after the organization row was gone.

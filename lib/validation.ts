@@ -17,9 +17,10 @@ export const projectInput = z
     name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(120, "Use 120 characters or fewer."),
     description: optionalText(4000, "Use 4,000 characters or fewer."),
     color: z.enum(PROJECT_COLOR_VALUES, { error: "Pick one of the colours." }).optional(),
-    ownerMembershipId: id.optional(),
     startDate: isoDate.optional(),
     endDate: isoDate.optional(),
+    // a checkbox: present when ticked
+    tracksParticipants: z.literal("on").optional(),
   })
   .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     path: ["endDate"],
@@ -34,22 +35,55 @@ export const taskCreateInput = z.object({
   title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
   status: taskStatus.optional(),
   dueDate: isoDate.optional(),
+  priority: z.enum(["critical", "high", "medium", "low"], { error: "Choose a priority." }).optional(),
   assigneeMembershipId: id.optional(),
 });
 
-export const taskUpdateInput = z.object({
-  id,
-  projectId: id,
-  title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
-  description: optionalText(4000, "Use 4,000 characters or fewer."),
-  status: taskStatus,
-  dueDate: isoDate.optional(),
-  assigneeMembershipId: id.optional(),
-});
+const personRef = z
+  .string()
+  .regex(/^[mi]:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Choose who it's for.");
+
+/**
+ * The full task form, for a new task (no id) or an existing one (D101).
+ * Status isn't here: it follows who's on the task, and done is a tick.
+ */
+export const taskFormInput = z
+  .object({
+    id: id.optional(),
+    organizationId: id,
+    // left out for personal and org-level tasks outside any project
+    projectId: id.optional(),
+    title: z.string({ error: "Add a title." }).min(1, "Add a title.").max(200, "Use 200 characters or fewer."),
+    description: optionalText(4000, "Use 4,000 characters or fewer."),
+    // a link for the work, like the accounting software for a bookkeeping task (D108)
+    linkUrl: z
+      .string()
+      .trim()
+      .max(500, "Use 500 characters or fewer.")
+      .refine((v) => v === "" || /^https?:\/\/[^\s]+$/.test(v), "Use a full web address starting https://.")
+      .optional(),
+    kind: z.enum(["general", "appointed", "personal"], { error: "Choose what kind of work this is." }),
+    priority: z.enum(["critical", "high", "medium", "low"], { error: "Choose a priority." }),
+    dueDate: isoDate.optional(),
+    hidden: z.boolean(),
+    claimLimit: z.coerce
+      .number({ error: "Use a whole number." })
+      .int("Use a whole number.")
+      .min(1, "Allow at least one person.")
+      .max(1000, "Use 1,000 or fewer.")
+      .optional(),
+    completion: z.enum(["any", "all"], { error: "Choose when it's done." }),
+    assignees: z.array(personRef).max(50, "Choose 50 people or fewer."),
+    shares: z.array(id).max(200, "Choose 200 people or fewer."),
+  })
+  .transform((v) => ({
+    ...v,
+    // a claim limit only means something on open work
+    claimLimit: v.kind === "general" ? v.claimLimit : undefined,
+  }));
 
 export const taskMoveInput = z.object({
   id,
-  status: taskStatus,
   position: z.number().finite(),
 });
 
@@ -188,6 +222,33 @@ export const documentInput = z.object({
 /** The user-entered part of an upload, checked in the browser before the file is sent. */
 export const documentMetaInput = documentInput.pick({ name: true, projectId: true, tags: true });
 
+// Participant files (D56, D102) ---------------------------------------------------------
+
+export const PARTICIPANT_FILE_KINDS = ["waiver", "medical", "consent", "id", "other"] as const;
+/** What each kind of participant file is called. */
+export const FILE_KIND_LABELS: Record<(typeof PARTICIPANT_FILE_KINDS)[number], string> = {
+  waiver: "Waiver",
+  medical: "Medical form",
+  consent: "Consent form",
+  id: "ID",
+  other: "Other",
+};
+export const participantFileKind = z.enum(PARTICIPANT_FILE_KINDS, { error: "Choose what kind of file this is." });
+
+export const participantUploadRequestInput = uploadRequestInput.extend({ projectId: id, participantId: id });
+
+export const participantFileInput = z.object({
+  organizationId: id,
+  projectId: id,
+  participantId: id,
+  storagePath: z.string().min(1).max(1024),
+  name: z.string({ error: "Add a name." }).trim().min(1, "Add a name.").max(255, "Use 255 characters or fewer."),
+  kind: participantFileKind,
+});
+
+/** The user-entered part of a participant file upload, checked before the file is sent. */
+export const participantFileMetaInput = participantFileInput.pick({ name: true, kind: true, projectId: true });
+
 export const documentUpdateInput = z.object({
   id,
   name: z.string({ error: "Add a name." }).min(1, "Add a name.").max(255, "Use 255 characters or fewer."),
@@ -216,3 +277,64 @@ export const slugInput = z
     (s) => !["login", "auth", "invite", "create-organization", "api", "logo", "favicon", "settings"].includes(s),
     "That slug is reserved.",
   );
+
+// Branding (D84, D86) ---------------------------------------------------------------------
+
+/** Logos: PNG, JPG or WebP only (no SVG, which can carry scripts), up to 2 MB. Mirrors the "branding" bucket. */
+export const LOGO_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+export const LOGO_ACCEPT = ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp";
+export const LOGO_EXTENSION: Record<(typeof LOGO_MIME_TYPES)[number], string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export const logoVariant = z.enum(["light", "dark"], { error: "Choose which logo this is." });
+
+export const logoUploadInput = z.object({
+  organizationId: id,
+  variant: logoVariant,
+  size: z
+    .number()
+    .int()
+    .positive("That file is empty.")
+    .max(MAX_LOGO_BYTES, "Logos can be at most 2 MB."),
+  mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image. SVG files aren't accepted." }),
+});
+
+/** A colour as #RRGGBB, stored upper-case; empty (or left out) means "use the default". */
+export const accentInput = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (!v ? null : v.startsWith("#") ? v.toUpperCase() : `#${v.toUpperCase()}`))
+  .refine((v) => v === null || /^#[0-9A-F]{6}$/.test(v), "Use a colour like #0006BF.");
+
+// Member profiles (D104) ------------------------------------------------------------------
+
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+export const photoUploadInput = z.object({
+  organizationId: id,
+  size: z.number().int().min(1, "Choose a photo.").max(MAX_PHOTO_BYTES, "Photos can be at most 5 MB."),
+  mimeType: z.enum(LOGO_MIME_TYPES, { error: "Use a PNG, JPG or WebP image." }),
+});
+
+export const profileInput = z.object({
+  fullName: z.string({ error: "Add your name." }).trim().min(1, "Add your name.").max(120, "Use 120 characters or fewer."),
+  title: z
+    .string()
+    .trim()
+    .max(120, "Use 120 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+  bio: z
+    .string()
+    .trim()
+    .max(1000, "Use 1,000 characters or fewer.")
+    .optional()
+    .transform((v) => v || null),
+});
+
+export const PRESENCE_MODES = ["auto", "dnd", "invisible"] as const;

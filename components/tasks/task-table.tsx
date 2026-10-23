@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { DueBadge, ProjectDot, TaskStatusBadge } from "./badges";
-import { TaskCheckbox } from "./task-checkbox";
+import { DueBadge, NeedsAssigneeBadge, PriorityFlag, ProjectDot, TaskStatusBadge } from "./badges";
+import { assigneeIds } from "@/lib/task-filters";
+import { TaskDoneBox } from "./task-checkbox";
 import type { TaskRow } from "@/lib/queries";
-import type { Translate } from "@/lib/terminology/t";
+import { lower, type Translate } from "@/lib/terminology/t";
 
-export type SortKey = "title" | "project" | "assignee" | "status" | "due";
+export type SortKey = "title" | "project" | "assignee" | "status" | "priority" | "due";
 export type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 /** Ruled task table. Pass `sortHref` to make the column headers sortable. */
@@ -35,12 +36,13 @@ export function TaskTable({
     ...(showProject ? [{ key: "project" as const, label: t("project") }] : []),
     { key: "assignee", label: "Assignee" },
     { key: "status", label: "Status" },
+    { key: "priority", label: "Priority" },
     { key: "due", label: "Due" },
   ];
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[680px] border-collapse text-left">
+      <table className="w-full min-w-[760px] border-collapse text-left">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-ink font-heading text-sm">
@@ -84,7 +86,7 @@ export function TaskTable({
           {tasks.map((task) => (
             <tr key={task.id} className="border-b border-rule hover:bg-tint">
               <td className="py-2.5">
-                <TaskCheckbox id={task.id} title={task.title} done={task.status === "done"} />
+                <TaskDoneBox task={task} />
               </td>
               <th scope="row" className="py-2.5 pr-4 font-normal">
                 <Link
@@ -101,18 +103,27 @@ export function TaskTable({
                       <ProjectDot color={task.project.color} />
                       {task.project.name}
                     </Link>
-                  ) : null}
+                  ) : (
+                    <span className="text-ink-muted">{task.kind === "personal" ? t("task_kind.personal") : `No ${lower(t("project"))}`}</span>
+                  )}
                 </td>
               ) : null}
               <td className="py-2.5 pr-4 text-sm">
-                {task.assignee_membership_id ? (
-                  memberName.get(task.assignee_membership_id)
+                {task.assignees.length > 0 ? (
+                  assigneeIds(task)
+                    .map((id) => memberName.get(id) ?? "Someone")
+                    .join(", ")
+                ) : task.needs_assignee && task.status !== "done" ? (
+                  <NeedsAssigneeBadge />
                 ) : (
                   <span className="text-ink-muted">Unassigned</span>
                 )}
               </td>
               <td className="py-2.5 pr-4">
                 <TaskStatusBadge status={task.status} label={t(`status.${task.status}`)} />
+              </td>
+              <td className="py-2.5 pr-4">
+                <PriorityFlag priority={task.priority} label={t(`priority.${task.priority}`)} />
               </td>
               <td className="py-2.5">
                 {task.due_date ? (
