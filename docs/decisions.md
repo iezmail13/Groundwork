@@ -635,7 +635,7 @@ After using the app, the owner asked for six changes.
 - **Fewer filters on Tasks.**
   - The Filters panel holds only what narrows the work: program, assignee, priority, due. Status is the board's columns already, so finished work is one "Include finished work" checkbox. The board's order is a "Most urgent first" toggle beside the button, not a filter.
   - The quick-add box's program picker, which sat under the filters and read as a second filter, appears only once a title is typed. It is labelled "in program" and starts on the program the list is filtered to.
-- **Plainer scope words.** The dashboard's switch reads "Assigned to me" and "All work", not "Mine" and "Everything I oversee".
+- **Plainer scope words.** The dashboard's switch reads "My work" (renamed from "Assigned to me" at the owner's request) and "All work", not "Mine" and "Everything I oversee".
 - **Repeating events.**
   - When adding an event, "Repeats weekly" picks weekdays and a number of weeks (up to 52; for example, every Friday for 5 weeks, 16:00–18:00). A summary ("5 times") updates as it's set.
   - Each time is stored as its own event sharing `events.series_id`, so it shows, edits, exports to the calendar feed and takes attendance like any other. All are added in one insert.
