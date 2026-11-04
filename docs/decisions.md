@@ -727,3 +727,15 @@ The owner asked for a demo anyone can use without an account. It must never affe
   - **Without the keys.** The check stays off, and demos are limited per address by Supabase (30 an hour). With the check on, the limit is 300 an hour, since the check protects it.
   - **CSP.** Only Turnstile's frame is allowed. Its script loads from the app's own code under `'strict-dynamic'`.
 - **Also fixed.** Deleting an organization that had attendance failed, because clearing participants' notes ran after the organization row was gone.
+
+## D116: Security upgrade of Next.js and Zod
+
+`npm audit` reported three advisories in Next.js 16.4.0 and one in Zod 4.6.5. The Next.js build itself had also started warning about the vulnerable version.
+
+- **Next.js 16.4.0.** Three advisories:
+  - Critical: unauthenticated remote code execution in the image optimization API with SVG files (GHSA-2464-fhr4-w9xw).
+  - Critical: unauthenticated remote code execution in `use cache` functions that return typed arrays (GHSA-673q-mjm6-r5xr).
+  - Denial of service in App Router server actions (GHSA-p3m5-59mp-jv5r).
+- **Zod 4.6.5.** High: memory exhaustion while validating oversized constrained collections (GHSA-mrhx-c7xc-m3w5).
+
+Next.js and `eslint-config-next` move to 16.4.3, and Zod to 4.6.7. These are patch releases of packages already approved, so no package is added. `npm audit` now reports no vulnerabilities, and every check passes unchanged.
