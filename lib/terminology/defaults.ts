@@ -80,3 +80,10 @@ export const DEFAULT_LABELS: Record<LabelKey, LabelEntry> = {
   "task_kind.appointed": { one: "Appointed", other: "Appointed" },
   "task_kind.personal": { one: "Personal", other: "Personal" },
 };
+
+/**
+ * The nonprofit preset's word for a project, for the public landing page,
+ * which has no organization to read a preset from (D117). Kept in step with
+ * the "nonprofit" row of the presets table.
+ */
+export const NONPROFIT_LABELS: LabelMap = { project: { one: "Program", other: "Programs" } };

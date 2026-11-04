@@ -5,7 +5,7 @@ import { MobileMenu } from "./mobile-menu";
 
 /** The public pages' links, in the order the masthead shows them. */
 export const SITE_LINKS = [
-  { href: "/#benefits", label: "Features" },
+  { href: "/#features", label: "Features" },
   { href: "/security", label: "Security" },
   { href: "/demo", label: "Try the demo" },
 ] as const;
@@ -24,13 +24,13 @@ export function Masthead() {
               {l.label}
             </Link>
           ))}
-          <Link href="/login" className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
+          <Link href="/login" prefetch className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
             Log in
           </Link>
-          <ButtonLink href="/signup">Start free</ButtonLink>
+          <ButtonLink href="/signup" prefetch>Start free</ButtonLink>
         </div>
         <div className="flex items-center gap-2 md:hidden">
-          <ButtonLink href="/signup" size="sm">
+          <ButtonLink href="/signup" prefetch size="sm">
             Start free
           </ButtonLink>
           <MobileMenu />

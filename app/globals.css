@@ -187,6 +187,66 @@
   }
 }
 
+/*
+ * The landing and sign-in pages (D117). Colours come from the logo (its navy,
+ * its blue and the groundhog's fur) and the dashboard navy: navy for ground,
+ * text and rules; the logo's blue for the primary action and focus; the fur
+ * for highlights and the grid's glow. Contrast is checked in docs/decisions.md
+ * (D117). These pages follow the device's colour scheme only, never the
+ * in-app theme setting, and nothing inside the app changes.
+ */
+:root:has(.landing),
+.landing {
+  --canvas: #FBF9F4;
+  --panel: #F5F1E8;
+  --rule: #DDD6C8;
+  --ink: #163260;
+  --ink-muted: #445A7E;
+  --accent: #244979;
+  --on-accent: #FFFFFF;
+  --accent-tint: #E3E7EC;
+  --landing-accent-hover: #1C3A61;
+  --landing-highlight: #8C5B36;
+  --landing-cell: #527FAF;
+  --landing-glow: #B67D53;
+
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:has(.landing),
+  .landing {
+    --canvas: #0C1C35;
+    --panel: #112648;
+    --rule: #364152;
+    --ink: #F1EEE7;
+    --ink-muted: #B6C1D8;
+    --accent: #7A9DC2;
+    --on-accent: #0C1C35;
+    --accent-tint: #1B3150;
+    --landing-accent-hover: #96B2CF;
+    --landing-highlight: #C78E5F;
+    --landing-cell: #527FAF;
+    --landing-glow: #C78E5F;
+
+    color-scheme: dark;
+  }
+}
+/* the logo pair (.only-light / .only-dark) follows the device here too */
+:root:has(.landing) .only-dark {
+  display: none;
+}
+:root:has(.landing) .only-light {
+  display: revert;
+}
+@media (prefers-color-scheme: dark) {
+  :root:has(.landing) .only-light {
+    display: none;
+  }
+  :root:has(.landing) .only-dark {
+    display: revert;
+  }
+}
+
 html,
 body {
   height: 100%;
@@ -419,6 +479,16 @@ dialog.gw-drawer[open] {
 
 /* Landing page: the mobile menu slides down and tab panels fade up. The
    hero's grid is components/ui/grid-pulse.tsx. */
+/* The hero's data grid (D117): each cell breathes between two opacities. */
+@keyframes cell-pulse {
+  from {
+    opacity: var(--opacity-min, 0.1);
+  }
+  to {
+    opacity: var(--opacity-max, 0.6);
+  }
+}
+
 @keyframes menu-down {
   from {
     opacity: 0;
@@ -572,4 +642,9 @@ dialog.gw-drawer[open] {
   .report tr {
     page-break-inside: avoid;
   }
+}
+
+/* The sign-in modal over the landing page (D117). */
+dialog.gw-dialog.gw-dialog-auth {
+  max-width: min(480px, calc(100vw - 2rem));
 }

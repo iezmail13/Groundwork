@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { ArrowRight, CalendarClock, FileSearch, MessageSquareMore, UserRoundPlus, UsersRound, FolderPlus, Rocket } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { lower, type Translate } from "@/lib/terminology/t";
@@ -44,64 +43,6 @@ export function Problems({ t }: { t: Translate }) {
             </li>
           ))}
         </ul>
-      </div>
-    </section>
-  );
-}
-
-type Benefit = { title: string; body: string; image: { src: string; alt: string; width: number; height: number } };
-
-/** Three key benefits, each with one real screenshot. Only features that ship. */
-export function Benefits({ t }: { t: Translate }) {
-  const benefits: Benefit[] = [
-    {
-      title: "See who's doing what, and what's next",
-      body: `Break each ${lower(t("project"))} into ${lower(t("task", "other"))}, give each one an owner and a due date, and follow them on a board or in a list you can sort and filter.`,
-      image: {
-        src: "/marketing/tasks-board.png",
-        alt: "A board of work in three columns, each card showing who it's assigned to, its due date, and an Overdue badge where it's late.",
-        width: 1280,
-        height: 800,
-      },
-    },
-    {
-      title: "Never miss a deadline",
-      body: `Due dates and ${lower(t("event", "other"))} share one calendar. Your dashboard opens with what's overdue and what's due this week, in words, not just colour.`,
-      image: {
-        src: "/marketing/calendar.png",
-        alt: "A month calendar with today highlighted and the month's activities and due dates on their days.",
-        width: 1280,
-        height: 800,
-      },
-    },
-    {
-      title: "Find the right file the first time",
-      body: "Upload, tag and search your team's files. They stay private to your organization and open through short-lived secure links.",
-      image: {
-        src: "/marketing/documents.png",
-        alt: "A table of the organization's files with their tags, sizes and upload dates, and a search box above it.",
-        width: 1280,
-        height: 800,
-      },
-    },
-  ];
-  return (
-    <section id="benefits" aria-labelledby="benefits-title" className="scroll-mt-4 border-b border-rule px-4 py-20 sm:px-6">
-      <h2 id="benefits-title" className="sr-only">
-        What Groundwork does
-      </h2>
-      <div className="mx-auto flex max-w-6xl flex-col gap-20">
-        {benefits.map((b, i) => (
-          <article key={b.title} className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
-            <div className={i % 2 ? "md:order-2" : ""}>
-              <h3 className="font-heading text-2xl font-bold text-balance md:text-3xl">{b.title}</h3>
-              <p className="mt-3 text-lg text-ink-muted">{b.body}</p>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-rule bg-panel p-1.5">
-              <Image src={b.image.src} alt={b.image.alt} width={b.image.width} height={b.image.height} sizes="(min-width: 768px) 560px, 100vw" className="h-auto w-full rounded-lg border border-rule" />
-            </div>
-          </article>
-        ))}
       </div>
     </section>
   );
@@ -172,7 +113,7 @@ export function FinalCta() {
       </h2>
       <p className="mx-auto mt-3 max-w-xl text-lg text-ink-muted">Create your organization in a minute, then invite your team.</p>
       <div className="mt-8">
-        <ButtonLink href="/signup" className="h-12 px-7 text-base">
+        <ButtonLink href="/signup" prefetch className="h-12 px-7 text-base">
           Start free
           <ArrowRight aria-hidden className="size-4" />
         </ButtonLink>

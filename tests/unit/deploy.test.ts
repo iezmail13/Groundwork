@@ -274,7 +274,7 @@ describe("security headers", () => {
 describe("checkLandingPage", () => {
   it("passes the landing page", () => {
     expect(
-      checkLandingPage(200, '<h1>Tasks, files and deadlines for your nonprofit, in one place.</h1><a href="/signup">Start free</a><a href="/login">Log in</a>').ok,
+      checkLandingPage(200, '<h1><span>Manage your work</span> <span>from the ground up</span></h1><a href="/signup">Start free</a><a href="/login">Log in</a>').ok,
     ).toBe(true);
   });
   it("fails when / redirects or lost its content", () => {

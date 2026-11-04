@@ -48,7 +48,7 @@ export function MobileMenu() {
             {l.label}
           </Link>
         ))}
-        <Link href="/login" onClick={close} className={linkClass}>
+        <Link href="/login" prefetch onClick={close} className={linkClass}>
           Log in
         </Link>
       </div>

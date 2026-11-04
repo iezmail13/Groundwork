@@ -27,13 +27,17 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   // light, dark or system, from the cookie, so the first paint is already right (D84)
   const theme = parseThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     // the theme toggle changes data-theme on the client, so React mustn't fight it
     <html lang="en" data-theme={theme} className={`${archivo.variable} ${sourceSans.variable}`} suppressHydrationWarning>
-      <body className="min-h-full bg-canvas text-ink">{children}</body>
+      <body className="min-h-full bg-canvas text-ink">
+        {children}
+        {/* sign-in over a public page, from an intercepted /login or /signup (D117) */}
+        {modal}
+      </body>
     </html>
   );
 }

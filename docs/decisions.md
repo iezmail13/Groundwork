@@ -739,3 +739,28 @@ The owner asked for a demo anyone can use without an account. It must never affe
 - **Zod 4.6.5.** High: memory exhaustion while validating oversized constrained collections (GHSA-mrhx-c7xc-m3w5).
 
 Next.js and `eslint-config-next` move to 16.4.3, and Zod to 4.6.7. These are patch releases of packages already approved, so no package is added. `npm audit` now reports no vulnerabilities, and every check passes unchanged.
+
+## D117: The landing page and sign-in rework
+
+The owner asked for a new landing page and for sign-in to feel like part of it. They gave two reference components: a pulsing grid (used, adapted) and a sticky scroll section (its structure only, none of its code, colours, images or packages).
+
+- **Colours, landing and sign-in only.** These pages take their colours from the logo and the dashboard's navy, and follow the device's colour scheme, with no toggle. This is a scoped exception to D83: the tokens are redefined under `.landing` (`MarketingShell landing`) in `app/globals.css`, and nothing inside the app changes.
+  - **Light.** A bone canvas (#FBF9F4) with navy text (#163260) and a navy button (#244979). The logo's brown (#8C5B36) marks feature numbers and ticks.
+  - **Dark.** The navy hero: canvas #0C1C35 with light text and a light-blue button (#7A9DC2, with navy words).
+  - **Contrast.** Text is at least 4.5:1 and the grid's glow at least 3:1 in both modes. `tests/unit/landing-colors.test.ts` reads the CSS and checks every pair. `color-scheme` is set, so form controls and scrollbars match.
+- **Hero.** The headline is "Manage your work / from the ground up" (two lines from the small breakpoint up), then the subheading, "Try the demo", an outlined "Start free" and "No credit card needed". The "Built for youth and community organizations" pill is gone.
+  - **Background.** `components/ui/data-grid-hero.tsx` is the reference grid, adapted: a typed props object, cells as React elements, theme tokens, and the `cell-pulse` keyframes in `globals.css`. The grid size, pulse and pointer glow are kept. The glow only follows a fine pointer (never touch), and both stop under reduced motion. A mask fades the grid behind the words and towards the preview.
+  - **Preview.** The dashboard capture overlaps the bottom of the hero, with the board and calendar fanned behind it from the medium breakpoint up.
+- **Pictures are real captures.** `npm run seed:marketing` creates a separate organization, "Maple Youth Collective", so the e2e tests' Northside seed is untouched.
+  - **Contents.** Summer Day Camp, After-School Tutoring and the Community Food Drive; tasks done, in progress, due soon and overdue; a full calendar week; permission forms, a budget and a volunteer handbook. Every date is relative to today.
+  - **Capture.** `scripts/capture-marketing.ts --features` signs in as its owner and captures the programs, board, calendar and documents pages at 2x, cropped, as WebP in light and dark. `--dark` captures the hero's pictures in dark mode. The app really has both modes, so neither is faked.
+  - **Unused.** `public/marketing/documents.png` and `dashboard-widgets.png` are no longer shown.
+- **Features.** One section replaces the benefits grid. On wide screens a sticky picture column cross-fades (a CSS transition, an instant swap under reduced motion) to whichever feature crosses the middle of the screen, found with an IntersectionObserver. Phones get each feature with its own picture. Only live features are listed: programs, tasks and the board, the calendar and reminders, and documents. The masthead's Features link goes to `/#features`.
+- **Sign-in as part of the home page.**
+  - **Modal.** "Log in" and "Start free" open the form in a modal over the page, through intercepting routes: the `@modal` slot in the root layout with `(.)login` and `(.)signup`. The URL becomes `/login` or `/signup`.
+  - **Closing.** Escape, the close button and a click outside go back in history with no page load. Focus returns to the link that opened it. The modal is a native `<dialog>`, so the page behind is inert and focus stays inside.
+  - **Other routes.** A catch-all in the slot returns nothing, so any other navigation closes the modal. The slot's `default.tsx` covers `/`. The modal always closes by going back, never by a link to `/`. A `@modal/page.tsx` for `/` made the development server reload the home page in a loop, and an optional catch-all can't sit beside the home page in a production build.
+  - **Opened directly.** A bookmark, refresh or emailed link to `/login` or `/signup` shows the full page, in the landing frame, with a Back link home.
+  - **Shared form.** The modal and the pages share `SignInPanel`.
+  - **Unchanged.** The magic-link action, Google, `next`, the redirect for signed-in people, "Try the demo" and the development shortcut all work as before.
+  - **Logo links.** The logo in every public header (the masthead and `AuthFrame`) links home, labelled "Groundwork home".
