@@ -461,8 +461,9 @@ test("landing page: signed-out visitors see the hero, the features, the problems
   await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
   // the headline breaks onto two lines on a wide screen (D117)
   const lines = await page.locator("#hero-title > span").evaluateAll((spans) => spans.map((s) => s.getBoundingClientRect().top));
+  const [first, second] = lines;
   expect(lines).toHaveLength(2);
-  expect(lines[1]).toBeGreaterThan(lines[0]);
+  expect(second! - first!).toBeGreaterThan(0);
   for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
     await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
   }

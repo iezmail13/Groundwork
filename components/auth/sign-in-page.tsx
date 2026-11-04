@@ -12,20 +12,22 @@ import { SignInPanel, type SignInMode } from "./sign-in-panel";
 export function SignInPage({ mode, next, error }: { mode: SignInMode; next?: string; error?: string }) {
   return (
     <MarketingShell landing>
+      <div className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 font-heading text-sm font-semibold text-ink-muted hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+          Back
+        </Link>
+      </div>
+      {/* the grid fades out behind the form and at its edges, so the words keep their contrast */}
       <DataGridHero
         mouseGlow={false}
-        className="border-b border-rule"
-        gridClassName="[mask-image:radial-gradient(ellipse_60%_55%_at_50%_45%,rgb(0_0_0/0.1)_45%,#000_100%)]"
+        gridClassName="[mask-composite:intersect] [mask-image:radial-gradient(ellipse_48%_60%_at_50%_50%,rgb(0_0_0/0.08)_55%,#000_100%),linear-gradient(to_bottom,transparent,#000_18%,#000_70%,transparent)] max-sm:[mask-image:radial-gradient(ellipse_90%_60%_at_50%_50%,rgb(0_0_0/0.08)_60%,#000_100%),linear-gradient(to_bottom,transparent,#000_18%,#000_70%,transparent)]"
       >
-        <div className="mx-auto max-w-6xl px-4 pt-5 pb-16 sm:px-6 sm:pb-24">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 font-heading text-sm font-semibold text-ink-muted hover:text-ink"
-          >
-            <ArrowLeft aria-hidden className="size-4" />
-            Back
-          </Link>
-          <div className="mx-auto mt-8 w-full max-w-md rounded-xl border border-rule bg-canvas px-5 pt-7 pb-8 sm:mt-12 sm:px-8 sm:pt-9 sm:pb-10">
+        <div className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-10 sm:pb-24">
+          <div className="mx-auto w-full max-w-md rounded-xl border border-rule bg-canvas px-5 pt-7 pb-8 sm:px-8 sm:pt-9 sm:pb-10">
             <SignInPanel mode={mode} next={next} error={error} titleId="signin-title" />
           </div>
         </div>
