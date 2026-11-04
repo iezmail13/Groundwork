@@ -6,6 +6,9 @@
 //
 // Signs in with the development shortcut, so it only works against `npm run dev`.
 //
+// With --dark it captures the same pictures in dark mode, as name-dark.png,
+// for the hero preview's dark scheme.
+//
 // With --features it captures the landing page's feature pictures instead
 // (D117), from "Maple Youth Collective" (npm run seed:marketing): programs,
 // the task board, the calendar and documents, each at 2x in light and dark
@@ -93,7 +96,9 @@ async function main() {
   const browser = await chromium.launch({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
   });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+  const dark = process.argv.includes("--dark");
+  const suffix = dark ? "-dark" : "";
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, colorScheme: dark ? "dark" : "light" });
   const page = await context.newPage();
 
   await page.goto(`${BASE}/login`);
@@ -108,8 +113,9 @@ async function main() {
   ];
   for (const shot of shots) {
     await settle(page, shot.path);
-    await page.screenshot({ path: `${OUT}/${shot.file}` });
-    console.log(`saved ${OUT}/${shot.file}`);
+    const file = shot.file.replace(/\.png$/, `${suffix}.png`);
+    await page.screenshot({ path: `${OUT}/${file}` });
+    console.log(`saved ${OUT}/${file}`);
   }
 
   // the dashboard's widget grid alone, a closer crop than the hero shot
@@ -117,11 +123,11 @@ async function main() {
   const grid = await page.locator("li[data-widget]").first().locator("xpath=..").boundingBox();
   if (!grid) throw new Error("The dashboard widget grid wasn't found.");
   await page.screenshot({
-    path: `${OUT}/dashboard-widgets.png`,
+    path: `${OUT}/dashboard-widgets${suffix}.png`,
     fullPage: true,
     clip: { x: grid.x, y: grid.y, width: grid.width, height: Math.min(grid.height, 840) },
   });
-  console.log(`saved ${OUT}/dashboard-widgets.png`);
+  console.log(`saved ${OUT}/dashboard-widgets${suffix}.png`);
 
   await browser.close();
 }

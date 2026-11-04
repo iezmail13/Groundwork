@@ -3,9 +3,10 @@ import { MarketingFooter } from "./footer";
 import { Masthead } from "./masthead";
 
 /** The frame every public page shares: skip link, masthead, content, footer. */
-export function MarketingShell({ children, banner }: { children: ReactNode; banner?: ReactNode }) {
+export function MarketingShell({ children, banner, landing = false }: { children: ReactNode; banner?: ReactNode; landing?: boolean }) {
+  // the landing page's own colours (D117), which follow the device's colour scheme
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={`flex min-h-dvh flex-col ${landing ? "landing bg-canvas text-ink" : ""}`}>
       <a href="#main" className="sr-only-focusable absolute top-2 left-2 z-30 rounded-md bg-accent px-3 py-2 text-on-accent">
         Skip to content
       </a>
