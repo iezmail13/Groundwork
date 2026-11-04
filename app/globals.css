@@ -643,3 +643,8 @@ dialog.gw-drawer[open] {
     page-break-inside: avoid;
   }
 }
+
+/* The sign-in modal over the landing page (D117). */
+dialog.gw-dialog.gw-dialog-auth {
+  max-width: min(480px, calc(100vw - 2rem));
+}

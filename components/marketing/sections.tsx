@@ -113,7 +113,7 @@ export function FinalCta() {
       </h2>
       <p className="mx-auto mt-3 max-w-xl text-lg text-ink-muted">Create your organization in a minute, then invite your team.</p>
       <div className="mt-8">
-        <ButtonLink href="/signup" className="h-12 px-7 text-base">
+        <ButtonLink href="/signup" prefetch className="h-12 px-7 text-base">
           Start free
           <ArrowRight aria-hidden className="size-4" />
         </ButtonLink>

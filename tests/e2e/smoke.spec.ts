@@ -448,18 +448,28 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
-test("landing page: signed-out visitors see the hero, the problems, benefits and FAQ, and a way in", async ({ browser }) => {
+test("landing page: signed-out visitors see the hero, the features, the problems and FAQ, and a way in", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tasks, files and deadlines for your nonprofit, in one place.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Manage your work from the ground up");
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(page.getByText("The operating system for nonprofits and community organizations.")).toBeVisible();
+  await expect(page.getByText("No credit card needed.")).toBeVisible();
   await expect(page.getByRole("img", { name: /Groundwork dashboard/ })).toBeVisible();
+  // the headline breaks onto two lines on a wide screen (D117)
+  const lines = await page.locator("#hero-title > span").evaluateAll((spans) => spans.map((s) => s.getBoundingClientRect().top));
+  expect(lines).toHaveLength(2);
+  expect(lines[1]).toBeGreaterThan(lines[0]);
   for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
     await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
   }
-  await expect(page.getByRole("heading", { level: 3, name: "Never miss a deadline" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /in one place$/ })).toBeVisible();
+  for (const feature of ["Programs and projects", "Tasks and board", "Calendar and reminders", "Documents"]) {
+    await expect(page.getByRole("heading", { level: 3, name: feature })).toBeVisible();
+  }
 
   // FAQ answers match the code and the verified settings
   await page.getByText("Can I import files?").click();
@@ -467,25 +477,84 @@ test("landing page: signed-out visitors see the hero, the problems, benefits and
   await page.getByText("Where is it stored?").click();
   await expect(page.getByText(/Supabase in its US East region/)).toBeVisible();
 
-  // one primary action; "Log in" stays a small link in the masthead
+  // "Log in" opens the sign-in form over the page, at /login, without a page load (D117)
+  let loads = 0;
+  page.on("load", () => loads++);
   const site = page.getByRole("navigation", { name: "Site" });
-  await expect(site.getByRole("link", { name: "Log in" })).toBeVisible();
+  const login = site.getByRole("link", { name: "Log in" });
+  const signIn = page.getByRole("dialog", { name: "Sign in to Groundwork" });
+  await login.focus();
+  await page.keyboard.press("Enter");
+  await expect(signIn).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Manage your work from the ground up" })).toBeAttached();
+  await expect(signIn.getByLabel("Work email")).toBeVisible();
+  await expect(signIn.getByRole("link", { name: "Try the demo" })).toHaveAttribute("href", "/demo");
+  // focus stays inside, and Escape goes back to / with focus on the link that opened it
+  for (let i = 0; i < 12; i++) await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(signIn).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(login).toBeFocused();
+  // the close button, and a click outside, close it too
+  await login.click();
+  await signIn.getByRole("button", { name: "Close" }).click();
+  await expect(signIn).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  await login.click();
+  await expect(signIn).toBeVisible();
+  await page.mouse.click(8, 450);
+  await expect(signIn).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  // "Start free" opens the sign-up wording of the same form
   await site.getByRole("link", { name: "Start free" }).first().click();
+  const signUp = page.getByRole("dialog", { name: "Create your free Groundwork account" });
+  await expect(signUp).toBeVisible();
   await expect(page).toHaveURL(/\/signup$/);
+  await page.keyboard.press("Escape");
+  await expect(signUp).toHaveCount(0);
+  expect(loads).toBe(0);
+
+  // opened directly, /login is a full page in the landing frame, with a way home
+  await page.goto("/login");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in to Groundwork" })).toBeVisible();
+  await page.getByRole("link", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/signup");
   await expect(page.getByRole("heading", { level: 1, name: "Create your free Groundwork account" })).toBeVisible();
-  await expect(page.getByText("Log in", { exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Groundwork home" }).click();
+  await expect(page).toHaveURL(/\/$/);
 
   // on a phone the links sit behind a menu button
   const phone = await browser.newPage({ viewport: { width: 360, height: 740 } });
   await phone.goto("/");
   expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  await phone.waitForLoadState("networkidle");
   const menu = phone.getByRole("button", { name: "Open menu" });
   await menu.click();
   await expect(phone.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
   await phone.locator("#site-menu").getByRole("link", { name: "Log in" }).click();
   await expect(phone).toHaveURL(/\/login$/);
+  await expect(phone.getByRole("dialog", { name: "Sign in to Groundwork" })).toBeVisible();
+  await phone.goto("/login");
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   await phone.close();
   await context.close();
+});
+
+test("sign-in from the modal on the landing page, with an emailed link", async ({ page, request }) => {
+  const email = `modal-${Date.now()}@example.org`;
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Log in" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in to Groundwork" });
+  await signIn.getByLabel("Work email").fill(email);
+  await signIn.getByRole("button", { name: /sign-in link/i }).click();
+  await expect(signIn.getByText(`Check ${email} for a sign-in link`)).toBeVisible();
+  await finishSignIn(page, await magicLinkFor(request, email));
+  await expect(page).toHaveURL(/\/create-organization$/);
 });
 
 test("public pages load signed out, at phone width, with the footer links", async ({ browser }) => {
@@ -513,9 +582,8 @@ test("public pages load signed out, at phone width, with the footer links", asyn
 
 test("Start free: a new person signs up, then creates their organization", async ({ page, request }) => {
   const email = `signup-${Date.now()}@example.org`;
-  await page.goto("/");
-  await page.getByRole("link", { name: "Start free" }).first().click();
-  await expect(page).toHaveURL(/\/signup$/);
+  // straight to /signup, the full page (the modal over / is covered above)
+  await page.goto("/signup");
   await page.getByLabel("Work email").fill(email);
   await page.getByRole("button", { name: "Email me a link to get started" }).click();
   await expect(page.getByText(`Check ${email} for a sign-in link`)).toBeVisible();

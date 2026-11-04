@@ -55,7 +55,7 @@ export function Hero({ imageAlt }: { imageAlt: string }) {
               Try the demo
               <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
-            <ButtonLink href="/signup" variant="secondary" className="h-12 w-full border-ink/40 px-7 text-base sm:w-auto">
+            <ButtonLink href="/signup" prefetch variant="secondary" className="h-12 w-full border-ink/40 px-7 text-base sm:w-auto">
               Start free
             </ButtonLink>
           </div>

@@ -24,13 +24,13 @@ export function Masthead() {
               {l.label}
             </Link>
           ))}
-          <Link href="/login" className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
+          <Link href="/login" prefetch className="font-heading text-sm font-semibold text-ink-muted hover:text-ink">
             Log in
           </Link>
-          <ButtonLink href="/signup">Start free</ButtonLink>
+          <ButtonLink href="/signup" prefetch>Start free</ButtonLink>
         </div>
         <div className="flex items-center gap-2 md:hidden">
-          <ButtonLink href="/signup" size="sm">
+          <ButtonLink href="/signup" prefetch size="sm">
             Start free
           </ButtonLink>
           <MobileMenu />
