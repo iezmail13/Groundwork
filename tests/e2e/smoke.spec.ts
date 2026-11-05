@@ -448,7 +448,7 @@ test("links in Supabase's default email format still sign in", async ({ page, re
   await expect(page).toHaveURL(/\/create-organization$/);
 });
 
-test("landing page: signed-out visitors see the hero, the features, the problems and FAQ, and a way in", async ({ browser }) => {
+test("landing page: signed-out visitors see the hero, the features, the problems, and a way in", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/");
@@ -464,7 +464,7 @@ test("landing page: signed-out visitors see the hero, the features, the problems
   const [first, second] = lines;
   expect(lines).toHaveLength(2);
   expect(second! - first!).toBeGreaterThan(0);
-  for (const heading of ["Sound familiar?", "How it works", "Questions", "Get your team on the same page"]) {
+  for (const heading of ["Sound familiar?", "How it works", "Get your team on the same page"]) {
     await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
   }
   await expect(page.getByRole("heading", { level: 2, name: /in one place$/ })).toBeVisible();
@@ -472,11 +472,8 @@ test("landing page: signed-out visitors see the hero, the features, the problems
     await expect(page.getByRole("heading", { level: 3, name: feature })).toBeVisible();
   }
 
-  // FAQ answers match the code and the verified settings
-  await page.getByText("Can I import files?").click();
-  await expect(page.getByText(/one at a time, up to 25 MB each/)).toBeVisible();
-  await page.getByText("Where is it stored?").click();
-  await expect(page.getByText(/Supabase in its US East region/)).toBeVisible();
+  // the questions section is off the page for now (D117)
+  await expect(page.getByRole("heading", { level: 2, name: "Questions" })).toHaveCount(0);
 
   // "Log in" opens the sign-in form over the page, at /login, without a page load (D117)
   let loads = 0;
