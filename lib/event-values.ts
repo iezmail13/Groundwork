@@ -23,6 +23,7 @@ export function toEventFormValues(e: EventRow, tz: string, canDelete: boolean, l
     canDelete: canDelete && !locked,
     locked,
     seriesId: e.series_id,
+    createdBy: e.creator ? e.creator.full_name || e.creator.email : null,
   };
 }
 

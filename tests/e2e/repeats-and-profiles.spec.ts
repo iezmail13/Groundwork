@@ -110,3 +110,151 @@ test("the people on a program open a profile card where they're listed", async (
   await expect(priya.getByRole("heading", { level: 1, name: "Marcus Chen" })).toBeVisible();
   await priya.context().close();
 });
+
+// Calendar fixes (D118) ---------------------------------------------------------
+
+/** Every time titled `title` across these months, in the agenda. */
+async function countAcross(page: Page, months: string[], title: string) {
+  let n = 0;
+  for (const month of months) {
+    await visit(page, `${ORG}/calendar?view=agenda&month=${month}`);
+    n += await page.getByText(title, { exact: true }).count();
+  }
+  return n;
+}
+
+test("a repeating event has no end date, says who added it, and its later times move to other days", async ({ browser }) => {
+  const priya = await signIn(browser, "Priya Shah");
+  const title = `Monday club ${Date.now()}`;
+  // the first Monday at least two weeks away, then four Mondays
+  const first = new Date();
+  first.setUTCDate(first.getUTCDate() + 14 + ((1 - first.getUTCDay() + 7) % 7));
+  const day = (n: number) => iso(new Date(first.getTime() + n * 86_400_000));
+  const months = [...new Set([0, 7, 14, 21, 28].map((n) => day(n).slice(0, 7)))];
+
+  await visit(priya, `${ORG}/calendar`);
+  await priya.getByRole("button", { name: /^New / }).click();
+  const dialog = priya.getByRole("dialog", { name: /^New / });
+  await dialog.getByLabel("Title").fill(title);
+  await dialog.getByLabel("Date", { exact: true }).fill(day(0));
+  await dialog.getByLabel("Starts").fill("16:00");
+  await dialog.getByLabel("Ends").fill("17:00");
+  // an end date reads like "repeat until", but would stretch every time into the next: it goes away
+  await expect(dialog.getByLabel("End date")).toBeVisible();
+  await dialog.getByLabel("Repeats weekly").check();
+  await expect(dialog.getByLabel("End date")).toHaveCount(0);
+  await expect(dialog.getByRole("checkbox", { name: "Monday" })).toBeChecked();
+  await dialog.getByRole("spinbutton").fill("4");
+  await expect(dialog.getByText(/^Every Monday for 4 weeks, 16:00–17:00: 4 times, the last on /)).toBeVisible();
+  await dialog.getByRole("button", { name: /^Add / }).click();
+  await expect(dialog).toBeHidden();
+  expect(await countAcross(priya, months, title)).toBe(4);
+  // each time sits on its own day: none runs into the days after it
+  const firstMonth = day(0).slice(0, 7);
+  await visit(priya, `${ORG}/calendar?month=${firstMonth}`);
+  const timesThisMonth = [0, 7, 14, 21].filter((n) => day(n).startsWith(firstMonth)).length;
+  await expect(priya.getByRole("cell").filter({ has: priya.getByRole("button", { name: new RegExp(title) }) })).toHaveCount(timesThisMonth);
+
+  // from the second time on, it moves to Wednesdays for two weeks
+  await visit(priya, `${ORG}/calendar?view=agenda&month=${day(7).slice(0, 7)}`);
+  const before = [0].filter((n) => day(n).slice(0, 7) === day(7).slice(0, 7)).length;
+  await priya.getByRole("button", { name: new RegExp(title) }).nth(before).click();
+  const edit = priya.getByRole("dialog", { name: /^Edit / });
+  await expect(edit.getByText("Added by Priya Shah")).toBeVisible();
+  await edit.getByLabel(/^This and later times/).check();
+  await expect(edit.getByText(/^Now: 3 times from this one, the last on /)).toBeVisible();
+  await expect(edit.getByLabel("End date")).toHaveCount(0);
+  // the day boxes are labels around visually hidden checkboxes
+  await edit.locator("label").filter({ hasText: "Monday" }).click();
+  await edit.locator("label").filter({ hasText: "Wednesday" }).click();
+  await expect(edit.getByRole("checkbox", { name: "Monday" })).not.toBeChecked();
+  await expect(edit.getByRole("checkbox", { name: "Wednesday" })).toBeChecked();
+  await edit.getByRole("spinbutton").fill("2");
+  await expect(edit.getByText(/^Every Wednesday for 2 weeks, 16:00–17:00: 2 times/)).toBeVisible();
+  await edit.getByRole("button", { name: "Save changes" }).click();
+  await expect(edit).toBeHidden();
+  // the first Monday stays; the later Mondays became two Wednesdays
+  expect(await countAcross(priya, months, title)).toBe(3);
+  for (const [date, present] of [
+    [day(0), true],
+    [day(7), false],
+    [day(9), true],
+    [day(14), false],
+    [day(16), true],
+    [day(21), false],
+  ] as const) {
+    await visit(priya, `${ORG}/calendar?view=agenda&month=${date.slice(0, 7)}`);
+    const heading = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    const row = priya.getByRole("listitem").filter({ has: priya.getByRole("heading", { name: new RegExp(`^(Today)?${heading}`) }) });
+    await expect(row.getByText(title, { exact: true })).toHaveCount(present ? 1 : 0);
+  }
+
+  // clean up: the first time and its later ones
+  await visit(priya, `${ORG}/calendar?view=agenda&month=${months[0]}`);
+  await priya.getByRole("button", { name: new RegExp(title) }).first().click();
+  await priya.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Delete" }).click();
+  await priya.getByRole("dialog", { name: /^Edit / }).getByLabel("This time and every later time").check();
+  await priya.getByRole("dialog", { name: /^Edit / }).getByRole("button", { name: "Delete permanently" }).click();
+  expect(await countAcross(priya, months, title)).toBe(0);
+  await priya.context().close();
+});
+
+test("several times are deleted at once, but only those the person may delete", async ({ browser }) => {
+  const priya = await signIn(browser, "Priya Shah");
+  const sofia = await signIn(browser, "Sofia Alvarez");
+  const stamp = Date.now();
+  const hers = `Sofia's catch-up ${stamp}`;
+  const theirs = `Priya's planning ${stamp}`;
+  // three Tuesdays in one month, well ahead
+  const month = iso(new Date(Date.now() + 70 * 86_400_000)).slice(0, 7);
+  const firstTuesday = [...Array(7).keys()].map((n) => `${month}-0${n + 1}`).find((d) => new Date(`${d}T12:00:00Z`).getUTCDay() === 2)!;
+
+  const add = async (page: Page, title: string, date: string, weeks: number) => {
+    await visit(page, `${ORG}/calendar?month=${month}`);
+    await page.getByRole("button", { name: /^New / }).click();
+    const dialog = page.getByRole("dialog", { name: /^New / });
+    await dialog.getByLabel("Title").fill(title);
+    await dialog.getByLabel("Date", { exact: true }).fill(date);
+    if (weeks > 1) {
+      await dialog.getByLabel("Repeats weekly").check();
+      await dialog.getByRole("spinbutton").fill(String(weeks));
+    }
+    await dialog.getByRole("button", { name: /^Add / }).click();
+    await expect(dialog).toBeHidden();
+  };
+  await add(sofia, hers, firstTuesday, 3);
+  await add(priya, theirs, firstTuesday, 1);
+
+  // in Select, Sofia can pick her own times; Priya's is locked to her. The
+  // agenda lists every time, where a crowded day in the month grid shows "+N more".
+  await visit(sofia, `${ORG}/calendar?view=agenda&month=${month}`);
+  await sofia.getByRole("button", { name: "Select", exact: true }).click();
+  const toolbar = sofia.getByRole("toolbar");
+  await expect(toolbar.getByText(/^0 selected/)).toBeVisible();
+  const locked = sofia.getByRole("button", { name: new RegExp(theirs) });
+  await expect(locked).toHaveAttribute("aria-disabled", "true");
+  await expect(locked).toHaveAccessibleName(/not yours to delete/);
+  await expect(locked).not.toHaveAttribute("aria-pressed", /.*/);
+  const mine = sofia.getByRole("button", { name: new RegExp(hers) });
+  await expect(mine).toHaveCount(3);
+  for (let i = 0; i < 3; i++) await mine.nth(i).click();
+  await expect(mine.first()).toHaveAttribute("aria-pressed", "true");
+  await expect(toolbar.getByText(/^3 selected/)).toBeVisible();
+  await toolbar.getByRole("button", { name: "Delete selected" }).click();
+  const confirm = sofia.getByRole("dialog", { name: /^Delete 3 / });
+  await expect(confirm.getByText(new RegExp(`Delete all 3 times of ${hers}\\?`))).toBeVisible();
+  await confirm.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(confirm.getByText("Deleted 3.")).toBeVisible();
+  await confirm.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(sofia.getByText(hers)).toHaveCount(0);
+  await expect(sofia.getByText(theirs)).toHaveCount(1);
+
+  // Priya cleans up her own
+  await visit(priya, `${ORG}/calendar?view=agenda&month=${month}`);
+  await priya.getByRole("button", { name: "Select", exact: true }).click();
+  await priya.getByRole("button", { name: new RegExp(theirs) }).click();
+  await priya.getByRole("toolbar").getByRole("button", { name: "Delete selected" }).click();
+  await priya.getByRole("dialog", { name: /^Delete 1 / }).getByRole("button", { name: "Delete permanently" }).click();
+  await expect(priya.getByRole("dialog", { name: /^Delete 1 / }).getByText("Deleted 1.")).toBeVisible();
+  for (const p of [priya, sofia]) await p.context().close();
+});

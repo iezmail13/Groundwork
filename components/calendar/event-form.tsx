@@ -7,6 +7,7 @@ import { idle } from "@/lib/action-state";
 import { useT } from "@/lib/terminology/context";
 import { lower } from "@/lib/terminology/t";
 import { MAX_REPEAT_WEEKS, WEEKDAYS, weekdayOf, weeklyDates } from "@/lib/recurrence";
+import { formatDate } from "@/lib/dates";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
@@ -31,7 +32,14 @@ export type EventFormValues = {
   locked?: string | null;
   /** Set when it's one occurrence of a repeating event (D112). */
   seriesId?: string | null;
+  /** This time and the later ones of its series, as a weekly pattern (D118). */
+  seriesLater?: SeriesPattern | null;
+  /** Who added it (D118). */
+  createdBy?: string | null;
 };
+
+/** A series from one time on: its weekdays, how many weeks it spans, and how many times that is. */
+export type SeriesPattern = { days: number[]; weeks: number; count: number; last: string };
 
 export function EventForm({
   organizationId,
@@ -52,6 +60,10 @@ export function EventForm({
   const [startValue, setStartValue] = useState(event.startTime);
   const [endValue, setEndValue] = useState(event.endTime);
   const [deleting, setDeleting] = useState(false);
+  // a new event can repeat; an existing one can change this and later times of its series
+  const [repeat, setRepeat] = useState(false);
+  const [scope, setScope] = useState<"one" | "following">("one");
+  const repeating = event.id ? scope === "following" : repeat;
   // only ever rendered inside an opened dialog, so this runs in the browser
   const [tz] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const e = state.fieldErrors ?? {};
@@ -88,6 +100,12 @@ export function EventForm({
               <dd className="whitespace-pre-wrap">{event.description}</dd>
             </>
           ) : null}
+          {event.createdBy ? (
+            <>
+              <dt className="font-semibold">Added by</dt>
+              <dd>{event.createdBy}</dd>
+            </>
+          ) : null}
         </dl>
         <div className="flex justify-end border-t border-rule pt-4">
           <Button variant="secondary" onClick={onDone}>
@@ -107,6 +125,7 @@ export function EventForm({
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="timeZone" value={tz} />
       {event.id ? <input type="hidden" name="id" value={event.id} /> : null}
+      {event.id && event.createdBy ? <p className="text-sm text-ink-muted">Added by {event.createdBy}</p> : null}
       <Field label="Title" htmlFor="event-title" error={e.title}>
         <Input id="event-title" name="title" required maxLength={200} defaultValue={event.title} invalid={Boolean(e.title)} autoFocus />
       </Field>
@@ -124,9 +143,13 @@ export function EventForm({
         <Field label={allDay ? "Start date" : "Date"} htmlFor="event-date" error={e.date}>
           <Input id="event-date" name="date" type="date" required defaultValue={event.date} invalid={Boolean(e.date)} onChange={(ev) => setDateValue(ev.target.value)} />
         </Field>
-        <Field label="End date" htmlFor="event-end-date" error={e.endDate} hint={allDay ? undefined : "Only if it runs past midnight."}>
-          <Input id="event-end-date" name="endDate" type="date" defaultValue={event.endDate === event.date ? "" : event.endDate} />
-        </Field>
+        {/* a repeating time is one day long: an end date here would make every time
+            run into the next, which reads as "repeat until" but isn't (D118) */}
+        {!repeating ? (
+          <Field label="End date" htmlFor="event-end-date" error={e.endDate} hint={allDay ? undefined : "Only if it runs past midnight."}>
+            <Input id="event-end-date" name="endDate" type="date" defaultValue={event.endDate === event.date ? "" : event.endDate} />
+          </Field>
+        ) : null}
         {!allDay ? (
           <>
             <Field label="Starts" htmlFor="event-start" error={e.startTime}>
@@ -151,12 +174,56 @@ export function EventForm({
           </Select>
         </Field>
       </div>
+      {e.endDate && repeating ? <p className="text-sm font-semibold text-bad-ink">{e.endDate[0]}</p> : null}
       {event.id ? (
         event.seriesId ? (
-          <p className="border-l-4 border-ink pl-3 text-sm">This is one time of a repeating {lower(t("event"))}. Changes here apply to this time only.</p>
+          <fieldset className="flex flex-col gap-2 border-l-4 border-ink pl-3">
+            <legend className="mb-1 text-sm">This is one time of a repeating {lower(t("event"))}. Change:</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="scope"
+                value="one"
+                checked={scope === "one"}
+                onChange={() => setScope("one")}
+                className="size-4 accent-[var(--accent)]"
+              />
+              This time only
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="scope"
+                value="following"
+                checked={scope === "following"}
+                onChange={() => setScope("following")}
+                className="size-4 accent-[var(--accent)]"
+              />
+              This and later times, including which days it repeats on
+            </label>
+            {scope === "following" ? (
+              <RepeatFields
+                fixed
+                date={dateValue}
+                startTime={allDay ? null : startValue}
+                endTime={allDay ? null : endValue}
+                errors={e}
+                initialDays={event.seriesLater?.days}
+                initialWeeks={event.seriesLater?.weeks}
+                current={event.seriesLater ?? null}
+              />
+            ) : null}
+          </fieldset>
         ) : null
       ) : (
-        <RepeatFields date={dateValue} startTime={allDay ? null : startValue} endTime={allDay ? null : endValue} errors={e} />
+        <RepeatFields
+          date={dateValue}
+          startTime={allDay ? null : startValue}
+          endTime={allDay ? null : endValue}
+          errors={e}
+          repeat={repeat}
+          onRepeatChange={setRepeat}
+        />
       )}
       <Field label="Notes" htmlFor="event-description" error={e.description}>
         <Textarea id="event-description" name="description" maxLength={4000} defaultValue={event.description ?? ""} />
@@ -247,16 +314,29 @@ function RepeatFields({
   startTime,
   endTime,
   errors,
+  repeat = true,
+  onRepeatChange,
+  fixed = false,
+  initialDays,
+  initialWeeks,
+  current = null,
 }: {
   date: string;
   startTime: string | null;
   endTime: string | null;
   errors: Record<string, string[] | undefined>;
+  repeat?: boolean;
+  onRepeatChange?: (repeat: boolean) => void;
+  /** Always repeating, with no "Repeats weekly" box: changing an existing series (D118). */
+  fixed?: boolean;
+  initialDays?: number[];
+  initialWeeks?: number;
+  /** How the series runs now, from this time on. */
+  current?: SeriesPattern | null;
 }) {
   const t = useT();
-  const [repeat, setRepeat] = useState(false);
-  const [days, setDays] = useState<number[]>(() => (date ? [weekdayOf(date)] : []));
-  const [weeks, setWeeks] = useState("5");
+  const [days, setDays] = useState<number[]>(() => (initialDays?.length ? initialDays : date ? [weekdayOf(date)] : []));
+  const [weeks, setWeeks] = useState(String(initialWeeks ?? 5));
   // a new start date moves an untouched single day along with it
   const [lastDate, setLastDate] = useState(date);
   if (date !== lastDate) {
@@ -264,23 +344,33 @@ function RepeatFields({
     if (date && lastDate && days.length === 1 && days[0] === weekdayOf(lastDate)) setDays([weekdayOf(date)]);
   }
   const n = Number(weeks);
-  const count = date && Number.isInteger(n) && n >= 1 && n <= MAX_REPEAT_WEEKS ? weeklyDates(date, days, n).length : 0;
+  const dates = date && Number.isInteger(n) && n >= 1 && n <= MAX_REPEAT_WEEKS ? weeklyDates(date, days, n) : [];
+  const count = dates.length;
+  const last = dates.at(-1);
   const dayNames = WEEKDAYS.filter((d) => days.includes(d.value)).map((d) => d.long);
   return (
-    <fieldset className="flex flex-col gap-3 border-y border-rule py-3">
+    <fieldset className={`flex flex-col gap-3 ${fixed ? "pt-1" : "border-y border-rule py-3"}`}>
       <legend className="sr-only">Repeat</legend>
-      <label className="flex items-center gap-2 text-sm font-semibold">
-        <input
-          type="checkbox"
-          name="repeat"
-          value="weekly"
-          checked={repeat}
-          onChange={(ev) => setRepeat(ev.target.checked)}
-          className="size-4 accent-[var(--accent)]"
-        />
-        Repeats weekly
-      </label>
-      {repeat ? (
+      {fixed ? (
+        current ? (
+          <p className="text-sm text-ink-muted">
+            Now: {current.count} {current.count === 1 ? "time" : "times"} from this one, the last on {formatDay(current.last)}. Earlier times stay as they are.
+          </p>
+        ) : null
+      ) : (
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            name="repeat"
+            value="weekly"
+            checked={repeat}
+            onChange={(ev) => onRepeatChange?.(ev.target.checked)}
+            className="size-4 accent-[var(--accent)]"
+          />
+          Repeats weekly
+        </label>
+      )}
+      {repeat || fixed ? (
         <>
           <fieldset className="flex flex-col gap-1.5">
             <legend className="text-sm font-semibold">On</legend>
@@ -326,12 +416,17 @@ function RepeatFields({
           </label>
           {errors.repeatWeeks ? <p className="text-sm font-semibold text-bad-ink">{errors.repeatWeeks[0]}</p> : null}
           <p id="repeat-summary" className="text-sm text-ink-muted" aria-live="polite">
-            {count && dayNames.length
-              ? `Every ${dayNames.join(", ")} for ${n} ${n === 1 ? "week" : "weeks"}${startTime && endTime ? `, ${startTime}–${endTime}` : ""}: ${count} ${count === 1 ? "time" : "times"}, each its own ${lower(t("event"))}.`
+            {count && dayNames.length && last
+              ? `Every ${dayNames.join(", ")} for ${n} ${n === 1 ? "week" : "weeks"}${startTime && endTime ? `, ${startTime}–${endTime}` : ""}: ${count} ${count === 1 ? "time" : "times"}, the last on ${formatDay(last)}, each its own ${lower(t("event"))}.`
               : "Pick the days and how many weeks."}
           </p>
         </>
       ) : null}
     </fieldset>
   );
+}
+
+/** "Mon, Feb 22" */
+function formatDay(date: string) {
+  return formatDate(date, { weekday: "short", month: "short", day: "numeric" });
 }

@@ -764,3 +764,22 @@ The owner asked for a new landing page and for sign-in to feel like part of it. 
   - **Shared form.** The modal and the pages share `SignInPanel`.
   - **Unchanged.** The magic-link action, Google, `next`, the redirect for signed-in people, "Try the demo" and the development shortcut all work as before.
   - **Logo links.** The logo in every public header (the masthead and `AuthFrame`) links home, labelled "Groundwork home".
+
+## D118: Calendar fixes
+
+The owner reported that a weekly repeat showed up every day, more each week; that they couldn't delete many events at once or see who added one; that a series couldn't be changed going forward; and that tasks weren't reaching Apple Calendar or Outlook.
+
+- **The repeat that wasn't duplicating.** "Every Monday for 4 weeks" was saved with an End date four weeks out. That field means "runs past midnight", but sat above "Repeats weekly" and read like "repeat until". Each Monday became an event lasting four weeks, so the month grid showed 1, 2, 3, then 4 on every day: four events, overlapping.
+  - **The form.** While "Repeats weekly" is ticked, the End date field is gone. The summary names the last time ("4 times, the last on Mon, Feb 22").
+  - **The server.** It refuses a repeating time longer than into the next day.
+- **Who added it.** An event shows "Added by …" in its dialog, in the agenda and in the day list, from its creator's profile.
+- **Deleting several at once.** "Select" on the calendar picks times in the month grid, agenda or day list, or "Select all I can delete this month". Times the viewer can't delete show a lock and can't be picked.
+  - **What gets deleted.** One server action deletes them, and the events policies decide which go: the creator's own, or anything for those who manage it. The message says how many stayed, and nothing else changes.
+- **Changing a series going forward.** Editing one time of a repeating event offers "This time only" or "This and later times". The second opens the days and weeks as the series runs now, and replaces this time and the later ones with the new pattern, under the same series.
+  - **`reschedule_event_series()`.** It does this in one transaction, as the caller, so the policies still apply.
+  - **When it refuses.** If any of those times can't be deleted by the caller (someone ranked above them made it), nothing changes. It also refuses if attendance has been taken at any of them, checked by `series_has_attendance_from()`, so attendance is never lost.
+  - **What stays.** Earlier times stay as they were.
+- **The calendar feed (D57, D102).** Subscribing worked, but the feed left out the organization's own items (those on no program, which every member sees on the calendar) and work the person made that nobody has been given yet. It now holds both.
+  - **Program items.** These still come only from the programs the person is on, so an owner's feed isn't everything they can see. Creators join their programs automatically.
+  - **Format.** Checked against a standard iCalendar parser (Python `icalendar`, outside the app).
+  - **Updates.** Calendar apps refresh subscriptions on their own schedule: about an hour for Apple, and up to a day in Google and Outlook.
