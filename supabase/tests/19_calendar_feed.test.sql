@@ -5,7 +5,7 @@
 -- old URL at once.
 begin;
 \ir fixtures.inc
-select plan(22);
+select plan(26);
 
 -- Org A also has Sam (staff, on A's program). Q is a second program Mia isn't on.
 insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at, email_confirmed_at)
@@ -32,11 +32,17 @@ insert into public.task_assignees (organization_id, task_id, membership_id, kind
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000b2', 'aaaaaaaa-1111-0000-0000-00000000000e', 'claimed', 'a0000000-0000-0000-0000-00000000000e'),
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000b3', 'aaaaaaaa-1111-0000-0000-00000000000a', 'claimed', 'a0000000-0000-0000-0000-00000000000a');
 update public.tasks set status = 'done' where id = 'aaaaaaaa-4444-0000-0000-0000000000a2';
+-- open work Mia made that nobody has been given yet (D118)
+insert into public.tasks (id, organization_id, project_id, title, created_by, kind, hidden, due_date) values
+  ('aaaaaaaa-4444-0000-0000-0000000000a4', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Mia: unassigned', 'a0000000-0000-0000-0000-00000000000b', 'general', false, current_date + 5);
 
 insert into public.events (id, organization_id, project_id, title, starts_at, ends_at, created_by) values
   ('aaaaaaaa-5555-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Program session', now() + interval '1 day', now() + interval '1 day 1 hour', 'a0000000-0000-0000-0000-00000000000a'),
   ('aaaaaaaa-5555-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-0000000000f1', 'Q session', now() + interval '1 day', now() + interval '1 day 1 hour', 'a0000000-0000-0000-0000-00000000000a'),
-  ('aaaaaaaa-5555-0000-0000-0000000000a3', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Two years out', now() + interval '2 years', now() + interval '2 years 1 hour', 'a0000000-0000-0000-0000-00000000000a');
+  ('aaaaaaaa-5555-0000-0000-0000000000a3', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Two years out', now() + interval '2 years', now() + interval '2 years 1 hour', 'a0000000-0000-0000-0000-00000000000a'),
+  -- the organization's own, on no program (D118)
+  ('aaaaaaaa-5555-0000-0000-0000000000a4', 'aaaaaaaa-0000-0000-0000-000000000000', null, 'Org meeting', now() + interval '2 days', now() + interval '2 days 1 hour', 'a0000000-0000-0000-0000-00000000000a'),
+  ('bbbbbbbb-5555-0000-0000-0000000000a4', 'bbbbbbbb-0000-0000-0000-000000000000', null, 'B org meeting', now() + interval '2 days', now() + interval '2 days 1 hour', 'b0000000-0000-0000-0000-00000000000a');
 
 -- Turning it on ------------------------------------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000b');
@@ -52,8 +58,13 @@ select throws_ok($$ update public.profiles set calendar_feed_token_hash = repeat
 select tests.as_anon();
 select is(
   (select array_agg(title order by title) from public.calendar_feed((select token from feed_tokens where who = 'mia'))),
-  array['Mia: print the forms', 'Program session'],
-  'the feed holds open, dated work assigned to her and items on her programs, nothing else'
+  array['A event', 'Mia: print the forms', 'Mia: unassigned', 'Org meeting', 'Program session'],
+  'the feed holds open, dated work that is hers, the organization''s own items and items on her programs, nothing else'
+);
+select is(
+  (select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'mia')) where title = 'B org meeting'),
+  0,
+  'another organization''s own items never appear'
 );
 select is(
   (select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'mia')) where title like 'Sam:%' or title like 'Alice:%'),
@@ -61,7 +72,7 @@ select is(
   'someone else''s hidden or personal task never appears'
 );
 select is(
-  (select due_date from public.calendar_feed((select token from feed_tokens where who = 'mia')) where item_type = 'task'),
+  (select due_date from public.calendar_feed((select token from feed_tokens where who = 'mia')) where title = 'Mia: print the forms'),
   current_date + 3,
   'work carries its due date'
 );
@@ -75,8 +86,13 @@ insert into feed_tokens values ('alice', public.regenerate_calendar_feed());
 select tests.as_anon();
 select is(
   (select array_agg(title order by title) from public.calendar_feed((select token from feed_tokens where who = 'alice'))),
-  array['Alice: personal', 'Program session', 'Q session'],
-  'an owner''s feed holds their own work and their programs'' items, not everything they can see'
+  array['A event', 'Alice: personal', 'Org meeting', 'Program session', 'Q session'],
+  'an owner''s feed holds their own work, the organization''s items and their programs'' items, not everything they can see'
+);
+select is(
+  (select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'alice')) where title = 'Mia: unassigned'),
+  0,
+  'unassigned work shows only for the person who made it'
 );
 
 -- Leaving a program takes its items out of the feed
@@ -93,6 +109,20 @@ select is(
   0,
   'and so does work on it she can no longer see'
 );
+select is(
+  (select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'mia')) where title in ('Mia: unassigned', 'Org meeting')),
+  1,
+  'her unassigned work on that program goes too, while the organization''s own items stay'
+);
+reset role;
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000a4', 'aaaaaaaa-1111-0000-0000-00000000000a', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
+select tests.as_anon();
+select is(
+  (select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'alice')) where title = 'Mia: unassigned'),
+  1,
+  'once someone is given unassigned work, it moves to their feed'
+);
 
 -- Replacing and revoking ---------------------------------------------------------------------
 select tests.as_user('a0000000-0000-0000-0000-00000000000e');
@@ -103,7 +133,7 @@ select throws_ok($$ select * from public.calendar_feed((select token from feed_t
 select isnt((select count(*)::int from public.calendar_feed((select token from feed_tokens where who = 'sam-new'))), 0, 'and the new one works');
 select is(
   (select array_agg(title order by title) from public.calendar_feed((select token from feed_tokens where who = 'sam-new'))),
-  array['Program session', 'Sam: hidden', 'Sam: personal'],
+  array['A event', 'Org meeting', 'Program session', 'Sam: hidden', 'Sam: personal'],
   'his own hidden and personal work appears in his own feed'
 );
 

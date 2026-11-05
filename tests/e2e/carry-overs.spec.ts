@@ -107,19 +107,21 @@ test("calendar feed: what it holds, a new link replacing the old, and a revoked 
   const ics = await feed.text();
   expect(ics.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
   const titles = [...ics.matchAll(/^SUMMARY:(.*)$/gm)].map((m) => m[1]!.replace(/\r$/, "").replace(/\\,/g, ","));
-  // her open work, including her own personal note-taking, and items on her programs
+  // her open work, including her own personal note-taking, items on her
+  // programs, and the organization's own items, which everyone sees (D118)
   for (const title of [
     "Collect signed consent forms",
     "Draft my notes for the mentor check-ins",
     "Book the library meeting room for winter",
     "Coat sorting day",
     "Career night",
+    "Board meeting",
   ]) {
     expect(titles).toContain(title);
   }
   // not finished work, someone else's hidden work, other programs' sessions,
   // or anything about participants
-  for (const title of ["Design the coat drive flyer", "Follow up on a family's fee waiver", "Homework Club", "Board meeting"]) {
+  for (const title of ["Design the coat drive flyer", "Follow up on a family's fee waiver", "Homework Club"]) {
     expect(titles).not.toContain(title);
   }
   expect(ics).not.toContain("Amara");

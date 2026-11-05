@@ -47,8 +47,9 @@ export function CalendarFeed({ onSince }: { onSince: string | null }) {
     <div className="flex max-w-2xl flex-col gap-4">
       <p className="text-ink-muted">
         Subscribe from Google Calendar, Apple Calendar or Outlook to see your open {lower(t("task", "other"))} on the day they&apos;re
-        due and the {lower(t("event", "other"))} on your {lower(t("project", "other"))}. It shows titles and dates only. Anyone with
-        the link can read it, so keep it to yourself.
+        due (those you&apos;re on, and those you added that nobody has yet), your organization&apos;s {lower(t("event", "other"))}, and
+        the {lower(t("event", "other"))} on your {lower(t("project", "other"))}. It shows titles and dates only, and calendar apps
+        check it for changes every hour or so. Anyone with the link can read it, so keep it to yourself.
       </p>
 
       {url ? (

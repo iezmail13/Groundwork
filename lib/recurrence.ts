@@ -4,6 +4,8 @@ import { addDays } from "@/lib/dates";
 
 export const MAX_REPEAT_WEEKS = 52;
 export const MAX_OCCURRENCES = 200;
+/** Most calendar items one bulk delete takes, so a request stays small. */
+export const MAX_BULK_DELETE = 500;
 
 /** 0 = Sunday … 6 = Saturday, for an ISO date (read as a calendar date, no time zone). */
 export function weekdayOf(date: string): number {

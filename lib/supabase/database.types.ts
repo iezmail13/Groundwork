@@ -1410,6 +1410,9 @@ isOneToOne: false
 "remove_task_assignee":
 { Args: { "invitation_id"?: string,"membership_id"?: string,"task_id": string }; Returns: undefined
                            },
+"reschedule_event_series":
+{ Args: { "from_event": string,"occurrences": Json }; Returns: number
+                           },
 "revoke_calendar_feed":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -1421,6 +1424,9 @@ isOneToOne: false
                            },
 "send_change_signal":
 { Args: { "org": string,"project": string }; Returns: undefined
+                           },
+"series_has_attendance_from":
+{ Args: { "from_time": string,"series": string }; Returns: boolean
                            },
 "set_my_photo":
 { Args: { "org_id": string,"path": string }; Returns: string
