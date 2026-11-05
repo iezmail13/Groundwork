@@ -34,11 +34,15 @@ async function settle(page: Page, path: string) {
 
 const MAPLE = "/maple-youth-collective";
 const MAPLE_OWNER = "dana@maple.example.org";
+// Captured in a narrower window than a laptop's, so the app's words stay
+// readable once the picture is scaled into the landing page's column. Each crop
+// is close to the 4:3 frame it's shown in.
+const FEATURE_VIEWPORT = { width: 1100, height: 900 };
 const FEATURES = [
-  { path: `${MAPLE}/projects`, file: "feature-programs", height: 860 },
-  { path: `${MAPLE}/tasks`, file: "feature-board", height: 660 },
-  { path: `${MAPLE}/calendar`, file: "feature-calendar", height: 560 },
-  { path: `${MAPLE}/documents`, file: "feature-documents", height: 860 },
+  { path: `${MAPLE}/projects`, file: "feature-programs", height: 600 },
+  { path: `${MAPLE}/tasks`, file: "feature-board", height: 600 },
+  { path: `${MAPLE}/calendar`, file: "feature-calendar", height: 600 },
+  { path: `${MAPLE}/documents`, file: "feature-documents", height: 600 },
 ];
 
 /** A one-time sign-in link for Maple's owner, made with the service role (local only). */
@@ -65,13 +69,15 @@ async function captureFeatures() {
   mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined });
   for (const scheme of ["light", "dark"] as const) {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: scheme, timezoneId: "America/Toronto" });
+    const context = await browser.newContext({ viewport: FEATURE_VIEWPORT, deviceScaleFactor: 2, colorScheme: scheme, timezoneId: "America/Toronto" });
     const page = await context.newPage();
     await page.goto(await signInLink());
     await page.getByRole("button", { name: "Continue to Groundwork" }).click();
     await page.waitForURL(/\/dashboard$/);
     for (const shot of FEATURES) {
       await settle(page, shot.path);
+      // park the pointer off the content, so no row is caught mid-hover
+      await page.mouse.move(1, 1);
       // the page content only, with a little of the page around it: no sidebar or top bar
       const content = page.locator("#main > div").first();
       const box = await content.boundingBox();
