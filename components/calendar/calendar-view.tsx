@@ -96,7 +96,8 @@ export function CalendarView({
 
   const itemsOn = (day: string) =>
     items
-      .filter((i) => i.date <= day && i.endDate >= day)
+      // while selecting, only what can be picked: a task's own box would read like a selection box
+      .filter((i) => i.date <= day && i.endDate >= day && !(selecting && i.kind === "task"))
       .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "event" ? -1 : 1));
 
   const openItem = (item: CalendarItem) => {
