@@ -28,7 +28,7 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
       image: {
         name: "feature-programs",
         alt: `A list of three ${lower(np("project", "other"))}, Summer Day Camp, After-School Tutoring and Community Food Drive, each with its ${lower(t("project_role.lead", "other"))}, a progress bar, its dates and an Active badge.`,
-        width: 2312,
+        width: 1632,
         height: 816,
       },
     },
@@ -44,8 +44,8 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
       image: {
         name: "feature-board",
         alt: "A board of work in two columns, with cards showing who has each one, its priority, its due date and Overdue or Tomorrow badges.",
-        width: 2312,
-        height: 1400,
+        width: 1632,
+        height: 1280,
       },
     },
     {
@@ -60,8 +60,8 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
       image: {
         name: "feature-calendar",
         alt: "A month calendar with a busy current week: day camp every morning, tutoring in the afternoons, a lunch check-in and a sorting day, with due work on its days.",
-        width: 2312,
-        height: 1200,
+        width: 1632,
+        height: 1280,
       },
     },
     {
@@ -76,8 +76,8 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
       image: {
         name: "feature-documents",
         alt: "A list of files: a volunteer handbook, a budget and permission forms, each with its tags, who added it and when.",
-        width: 2312,
-        height: 1248,
+        width: 1632,
+        height: 1280,
       },
     },
   ];
@@ -144,7 +144,7 @@ export function Landing({ maintenance, timeZone }: { maintenance: MaintenanceSet
     <MarketingShell landing banner={<LandingMaintenanceNotice setting={maintenance} timeZone={timeZone} />}>
       <Hero imageAlt="The Groundwork dashboard: reminders about overdue work, counts of overdue and upcoming items, and a personal to-do list." />
       <section id="features" aria-labelledby="features-title" className="scroll-mt-4 border-b border-rule bg-panel px-4 py-20 sm:px-6 lg:py-24">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-7xl">
           <h2 id="features-title" className="max-w-2xl font-heading text-3xl font-bold text-balance md:text-4xl">
             Everything your {lower(np("project", "other"))} run on, in one place
           </h2>

@@ -53,9 +53,9 @@ export function FeatureScroll({ features }: { features: Feature[] }) {
   }, []);
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
       <div className="hidden lg:block">
-        <div className="sticky top-[calc(50vh-15rem)]">
+        <div className="sticky top-[calc(50vh-18rem)]">
           <div className="relative aspect-[4/3]">
             {features.map((f, i) => (
               <div
@@ -64,7 +64,7 @@ export function FeatureScroll({ features }: { features: Feature[] }) {
                 className={`absolute inset-0 flex items-center transition-opacity duration-500 ease-out ${i === active ? "opacity-100" : "opacity-0"}`}
               >
                 <div className="w-full rounded-xl border border-rule bg-canvas p-2">
-                  <Picture image={f.image} sizes="(min-width: 1024px) 600px, 0px" />
+                  <Picture image={f.image} sizes="(min-width: 1280px) 780px, (min-width: 1024px) 600px, 0px" />
                 </div>
               </div>
             ))}
