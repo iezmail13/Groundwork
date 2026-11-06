@@ -24,7 +24,7 @@ select tests.as_user('c0000000-0000-0000-0000-00000000000c');
 select is((select count(*)::int from storage.objects where bucket_id = 'documents'), 0, 'an outsider sees no objects');
 
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
-select is(tests.affected($q$ delete from storage.objects where name = 'aaaaaaaa-0000-0000-0000-000000000000/1-a-plan.pdf' $q$), 1, 'an admin can delete any object in their organization');
+select is(tests.affected($q$ delete from storage.objects where name = 'aaaaaaaa-0000-0000-0000-000000000000/1-a-plan.pdf' $q$), 1, 'an owner can delete any object in their organization');
 
 reset role;
 select is((select count(*)::int from storage.objects where name like 'bbbbbbbb%'), 1, 'B''s object still exists');

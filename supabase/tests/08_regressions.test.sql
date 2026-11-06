@@ -21,10 +21,12 @@ reset role;
 -- Mia (a member of A) creates one of everything; she also invited someone.
 insert into public.projects (id, organization_id, name, created_by, owner_membership_id) values
   ('aaaaaaaa-3333-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'Mia project', 'a0000000-0000-0000-0000-00000000000b', 'aaaaaaaa-1111-0000-0000-00000000000b');
-insert into public.tasks (id, organization_id, project_id, title, created_by, assignee_membership_id) values
-  ('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Mia task', 'a0000000-0000-0000-0000-00000000000b', 'aaaaaaaa-1111-0000-0000-00000000000b');
--- Alice's existing task and project are assigned to / owned by Mia too
-update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b' where id = 'aaaaaaaa-4444-0000-0000-000000000000';
+insert into public.tasks (id, organization_id, project_id, title, created_by) values
+  ('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-3333-0000-0000-000000000000', 'Mia task', 'a0000000-0000-0000-0000-00000000000b');
+insert into public.task_assignees (organization_id, task_id, membership_id, kind, added_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-1111-0000-0000-00000000000b', 'claimed', 'a0000000-0000-0000-0000-00000000000b'),
+  -- Alice's existing task and project are assigned to / owned by Mia too
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-4444-0000-0000-000000000000', 'aaaaaaaa-1111-0000-0000-00000000000b', 'appointed', 'a0000000-0000-0000-0000-00000000000a');
 update public.projects set owner_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000b' where id = 'aaaaaaaa-3333-0000-0000-000000000000';
 -- only count activity from here on
 delete from public.activity_log where organization_id = 'aaaaaaaa-0000-0000-0000-000000000000';
@@ -35,9 +37,11 @@ insert into public.documents (id, organization_id, name, storage_path, mime_type
 insert into public.invitations (organization_id, email, token, invited_by) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'friend@a.test', 'token-mia', 'a0000000-0000-0000-0000-00000000000b');
 
--- a client still can't clear authorship itself
-select tests.as_user('a0000000-0000-0000-0000-00000000000b');
+-- a client still can't clear authorship itself, even with rights to edit the
+-- project (Alice owns the organization; Mia, as staff, can't edit it at all)
+select tests.as_user('a0000000-0000-0000-0000-00000000000a');
 select throws_ok($$ update public.projects set created_by = null where id = 'aaaaaaaa-3333-0000-0000-0000000000ee' $$, '42501', null, 'clients cannot null created_by directly');
+select tests.as_user('a0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ update public.documents set uploaded_by = null where id = 'aaaaaaaa-6666-0000-0000-0000000000ee' $$, '42501', null, 'clients cannot null uploaded_by directly');
 
 reset role;
@@ -47,19 +51,19 @@ select is((select created_by from public.projects where id = 'aaaaaaaa-3333-0000
 select is((select created_by from public.tasks where id = 'aaaaaaaa-4444-0000-0000-0000000000ee'), null, 'their tasks stay, unattributed');
 select is((select uploaded_by from public.documents where id = 'aaaaaaaa-6666-0000-0000-0000000000ee'), null, 'their documents stay, unattributed');
 select is((select invited_by from public.invitations where token = 'token-mia'), null, 'their invitations stay, unattributed');
-select is((select count(*)::int from public.activity_log where organization_id = 'aaaaaaaa-0000-0000-0000-000000000000' and action = 'updated'), 0, 'the cascade is not logged as edits');
-select is((select assignee_membership_id from public.tasks where id = 'aaaaaaaa-4444-0000-0000-000000000000'), null, 'work assigned to them becomes unassigned');
+select is((select count(*)::int from public.activity_log where organization_id = 'aaaaaaaa-0000-0000-0000-000000000000' and action in ('updated', 'moved')), 0, 'the cascade is not logged as edits');
+select is((select count(*)::int from public.task_assignees where task_id = 'aaaaaaaa-4444-0000-0000-000000000000'), 0, 'work assigned to them becomes unassigned');
 select is((select owner_membership_id from public.projects where id = 'aaaaaaaa-3333-0000-0000-000000000000'), null, 'projects they owned lose the owner');
 
--- a real unassignment is still logged
+-- a real assignment and unassignment are still logged (the task moves to In progress and back)
 select tests.as_user('a0000000-0000-0000-0000-00000000000a');
-update public.tasks set assignee_membership_id = 'aaaaaaaa-1111-0000-0000-00000000000a' where id = 'aaaaaaaa-4444-0000-0000-0000000000ee';
-update public.tasks set assignee_membership_id = null where id = 'aaaaaaaa-4444-0000-0000-0000000000ee';
+select public.appoint_to_task('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-1111-0000-0000-00000000000a');
+select public.remove_task_assignee('aaaaaaaa-4444-0000-0000-0000000000ee', 'aaaaaaaa-1111-0000-0000-00000000000a');
 reset role;
-select is((select count(*)::int from public.activity_log where entity_id = 'aaaaaaaa-4444-0000-0000-0000000000ee' and action = 'updated'), 2, 'assigning and unassigning by hand are still logged');
+select is((select count(*)::int from public.activity_log where entity_id = 'aaaaaaaa-4444-0000-0000-0000000000ee' and action = 'moved'), 2, 'assigning and unassigning by hand are still logged');
 
--- ...but the last admin of an organization still can't be deleted
-select throws_ok($$ delete from auth.users where id = 'a0000000-0000-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one admin', 'deleting the only admin of an organization is refused');
+-- ...but the last owner of an organization still can't be deleted
+select throws_ok($$ delete from auth.users where id = 'a0000000-0000-0000-0000-00000000000a' $$, 'P0001', 'An organization must keep at least one owner', 'deleting the only owner of an organization is refused');
 
 select * from finish();
 rollback;

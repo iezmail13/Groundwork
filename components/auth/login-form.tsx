@@ -8,11 +8,37 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/form-message";
 import { keepValues } from "@/lib/forms";
+import { GoogleButton } from "./google-button";
+import { Turnstile } from "@/components/demo/turnstile";
+import { turnstileSiteKey } from "@/lib/demo";
 
-export function LoginForm({ next, defaultEmail }: { next?: string; defaultEmail?: string }) {
+export function LoginForm({
+  next,
+  defaultEmail,
+  google = false,
+  submitLabel = "Email me a sign-in link",
+}: {
+  next?: string;
+  defaultEmail?: string;
+  google?: boolean;
+  /** The email button's words: signing in, or getting started (/signup). */
+  submitLabel?: string;
+}) {
   const [state, action, pending] = useActionState(sendMagicLink, idle);
   const sent = state.status === "success";
+  const siteKey = turnstileSiteKey();
   return (
+    <div className="flex flex-col gap-5">
+      {google ? (
+        <>
+          <GoogleButton next={next} />
+          <p className="flex items-center gap-3 text-sm text-ink-muted" aria-hidden>
+            <span className="h-px flex-1 bg-rule" />
+            or
+            <span className="h-px flex-1 bg-rule" />
+          </p>
+        </>
+      ) : null}
     <form action={action} onSubmit={keepValues(action)} className="flex flex-col gap-4" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Work email" htmlFor="email" error={state.fieldErrors?.email}>
@@ -27,11 +53,14 @@ export function LoginForm({ next, defaultEmail }: { next?: string; defaultEmail?
           invalid={Boolean(state.fieldErrors?.email)}
         />
       </Field>
+      {/* Supabase asks for the bot check on every email sign-in once it's set up (D115) */}
+      {siteKey ? <Turnstile siteKey={siteKey} resetKey={state} /> : null}
       <SubmitButton pending={pending} pendingLabel="Sending link…">
         <Mail aria-hidden className="size-4" />
-        {sent ? "Send another link" : "Email me a sign-in link"}
+        {sent ? "Send another link" : submitLabel}
       </SubmitButton>
       <FormMessage state={state} />
     </form>
+    </div>
   );
 }

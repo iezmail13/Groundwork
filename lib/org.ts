@@ -4,12 +4,12 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createTranslator, resolveAll, toLabelMap, type Translate } from "@/lib/terminology/t";
-import { deriveTokens, readTheme, type ThemeSettings, type ThemeTokens } from "@/lib/theme/theme";
 import { DEFAULT_TZ, isValidTimeZone, todayIn } from "@/lib/dates";
+import { canManageOrg, type Role } from "@/lib/roles";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
-export type Role = Database["public"]["Enums"]["member_role"];
+export type { Role };
 
 export type Member = {
   id: string; // membership id
@@ -17,6 +17,8 @@ export type Member = {
   role: Role;
   name: string;
   email: string;
+  /** Their photo in this organization (D104), if they've set one. */
+  photoPath: string | null;
 };
 
 /** The signed-in user for this request, or a redirect to /login. */
@@ -36,13 +38,12 @@ export type OrgContext = {
   org: Organization;
   membershipId: string;
   role: Role;
-  isAdmin: boolean;
+  /** Owners and managers: settings, members, and deleting anyone's work. */
+  canManage: boolean;
   userId: string;
   userEmail: string;
   t: Translate;
   labels: ReturnType<typeof resolveAll>;
-  theme: ThemeSettings;
-  tokens: ThemeTokens;
   tz: string;
   today: string;
   base: string; // "/{slug}"
@@ -50,13 +51,18 @@ export type OrgContext = {
 
 /**
  * Everything a page in /[orgSlug] needs: the org (via RLS, so non-members
- * get a 404), the viewer's membership, t(), theme and time zone.
+ * get a 404), the viewer's membership, t() and time zone.
  * Cached per request, so the layout and page share one lookup.
  */
 export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => {
   const { supabase, user } = await requireUser();
 
   const { data: org } = await supabase.from("organizations").select("*").eq("slug", slug).maybeSingle();
+  // a demo visitor whose demo has ended (gone, or locked) goes back to the demo page (D115)
+  if (!org && user.is_anonymous) {
+    const { count } = await supabase.from("organizations").select("id", { count: "exact", head: true });
+    if (!count) redirect("/demo?ended=1");
+  }
   if (!org) notFound();
 
   const [{ data: membership }, { data: preset }, tz] = await Promise.all([
@@ -67,19 +73,16 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
   if (!membership) notFound();
 
   const t = createTranslator(toLabelMap(preset?.labels), toLabelMap(org.terminology_overrides));
-  const theme = readTheme(org.theme);
 
   return {
     org,
     membershipId: membership.id,
     role: membership.role,
-    isAdmin: membership.role === "admin",
+    canManage: canManageOrg(membership.role),
     userId: user.id,
     userEmail: user.email ?? "",
     t,
     labels: resolveAll(t),
-    theme,
-    tokens: deriveTokens(theme),
     tz,
     today: todayIn(tz),
     base: `/${org.slug}`,
@@ -91,7 +94,7 @@ export const getMembers = cache(async (orgId: string): Promise<Member[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("memberships")
-    .select("id, user_id, role, created_at, profile:profiles(full_name, email)")
+    .select("id, user_id, role, created_at, photo_path, profile:profiles(full_name, email)")
     .eq("organization_id", orgId)
     .order("created_at");
   return (data ?? []).map((m) => ({
@@ -100,6 +103,7 @@ export const getMembers = cache(async (orgId: string): Promise<Member[]> => {
     role: m.role,
     name: m.profile?.full_name || m.profile?.email || "Unknown",
     email: m.profile?.email ?? "",
+    photoPath: m.photo_path,
   }));
 });
 

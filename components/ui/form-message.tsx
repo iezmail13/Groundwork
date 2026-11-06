@@ -8,7 +8,7 @@ export function FormMessage({ state, className = "" }: { state: ActionState; cla
       {state.message && state.status !== "idle" ? (
         <p
           className={`flex items-start gap-2 text-sm ${
-            state.status === "error" ? "font-semibold" : ""
+            state.status === "error" ? "font-semibold text-bad-ink" : "text-good-ink"
           }`}
         >
           {state.status === "error" ? (

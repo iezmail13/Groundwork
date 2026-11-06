@@ -74,7 +74,7 @@ export function EventRowButton({
           </span>
         </span>
       }
-      title={`Edit ${lower(t("event"))}`}
+      title={values.locked ? values.title : `Edit ${lower(t("event"))}`}
     >
       {(close) => <EventForm organizationId={organizationId} projects={projects} event={values} onDone={close} />}
     </DialogButton>

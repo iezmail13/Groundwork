@@ -13,6 +13,8 @@ import {
   sanitizeFileName,
   uploadRequestInput,
 } from "@/lib/validation";
+import { DEMO_ONLY } from "@/lib/demo";
+import { inDemo } from "@/lib/demo-server";
 
 const BUCKET = "documents";
 
@@ -41,6 +43,7 @@ export async function requestUpload(input: {
   if (!member) return { ok: false, message: "You don't have permission to upload here." };
 
   const path = `${parsed.data.organizationId}/${crypto.randomUUID()}-${sanitizeFileName(parsed.data.fileName)}`;
+  if (await inDemo(supabase)) return { ok: false, message: DEMO_ONLY };
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) return { ok: false, message: "Couldn't start the upload. Try again." };
   return { ok: true, path: data.path, token: data.token };
@@ -128,12 +131,19 @@ export async function deleteDocument(_prev: ActionState, formData: FormData): Pr
   const parsed = z.object({ id }).safeParse(formObject(formData));
   if (!parsed.success) return failure("Invalid request.");
   const supabase = await createClient();
-  const { data, error } = await supabase.from("documents").delete().eq("id", parsed.data.id).select("storage_path");
+  const notAllowed = "Only the person who uploaded this, or someone who manages the organization, can delete it.";
+  const { data: allowed } = await supabase.rpc("can_delete_document", { doc_id: parsed.data.id });
+  if (!allowed) return failure(notAllowed);
+  // The stored file goes first, while its row still says who may remove it,
+  // so a deleted document never leaves its file behind (D113).
+  const { data: doc } = await supabase.from("documents").select("storage_path").eq("id", parsed.data.id).maybeSingle();
+  if (doc) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove([doc.storage_path]);
+    if (storageError) return failure("Couldn't delete the file. Try again.");
+  }
+  const { data, error } = await supabase.from("documents").delete().eq("id", parsed.data.id).select("id");
   if (error) return dbFailure(error);
-  const row = data?.[0];
-  if (!row) return failure("Only an admin or the person who uploaded this can delete it.");
-  const { error: storageError } = await supabase.storage.from(BUCKET).remove([row.storage_path]);
-  if (storageError) console.error("Row deleted but the stored file could not be removed", row.storage_path, storageError);
+  if (!data?.length) return failure(notAllowed);
   revalidateOrg();
   return success("Deleted.");
 }

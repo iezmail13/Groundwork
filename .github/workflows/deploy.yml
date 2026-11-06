@@ -9,18 +9,30 @@
 # One-time setup (repo Settings → Secrets and variables → Actions):
 #   secrets:   SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, VERCEL_TOKEN
 #              SMTP_PASS (for real sign-in email)
+#              GOOGLE_CLIENT_SECRET (for Google sign-in)
 #   variables: SUPABASE_PROJECT_REF
 #              SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM (for real sign-in email)
+#              GOOGLE_CLIENT_ID (for Google sign-in, with the secret above)
 #              APP_URL (optional; a custom domain added to the Vercel project
 #                after the first deploy, e.g. https://app.example.org)
 #              VERCEL_SCOPE (optional; defaults to the token's default team)
 #              VERCEL_PROJECT_NAME (optional; defaults to groundwork)
+#              EDGE_CONFIG_ID (optional; for deploys behind maintenance mode, D87,
+#                with the MAINTENANCE_BYPASS_TOKEN secret so the smoke test gets in)
+#
+# Maintenance mode: run CI by hand with "Deploy behind maintenance mode"
+# ticked, or put [maintenance] in the commit message. Maintenance switches on
+# before the migrations and off after the smoke test, whether or not it passed.
 # Until the required ones exist, the job only writes a summary of what's missing.
 # Secrets are passed only to the steps that use them, never to npm ci.
 name: Deploy
 
 on:
   workflow_call:
+    inputs:
+      maintenance:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,6 +56,8 @@ jobs:
       SMTP_PORT: ${{ vars.SMTP_PORT }}
       SMTP_USER: ${{ vars.SMTP_USER }}
       SMTP_FROM: ${{ vars.SMTP_FROM }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
     steps:
       - name: Check configuration
         id: cfg
@@ -95,6 +109,18 @@ jobs:
         if: steps.cfg.outputs.ready == 'true'
         run: npm ci
 
+      - name: Switch maintenance on
+        id: maint
+        if: steps.cfg.outputs.ready == 'true' && inputs.maintenance
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EDGE_CONFIG_ID: ${{ vars.EDGE_CONFIG_ID }}
+          STATE: "on"
+          MESSAGE: "We're updating Groundwork. This usually takes a few minutes."
+        run: |
+          ENDS_AT=$(date -u -d "+20 minutes" +%Y-%m-%dT%H:%M:%SZ) npx tsx scripts/maintenance/set.ts
+          echo "on=true" >> "$GITHUB_OUTPUT"
+
       - name: Apply database migrations
         if: steps.cfg.outputs.ready == 'true'
         env:
@@ -145,6 +171,10 @@ jobs:
         if: steps.cfg.outputs.ready == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # the Google button shows only when both halves of the OAuth client are set
+          NEXT_PUBLIC_GOOGLE_SIGN_IN: ${{ (vars.GOOGLE_CLIENT_ID != '' && secrets.GOOGLE_CLIENT_SECRET != '') && 'true' || 'false' }}
+          # the bot check shows only when both halves are set, matching Supabase (D115)
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ (vars.TURNSTILE_SITE_KEY != '' && secrets.TURNSTILE_SECRET_KEY != '') && vars.TURNSTILE_SITE_KEY || '' }}
         run: npx --yes vercel@62 build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to production
@@ -175,11 +205,24 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
         run: npx tsx scripts/deploy/configure-auth.ts "$PRODUCTION_URL"
 
       - name: Smoke-test the live site
         if: steps.cfg.outputs.ready == 'true'
+        env:
+          MAINTENANCE_BYPASS_TOKEN: ${{ secrets.MAINTENANCE_BYPASS_TOKEN }}
         run: npx tsx scripts/deploy/smoke.ts "$PRODUCTION_URL"
+
+      - name: Switch maintenance off
+        # even when a step above failed: never leave the site down by accident
+        if: always() && steps.maint.outputs.on == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EDGE_CONFIG_ID: ${{ vars.EDGE_CONFIG_ID }}
+          STATE: "off"
+        run: npx tsx scripts/maintenance/set.ts
 
       - name: Summary
         if: steps.cfg.outputs.ready == 'true'
