@@ -6,7 +6,6 @@ import { MobileMenu } from "./mobile-menu";
 /** The public pages' links, in the order the masthead shows them. */
 export const SITE_LINKS = [
   { href: "/#features", label: "Features" },
-  { href: "/security", label: "Security" },
   { href: "/demo", label: "Try the demo" },
 ] as const;
 

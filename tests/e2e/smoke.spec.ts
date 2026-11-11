@@ -479,6 +479,8 @@ test("landing page: signed-out visitors see the hero, the features, the problems
   let loads = 0;
   page.on("load", () => loads++);
   const site = page.getByRole("navigation", { name: "Site" });
+  // Security is a footer link only; the masthead keeps Features, the demo and the ways in
+  await expect(site.getByRole("link", { name: "Security" })).toHaveCount(0);
   const login = site.getByRole("link", { name: "Log in" });
   const signIn = page.getByRole("dialog", { name: "Sign in to Groundwork" });
   await login.focus();
