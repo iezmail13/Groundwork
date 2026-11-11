@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const WIDGET_IDS = [
-  "overdue",
-  "due_soon",
-  "quick_add",
-  "my_tasks",
-  "upcoming_events",
-  "project_progress",
-  "recent_activity",
-  "pinned_documents",
+  "tasks",
+  "deadlines",
+  "priority",
+  "progress",
+  "coming_up",
+  "attendance",
+  "workload",
+  "funding",
 ] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
@@ -19,14 +19,14 @@ export type DashboardLayout = { version: 1; widgets: WidgetLayout[] };
 export const DEFAULT_LAYOUT: DashboardLayout = {
   version: 1,
   widgets: [
-    { id: "overdue", size: "s", hidden: false },
-    { id: "due_soon", size: "s", hidden: false },
-    { id: "quick_add", size: "s", hidden: false },
-    { id: "my_tasks", size: "m", hidden: false },
-    { id: "upcoming_events", size: "m", hidden: false },
-    { id: "project_progress", size: "m", hidden: false },
-    { id: "recent_activity", size: "m", hidden: false },
-    { id: "pinned_documents", size: "l", hidden: false },
+    { id: "tasks", size: "s", hidden: false },
+    { id: "priority", size: "s", hidden: false },
+    { id: "deadlines", size: "s", hidden: false },
+    { id: "progress", size: "m", hidden: false },
+    { id: "attendance", size: "m", hidden: false },
+    { id: "coming_up", size: "l", hidden: false },
+    { id: "workload", size: "m", hidden: false },
+    { id: "funding", size: "m", hidden: false },
   ],
 };
 

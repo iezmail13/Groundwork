@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Download, FileText, Pin, PinOff, Search, SearchX, X } from "lucide-react";
+import { Download, FileText, Lock, Pin, PinOff, Search, SearchX, X } from "lucide-react";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import { DOCUMENT_SELECT, getProjectOptions, toPrefixQuery, type DocumentRow } f
 import { createClient } from "@/lib/supabase/server";
 import { formatRelativeDate, dateInZone } from "@/lib/dates";
 import { lower } from "@/lib/terminology/t";
+import { creatorLock } from "@/lib/creator-lock";
 import { togglePin } from "./actions";
 
 export async function generateMetadata({ params }: PageProps<"/[orgSlug]/documents">): Promise<Metadata> {
@@ -55,7 +57,8 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
   const docs = (data ?? []) as DocumentRow[];
   const filtering = Boolean(q || project || tag);
   const plural = t("document", "other");
-  const canDelete = (d: DocumentRow) => ctx.isAdmin || d.uploaded_by === ctx.userId;
+  const lockOf = (d: DocumentRow) => creatorLock(t, ctx, d.uploaded_by, d.created_by_role);
+  const canDelete = (d: DocumentRow) => ctx.canManage || d.uploaded_by === ctx.userId;
   const withParams = (patch: Record<string, string>) => {
     const next = new URLSearchParams({ ...(q ? { q } : {}), ...(project ? { project } : {}), ...(tag ? { tag } : {}), ...patch });
     for (const [k, v] of [...next.entries()]) if (!v) next.delete(k);
@@ -74,19 +77,22 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
           </label>
           <input id="doc-search" name="q" type="search" defaultValue={q} placeholder="e.g. consent, budget" className={`${inputClass} py-1.5`} />
         </div>
-        <div className="flex min-w-48 flex-1 flex-col gap-1">
-          <label htmlFor="doc-project-filter" className="font-heading text-xs font-semibold text-ink-muted">
-            {t("project")}
-          </label>
-          <select id="doc-project-filter" name="project" defaultValue={project} className={`${inputClass} py-1.5`}>
-            <option value="">All</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FilterMenu count={project ? 1 : 0}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="doc-project-filter" className="font-heading text-xs font-semibold text-ink-muted">
+              {t("project")}
+            </label>
+            <select id="doc-project-filter" name="project" defaultValue={project} className={`${inputClass} py-1.5`}>
+              <option value="">All</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SubmitButton size="md">Apply</SubmitButton>
+        </FilterMenu>
         {tag ? <input type="hidden" name="tag" value={tag} /> : null}
         <SubmitButton variant="secondary" size="md">
           <Search aria-hidden className="size-4" />
@@ -104,7 +110,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         <p className="flex items-center gap-2 text-sm">
           Tagged
           <Badge variant="filled">#{tag}</Badge>
-          <Link href={withParams({ tag: "" })} className="underline underline-offset-4">
+          <Link href={withParams({ tag: "" })} className="text-accent underline underline-offset-4">
             Remove tag filter
           </Link>
         </p>
@@ -118,6 +124,7 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         ) : (
           <EmptyState
             icon={<FileText />}
+            illustration="documents"
             title={`No ${lower(plural)} yet`}
             action={<UploadButton organizationId={org.id} projects={projects} />}
           >
@@ -194,22 +201,30 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
                         <a href={`${base}/documents/${d.id}/download`} className={buttonClass("ghost", "sm", "px-2")} aria-label={`Download ${d.name}`} title="Download">
                           <Download aria-hidden className="size-4" />
                         </a>
-                        <form action={togglePin}>
-                          <input type="hidden" name="id" value={d.id} />
-                          <input type="hidden" name="pinned" value={String(!d.pinned)} />
-                          <SubmitButton
-                            variant="ghost"
-                            size="sm"
-                            className="px-2"
-                            aria-pressed={d.pinned}
-                            aria-label={d.pinned ? `Unpin ${d.name}` : `Pin ${d.name}`}
-                            title={d.pinned ? "Unpin" : "Pin to dashboard"}
-                          >
-                            {d.pinned ? <PinOff aria-hidden className="size-4" /> : <Pin aria-hidden className="size-4" />}
-                          </SubmitButton>
-                        </form>
-                        <EditDocumentButton doc={d} projects={projects} />
-                        {canDelete(d) ? <DeleteDocumentButton doc={d} /> : null}
+                        {lockOf(d) ? (
+                          <span role="img" className="inline-flex size-8 items-center justify-center" aria-label={lockOf(d) ?? ""} title={lockOf(d) ?? ""}>
+                            <Lock aria-hidden className="size-4" />
+                          </span>
+                        ) : (
+                          <>
+                          <form action={togglePin}>
+                            <input type="hidden" name="id" value={d.id} />
+                            <input type="hidden" name="pinned" value={String(!d.pinned)} />
+                            <SubmitButton
+                              variant="ghost"
+                              size="sm"
+                              className="px-2"
+                              aria-pressed={d.pinned}
+                              aria-label={d.pinned ? `Unpin ${d.name}` : `Pin ${d.name}`}
+                              title={d.pinned ? "Unpin" : "Pin to dashboard"}
+                            >
+                              {d.pinned ? <PinOff aria-hidden className="size-4" /> : <Pin aria-hidden className="size-4" />}
+                            </SubmitButton>
+                          </form>
+                          <EditDocumentButton doc={d} projects={projects} />
+                          {canDelete(d) ? <DeleteDocumentButton doc={d} /> : null}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

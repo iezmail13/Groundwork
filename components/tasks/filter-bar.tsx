@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
-import { X } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ArrowDownWideNarrow, X } from "lucide-react";
 import { inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { useT } from "@/lib/terminology/context";
 
 export type FilterOption = { value: string; label: string };
@@ -13,11 +14,15 @@ export type FilterOption = { value: string; label: string };
 export function FilterBar({
   projects,
   members,
-  showStatus,
+  showOrder = false,
+  showProject = true,
 }: {
+  /** Off on a project's own page. */
+  showProject?: boolean;
   projects: FilterOption[];
   members: FilterOption[];
-  showStatus: boolean;
+  /** The board's own ordering: by hand, or by priority. */
+  showOrder?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -32,77 +37,132 @@ export function FilterBar({
     startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
   };
 
-  const filters = ["project", "assignee", "status", "due"];
-  const active = filters.some((f) => params.get(f));
-
-  const select = (key: string, label: string, options: FilterOption[], allLabel: string) => (
-    <div className="flex min-w-40 flex-1 flex-col gap-1 sm:flex-none">
-      <label htmlFor={`filter-${key}`} className="font-heading text-xs font-semibold text-ink-muted">
-        {label}
-      </label>
-      <select
-        id={`filter-${key}`}
-        className={`${inputClass} py-1.5 text-sm`}
-        value={params.get(key) ?? ""}
-        onChange={(e) => set(key, e.target.value)}
-      >
-        <option value="">{allLabel}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  // one panel of filters (D112): what the work is, whose it is and when it's due.
+  // Status is the board's columns already, so finished work is one checkbox, and
+  // the board's order is a toggle beside the button, not a filter.
+  const fields: { key: string; label: string; options: FilterOption[]; allLabel: string }[] = [
+    ...(showProject ? [{ key: "project", label: t("project"), options: projects, allLabel: "All" }] : []),
+    {
+      key: "assignee",
+      label: "Assignee",
+      options: [{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...members],
+      allLabel: "Anyone",
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      options: (["critical", "high", "medium", "low"] as const).map((p) => ({ value: p, label: t(`priority.${p}`) })),
+      allLabel: "Any",
+    },
+    {
+      key: "due",
+      label: "Due",
+      options: [
+        { value: "overdue", label: "Overdue" },
+        { value: "today", label: "Today" },
+        { value: "soon", label: "Within 3 days" },
+        { value: "week", label: "Next 7 days" },
+        { value: "ontrack", label: "More than 3 days away" },
+        { value: "later", label: "Later" },
+        { value: "none", label: "No due date" },
+      ],
+      allLabel: "Any time",
+    },
+  ];
+  // ticks at once, then follows the address once the page has caught up
+  const fromUrl = params.get("finished") === "1";
+  const [finished, setFinished] = useState(fromUrl);
+  const [lastFromUrl, setLastFromUrl] = useState(fromUrl);
+  if (fromUrl !== lastFromUrl) {
+    setLastFromUrl(fromUrl);
+    setFinished(fromUrl);
+  }
+  const urgentFirst = params.get("order") === "priority";
+  const statusParam = params.get("status");
+  const statusOn = statusParam === "todo" || statusParam === "in_progress" || statusParam === "done" ? statusParam : null;
+  // what's on, in words, beside the button
+  const on = [
+    ...fields.flatMap((f) => {
+      const value = params.get(f.key);
+      const option = value ? f.options.find((o) => o.value === value) : undefined;
+      return option ? [{ key: f.key, text: `${f.label}: ${option.label}` }] : [];
+    }),
+    ...(finished ? [{ key: "finished", text: "Including finished work" }] : []),
+    // a status from a link (a dashboard chart, "See all finished work") shows here so it can be cleared
+    ...(statusOn ? [{ key: "status", text: `Status: ${statusOn === "done" ? "Finished only" : t(`status.${statusOn}`)}` }] : []),
+  ];
 
   return (
-    <div
-      role="search"
-      aria-label="Filters"
-      aria-busy={pending}
-      className="flex flex-wrap items-end gap-3 border-b border-rule pb-4"
-    >
-      {select("project", t("project"), projects, "All")}
-      {select("assignee", "Assignee", [{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...members], "Anyone")}
-      {showStatus
-        ? select(
-            "status",
-            "Status",
-            [
-              { value: "todo", label: t("status.todo") },
-              { value: "in_progress", label: t("status.in_progress") },
-              { value: "done", label: t("status.done") },
-            ],
-            "Any status",
-          )
-        : null}
-      {select(
-        "due",
-        "Due",
-        [
-          { value: "overdue", label: "Overdue" },
-          { value: "today", label: "Today" },
-          { value: "week", label: "Next 7 days" },
-          { value: "later", label: "Later" },
-          { value: "none", label: "No due date" },
-        ],
-        "Any time",
-      )}
-      {active ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-0.5"
-          onClick={() => {
-            const next = new URLSearchParams(params.toString());
-            filters.forEach((f) => next.delete(f));
-            startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
-          }}
+    <div role="search" aria-label="Filters" aria-busy={pending} className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">
+      <FilterMenu count={on.length}>
+        {fields.map((f) => (
+          <div key={f.key} className="flex flex-col gap-1">
+            <label htmlFor={`filter-${f.key}`} className="font-heading text-xs font-semibold text-ink-muted">
+              {f.label}
+            </label>
+            <select
+              id={`filter-${f.key}`}
+              className={`${inputClass} py-1.5 text-sm`}
+              value={params.get(f.key) ?? ""}
+              onChange={(e) => set(f.key, e.target.value)}
+            >
+              <option value="">{f.allLabel}</option>
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={finished}
+            onChange={(e) => {
+              setFinished(e.target.checked);
+              set("finished", e.target.checked ? "1" : "");
+            }}
+            className="size-4 accent-[var(--accent)]"
+          />
+          Include finished work
+        </label>
+      </FilterMenu>
+      {showOrder ? (
+        <button
+          type="button"
+          aria-pressed={urgentFirst}
+          onClick={() => set("order", urgentFirst ? "" : "priority")}
+          className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 font-heading text-sm font-semibold hover:bg-panel ${
+            urgentFirst ? "border-accent text-accent" : "border-rule"
+          }`}
         >
-          <X aria-hidden className="size-4" />
-          Clear filters
-        </Button>
+          <ArrowDownWideNarrow aria-hidden className="size-4" />
+          Most urgent first
+        </button>
+      ) : null}
+      {on.length ? (
+        <>
+          <ul aria-label="Filters on" className="flex flex-wrap gap-1.5">
+            {on.map((o) => (
+              <li key={o.key} className="rounded-full border border-rule px-2.5 py-0.5 text-sm">
+                {o.text}
+              </li>
+            ))}
+          </ul>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(params.toString());
+              [...fields.map((f) => f.key), "status", "finished"].forEach((k) => next.delete(k));
+              startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
+            }}
+          >
+            <X aria-hidden className="size-4" />
+            Clear filters
+          </Button>
+        </>
       ) : null}
     </div>
   );

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  accentInput,
+  logoUploadInput,
   ACCEPT_ATTRIBUTE,
   ALLOWED_MIME_TYPES,
   EXTENSION_TYPES,
@@ -92,5 +94,26 @@ describe("originOf", () => {
     expect(originOf("app.example.org")).toBe("https://app.example.org");
     expect(originOf(" https://App.Example.org/some/path/ ")).toBe("https://app.example.org");
     expect(originOf("http://localhost:3000/")).toBe("http://localhost:3000");
+  });
+});
+
+describe("branding inputs", () => {
+  it("normalises accents and treats empty as the default", () => {
+    expect(accentInput.parse("#0f766e")).toBe("#0F766E");
+    expect(accentInput.parse("be185d")).toBe("#BE185D");
+    expect(accentInput.parse("")).toBeNull();
+    expect(accentInput.parse(undefined)).toBeNull();
+    expect(accentInput.safeParse("red").success).toBe(false);
+    expect(accentInput.safeParse("#12345").success).toBe(false);
+  });
+
+  it("accepts PNG, JPG and WebP logos up to 2 MB, and never SVG", () => {
+    const base = { organizationId: "aaaaaaaa-0000-0000-0000-000000000000", variant: "light" as const, size: 1000 };
+    for (const mimeType of ["image/png", "image/jpeg", "image/webp"]) {
+      expect(logoUploadInput.safeParse({ ...base, mimeType }).success, mimeType).toBe(true);
+    }
+    expect(logoUploadInput.safeParse({ ...base, mimeType: "image/svg+xml" }).success).toBe(false);
+    expect(logoUploadInput.safeParse({ ...base, mimeType: "image/gif" }).success).toBe(false);
+    expect(logoUploadInput.safeParse({ ...base, mimeType: "image/png", size: 2 * 1024 * 1024 + 1 }).success).toBe(false);
   });
 });
