@@ -105,7 +105,7 @@ function HomeLink({ org, collapsed }: { org: ShellOrg; collapsed: boolean }) {
       aria-label="Groundwork home"
     >
       <LogoBadge size={36} />
-      {collapsed ? null : <span className="truncate font-heading text-lg font-extrabold tracking-tight">Groundwork</span>}
+      {collapsed ? null : <span className="truncate font-heading text-lg font-semibold tracking-tight">Groundwork</span>}
     </Link>
   );
 }
@@ -173,7 +173,7 @@ function SidebarBody({
 
       {!collapsed ? (
         <section aria-labelledby="recent-heading" className="mt-6 min-h-0 flex-1 overflow-y-auto px-2">
-          <h2 id="recent-heading" className="px-3 pb-1 font-heading text-xs font-bold tracking-wider text-rail-ink-muted uppercase">
+          <h2 id="recent-heading" className="px-3 pb-1 font-heading text-xs font-medium text-rail-ink-muted">
             Recent {t("project", "other").toLocaleLowerCase()}
           </h2>
           {recent.length > 0 ? (
@@ -232,7 +232,7 @@ function SidebarBody({
         >
           {(close) => (
             <>
-              <p className="px-3 pt-1.5 pb-1 font-heading text-xs font-bold tracking-wider text-ink-muted uppercase">
+              <p className="px-3 pt-1.5 pb-1 font-heading text-xs font-medium text-ink-muted">
                 Organizations
               </p>
               {orgs.map((o) => (
@@ -314,7 +314,7 @@ function NavLink({
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? label : undefined}
       title={collapsed ? label : undefined}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 font-heading text-[0.95rem] font-semibold transition-colors ${
+      className={`flex items-center gap-3 rounded-md px-3 py-2 font-heading text-[0.95rem] font-medium transition-colors ${
         collapsed ? "justify-center px-0" : ""
       } ${active ? "bg-active text-active-ink" : "text-rail-ink hover:bg-rail-hover"}`}
     >

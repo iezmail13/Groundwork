@@ -161,7 +161,7 @@ export function Dashboard({ data, initialLayout }: { data: DashboardData; initia
       </div>
 
       {editing ? (
-        <p id="customize-help" className="border-l-4 border-ink pl-3 text-sm">
+        <p id="customize-help" className="border-l-2 border-ink pl-3 text-sm">
           Drag a widget by its handle to reorder. With a keyboard, focus a handle, press Space, use the arrow keys, then
           Space again to drop. Choose S, M or L to resize, or hide widgets you don&apos;t need. Changes save as you go.
         </p>
@@ -277,7 +277,7 @@ function SortableWidget({
               <GripVertical aria-hidden className="size-4" />
             </button>
           ) : null}
-          <h2 id={headingId} className="flex items-center gap-2 font-heading text-base font-bold">
+          <h2 id={headingId} className="flex items-center gap-2 font-heading text-[0.95rem] font-semibold">
             {def.icon}
             {def.title}
           </h2>

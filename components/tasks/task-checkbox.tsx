@@ -43,7 +43,7 @@ export function TaskCheckbox({
       aria-label={`Done: ${title}`}
       disabled={pending}
       onClick={toggle}
-      className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-ink transition-colors ${
+      className={`inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] border border-ink transition-colors ${
         checked ? "bg-primary text-on-primary" : "bg-canvas hover:bg-panel"
       }`}
     >

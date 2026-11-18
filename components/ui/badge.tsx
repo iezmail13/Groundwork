@@ -16,13 +16,13 @@ export function Badge({
   className?: string;
 }) {
   const styles = {
-    filled: "bg-primary text-on-primary border border-primary font-semibold",
-    outline: "border border-ink text-ink",
-    quiet: "border border-rule text-ink-muted",
+    filled: "bg-primary text-on-primary border border-primary font-medium",
+    outline: "border border-ink-muted text-ink font-medium",
+    quiet: "border border-rule text-ink-muted font-medium",
   }[variant];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-heading text-xs whitespace-nowrap ${styles} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs whitespace-nowrap ${styles} ${className}`}
     >
       {icon}
       {children}

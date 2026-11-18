@@ -54,7 +54,7 @@ function TaskLines({ tasks, today, max = 5 }: { tasks: TaskLite[]; today: string
     <ul className="divide-y divide-rule">
       {tasks.slice(0, max).map((task) => (
         <li key={task.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2">
-          <Link href={task.href} className="min-w-0 flex-1 truncate font-semibold hover:underline">
+          <Link href={task.href} className="min-w-0 flex-1 truncate font-medium hover:underline">
             {task.title}
           </Link>
           <DueBadge dueDate={task.due_date} status={task.status} today={today} />
@@ -70,13 +70,13 @@ export function OverdueWidget({ data }: { data: DashboardData }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="flex items-baseline gap-2">
-        <CountUp value={n} className="font-heading text-4xl font-extrabold" />
+        <CountUp value={n} className="font-heading text-3xl font-semibold" />
         <span className="text-ink-muted">{lower(n === 1 ? t("task") : t("task", "other"))} past due</span>
       </p>
       {n ? (
         <>
           <TaskLines tasks={data.overdue} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=overdue`} className="text-sm font-medium underline underline-offset-4">
             See all overdue
           </Link>
         </>
@@ -93,13 +93,13 @@ export function DueSoonWidget({ data }: { data: DashboardData }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="flex items-baseline gap-2">
-        <CountUp value={n} className="font-heading text-4xl font-extrabold" />
+        <CountUp value={n} className="font-heading text-3xl font-semibold" />
         <span className="text-ink-muted">due in the next 7 days</span>
       </p>
       {n ? (
         <>
           <TaskLines tasks={data.dueSoon} today={data.today} />
-          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-semibold underline underline-offset-4">
+          <Link href={`${data.base}/tasks?view=list&due=week`} className="text-sm font-medium underline underline-offset-4">
             See the week
           </Link>
         </>
@@ -156,7 +156,7 @@ export function MyTasksWidget({ data }: { data: DashboardData }) {
         >
           <TaskCheckbox id={task.id} title={task.title} done={false} onCompleteStart={() => start(task.id)} />
           <div className="min-w-0 flex-1">
-            <Link href={task.href} className="task-title inline font-semibold hover:underline">
+            <Link href={task.href} className="task-title inline font-medium hover:underline">
               {task.title}
             </Link>
             {task.project ? (
@@ -182,7 +182,7 @@ export function ProjectProgressWidget({ data }: { data: DashboardData }) {
     <ul className="flex flex-col gap-3">
       {data.projects.slice(0, 6).map((p) => (
         <li key={p.id} className="flex flex-col gap-1">
-          <Link href={`${data.base}/projects/${p.id}`} className="flex items-center gap-2 font-semibold hover:underline">
+          <Link href={`${data.base}/projects/${p.id}`} className="flex items-center gap-2 font-medium hover:underline">
             <ProjectDot color={p.color} />
             <span className="truncate">{p.name}</span>
           </Link>
@@ -215,7 +215,7 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
             <span className="text-ink-muted">{e.time}</span>
           </div>
           <div className="min-w-0">
-            <p className="font-semibold">{e.title}</p>
+            <p className="font-medium">{e.title}</p>
             {e.location ? (
               <p className="flex items-center gap-1 text-sm text-ink-muted">
                 <MapPin aria-hidden className="size-3.5" />
@@ -226,7 +226,7 @@ export function UpcomingEventsWidget({ data }: { data: DashboardData }) {
         </li>
       ))}
       <li className="pt-2">
-        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-semibold underline underline-offset-4">
+        <Link href={`${data.base}/calendar?view=agenda`} className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4">
           <CalendarDays aria-hidden className="size-4" />
           All {lower(t("event", "other"))}
         </Link>
@@ -241,16 +241,16 @@ export function RecentActivityWidget({ data }: { data: DashboardData }) {
     <ol className="divide-y divide-rule">
       {data.activity.map((a) => (
         <li key={a.id} className="py-2 text-sm">
-          <span className="font-semibold">{a.actor}</span> {a.sentence}
+          <span className="font-medium">{a.actor}</span> {a.sentence}
           {a.label ? (
             <>
               {" "}
               {a.href ? (
-                <Link href={a.href} className="font-semibold underline-offset-4 hover:underline">
+                <Link href={a.href} className="font-medium underline-offset-4 hover:underline">
                   “{a.label}”
                 </Link>
               ) : (
-                <span className="font-semibold">“{a.label}”</span>
+                <span className="font-medium">“{a.label}”</span>
               )}
             </>
           ) : null}
@@ -279,7 +279,7 @@ export function PinnedDocumentsWidget({ data }: { data: DashboardData }) {
       {data.pinned.map((d) => (
         <li key={d.id} className="flex items-center gap-3 border-b border-rule py-2">
           <FileIcon mime={d.mime} />
-          <a href={`${data.base}/documents/${d.id}/download`} className="min-w-0 flex-1 truncate font-semibold hover:underline">
+          <a href={`${data.base}/documents/${d.id}/download`} className="min-w-0 flex-1 truncate font-medium hover:underline">
             {d.name}
           </a>
           <span className="text-sm text-ink-muted">{formatBytes(d.size)}</span>

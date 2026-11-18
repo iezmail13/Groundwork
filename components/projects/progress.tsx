@@ -10,7 +10,7 @@ export function ProgressBar({ done, total, label }: { done: number; total: numbe
         aria-valuenow={pct}
         aria-valuetext={`${done} of ${total} done`}
         aria-label={label}
-        className="h-2 flex-1 overflow-hidden rounded-full border border-rule bg-panel"
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-tint"
       >
         <div className="progress-fill h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>

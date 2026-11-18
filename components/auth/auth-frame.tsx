@@ -8,12 +8,12 @@ export function AuthFrame({ title, subtitle, children }: { title: ReactNode; sub
       <header className="flex items-center gap-3 bg-rail px-4 py-3 text-rail-ink sm:px-6">
         <span className="logo-link inline-flex items-center gap-2.5">
           <LogoBadge size={34} />
-          <span className="font-heading text-lg font-extrabold tracking-tight">Groundwork</span>
+          <span className="font-heading text-lg font-semibold tracking-tight">Groundwork</span>
         </span>
       </header>
       <main className="flex flex-1 items-start justify-center px-4 py-12 sm:py-20">
         <div className="w-full max-w-md">
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
           {subtitle ? <p className="mt-2 text-ink-muted">{subtitle}</p> : null}
           <div className="mt-8">{children}</div>
         </div>

@@ -320,7 +320,7 @@ function SortableCard({
       ref={setNodeRef}
       style={style}
       data-task-id={task.id}
-      className={`group rounded-lg border bg-canvas p-3 transition-[border-color,transform] hover:-translate-y-0.5 hover:border-ink-muted ${
+      className={`group rounded-md border bg-canvas p-3 transition-colors hover:border-ink-muted ${
         isDragging ? "border-dashed border-ink opacity-50" : "border-rule"
       }`}
     >

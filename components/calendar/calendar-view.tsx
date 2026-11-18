@@ -158,7 +158,7 @@ function MonthGrid({
         <thead>
           <tr>
             {WEEKDAYS.map((d) => (
-              <th key={d} scope="col" className="border-b border-ink py-2 text-left font-heading text-xs font-bold tracking-wide uppercase">
+              <th key={d} scope="col" className="border-b border-ink py-2 text-left font-heading text-xs font-medium text-ink-muted">
                 {d}
               </th>
             ))}

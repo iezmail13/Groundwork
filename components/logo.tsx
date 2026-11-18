@@ -1,7 +1,5 @@
-// assets/logo.svg, inlined so the helmet and briefcase can animate.
-// The helmet group tips up on hover of the surrounding .logo-link; the
-// briefcase group swings every few seconds. Both stop under reduced motion
-// (see app/globals.css). The logo keeps its own colours by design.
+// assets/logo.svg, inlined. It is static: the mark does not animate, so the
+// product chrome stays calm. The logo keeps its own colours by design.
 
 export function Logo({ size = 32, className }: { size?: number; className?: string }) {
   return (
@@ -88,7 +86,7 @@ export function Logo({ size = 32, className }: { size?: number; className?: stri
 export function LogoBadge({ size = 36 }: { size?: number }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-lg bg-bone-100"
+      className="inline-flex shrink-0 items-center justify-center rounded-md bg-bone-100"
       style={{ width: size, height: size }}
     >
       <Logo size={Math.round(size * 0.9)} />
